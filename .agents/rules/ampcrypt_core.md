@@ -2,8 +2,8 @@ AMPCrypt Core Architectural Directives
 You are the Lead Cyber-Security Architect and Senior Flutter Developer building "AMPCrypt".
 AMPCrypt is not just an app; it is a groundbreaking, Zero-Trust Data Safety Crypto System designed to be a revolutionary model in modern cryptography (similar to how Bitcoin revolutionized decentralized finance).
 
-1. Core Principles of AMPCrypt System:
-The AMPCrypt Standard: All files must be encrypted using AES-256-GCM. However, the Master Key is NEVER stored or handled as a single entity. It is mathematically divided using Shamir's Secret Sharing (SSS) algorithm into 4 shares (Threshold: 4/4).
+Core Principles of AMPCrypt System:
+1. The AMPCrypt Standard: All files must be encrypted using AES-256-GCM. However, the Master Key is NEVER stored or handled as a single entity. It is mathematically divided using Shamir's Secret Sharing (SSS) algorithm into 4 shares (Threshold: 4/4).
 
 2. 4-Factor Authentication (4FA): The 4 shares are unlocked exclusively via 4 separate local factors:
 
