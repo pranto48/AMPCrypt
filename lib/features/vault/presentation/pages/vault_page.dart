@@ -827,16 +827,42 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Icon(Icons.warning_amber_rounded, color: Color(0xFFFF9E0B), size: 20),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'SLIP-39 BACKUP RECOVERY PHRASES (MUST RECORD)',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: const Color(0xFFFF9E0B),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.warning_amber_rounded, color: Color(0xFFFF9E0B), size: 20),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'SLIP-39 BACKUP RECOVERY PHRASES (MUST RECORD)',
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(0xFFFF9E0B),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  TextButton.icon(
+                                    icon: const Icon(Icons.copy_all, size: 14, color: Color(0xFFFF9E0B)),
+                                    label: Text(
+                                      'Copy All',
+                                      style: GoogleFonts.outfit(color: const Color(0xFFFF9E0B), fontSize: 12),
                                     ),
+                                    onPressed: () {
+                                      final allPhrases = widget.state.backupRecoveryPhrases!.join('\n\n');
+                                      Clipboard.setData(ClipboardData(text: allPhrases));
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          backgroundColor: const Color(0xFF1E293B),
+                                          content: Text(
+                                            'All recovery phrases copied to clipboard',
+                                            style: GoogleFonts.outfit(color: Colors.white),
+                                          ),
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                    },
                                   ),
                                 ],
                               ),
@@ -868,10 +894,27 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                         ),
                                         const SizedBox(width: 12),
                                         Expanded(
-                                          child: Text(
+                                          child: SelectableText(
                                             widget.state.backupRecoveryPhrases![index],
                                             style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 13),
                                           ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        IconButton(
+                                          icon: const Icon(Icons.copy, size: 16, color: Color(0xFF94A3B8)),
+                                          onPressed: () {
+                                            Clipboard.setData(ClipboardData(text: widget.state.backupRecoveryPhrases![index]));
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                backgroundColor: const Color(0xFF1E293B),
+                                                content: Text(
+                                                  'Recovery phrase ${index + 1} copied to clipboard',
+                                                  style: GoogleFonts.outfit(color: Colors.white),
+                                                ),
+                                                duration: const Duration(seconds: 2),
+                                              ),
+                                            );
+                                          },
                                         ),
                                       ],
                                     ),
@@ -1002,6 +1045,7 @@ class RecoveryPage extends StatefulWidget {
 class _RecoveryPageState extends State<RecoveryPage> {
   final _phrase1Controller = TextEditingController();
   final _phrase2Controller = TextEditingController();
+  String? _localError;
 
   @override
   void dispose() {
@@ -1010,22 +1054,40 @@ class _RecoveryPageState extends State<RecoveryPage> {
     super.dispose();
   }
 
+  // Robust phrase cleaner: removes lowercase, number prefixes, collapses spaces
+  String _cleanPhrase(String phrase) {
+    var cleaned = phrase.trim().toLowerCase();
+    // Strip starting number prefixes like "1. ", "1: ", "1 - ", "[1] " or "1 "
+    cleaned = cleaned.replaceAll(RegExp(r'^[0-9]+[\.\:\-\s\)]+'), '');
+    cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ');
+    return cleaned;
+  }
+
   void _submitRecovery() {
-    final phrase1 = _phrase1Controller.text.trim();
-    final phrase2 = _phrase2Controller.text.trim();
+    final phrase1 = _cleanPhrase(_phrase1Controller.text);
+    final phrase2 = _cleanPhrase(_phrase2Controller.text);
 
     if (phrase1.isEmpty || phrase2.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: const Color(0xFF3F0B24),
-          content: Text('Please enter at least 2 recovery mnemonics.', style: GoogleFonts.outfit()),
-        ),
-      );
+      setState(() {
+        _localError = 'Please enter at least 2 recovery mnemonics.';
+      });
       return;
     }
 
+    setState(() {
+      _localError = null;
+    });
+
     context.read<VaultBloc>().add(RecoverVaultEvent([phrase1, phrase2]));
-    Navigator.pop(context); // Go back to main Vault page which will show the unlocked dashboard or error
+  }
+
+  Future<void> _pastePhrase(TextEditingController controller) async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (data != null && data.text != null) {
+      setState(() {
+        controller.text = data.text!;
+      });
+    }
   }
 
   @override
@@ -1038,7 +1100,11 @@ class _RecoveryPageState extends State<RecoveryPage> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            // Recheck state on back navigation to clear error states if present
+            context.read<VaultBloc>().add(CheckVaultStatusEvent());
+            Navigator.pop(context);
+          },
         ),
       ),
       body: Container(
@@ -1053,119 +1119,190 @@ class _RecoveryPageState extends State<RecoveryPage> {
             ],
           ),
         ),
-        child: Center(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: GlassmorphicCard(
-                width: 500,
+        child: BlocConsumer<VaultBloc, VaultState>(
+          listener: (context, state) {
+            if (state is VaultUnlockedState) {
+              // Successfully unlocked, pop back to main page (which will now display UnlockedDashboardView)
+              Navigator.pop(context);
+            }
+          },
+          builder: (context, state) {
+            final isLoading = state is VaultLoadingState;
+            String? errorMsg = _localError;
+            if (state is VaultFailureState) {
+              errorMsg = state.errorMessage;
+            }
+
+            return Center(
+              child: SingleChildScrollView(
                 child: Padding(
-                  padding: const EdgeInsets.all(32.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Center(
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: const Color(0xFFFF9E0B).withOpacity(0.1),
-                            border: Border.all(color: const Color(0xFFFF9E0B).withOpacity(0.3), width: 1.5),
-                          ),
-                          child: const Icon(Icons.restore_outlined, size: 40, color: Color(0xFFFF9E0B)),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Center(
-                        child: Text(
-                          'Reconstruct Master Key',
-                          style: GoogleFonts.outfit(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Center(
-                        child: Text(
-                          'Provide 2 out of the 3 generated SLIP-39 backup phrases to restore your vault.',
-                          style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF94A3B8)),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                      Text(
-                        'BACKUP RECOVERY MNEMONIC 1',
-                        style: GoogleFonts.outfit(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.5,
-                          color: const Color(0xFFFF9E0B),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _phrase1Controller,
-                        style: GoogleFonts.shareTechMono(color: Colors.white),
-                        decoration: _inputDecoration(
-                          hint: 'Enter first recovery phrase (word string)',
-                          prefix: Icons.menu_book_outlined,
-                        ),
-                        maxLines: 2,
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        'BACKUP RECOVERY MNEMONIC 2',
-                        style: GoogleFonts.outfit(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.5,
-                          color: const Color(0xFFFF9E0B),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _phrase2Controller,
-                        style: GoogleFonts.shareTechMono(color: Colors.white),
-                        decoration: _inputDecoration(
-                          hint: 'Enter second recovery phrase (word string)',
-                          prefix: Icons.menu_book_outlined,
-                        ),
-                        maxLines: 2,
-                      ),
-                      const SizedBox(height: 32),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFFF9E0B),
-                            foregroundColor: Colors.black,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                  padding: const EdgeInsets.all(16.0),
+                  child: GlassmorphicCard(
+                    width: 550,
+                    child: Padding(
+                      padding: const EdgeInsets.all(32.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Center(
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: const Color(0xFFFF9E0B).withOpacity(0.1),
+                                border: Border.all(color: const Color(0xFFFF9E0B).withOpacity(0.3), width: 1.5),
+                              ),
+                              child: const Icon(Icons.restore_outlined, size: 40, color: Color(0xFFFF9E0B)),
                             ),
-                            elevation: 0,
                           ),
-                          onPressed: _submitRecovery,
-                          child: Text(
-                            'RECOVER MASTER KEY',
-                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 1.5),
+                          const SizedBox(height: 24),
+                          Center(
+                            child: Text(
+                              'Reconstruct Master Key',
+                              style: GoogleFonts.outfit(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 8),
+                          Center(
+                            child: Text(
+                              'Provide 2 out of the 3 generated SLIP-39 backup phrases to restore your vault.',
+                              style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF94A3B8)),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          if (errorMsg != null) ...[
+                            const SizedBox(height: 20),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEF4444).withOpacity(0.08),
+                                border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.3)),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.error_outline, color: Color(0xFFEF4444), size: 18),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      errorMsg,
+                                      style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFFFDA4AF)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 32),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'BACKUP RECOVERY MNEMONIC 1',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.5,
+                                  color: const Color(0xFFFF9E0B),
+                                ),
+                              ),
+                              TextButton.icon(
+                                icon: const Icon(Icons.paste, size: 12, color: Color(0xFFFF9E0B)),
+                                label: Text('Paste', style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFFFF9E0B))),
+                                onPressed: isLoading ? null : () => _pastePhrase(_phrase1Controller),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _phrase1Controller,
+                            enabled: !isLoading,
+                            style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 13),
+                            decoration: _inputDecoration(
+                              hint: 'Enter first recovery phrase (word string)',
+                              prefix: Icons.menu_book_outlined,
+                            ),
+                            maxLines: 3,
+                          ),
+                          const SizedBox(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'BACKUP RECOVERY MNEMONIC 2',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.5,
+                                  color: const Color(0xFFFF9E0B),
+                                ),
+                              ),
+                              TextButton.icon(
+                                icon: const Icon(Icons.paste, size: 12, color: Color(0xFFFF9E0B)),
+                                label: Text('Paste', style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFFFF9E0B))),
+                                onPressed: isLoading ? null : () => _pastePhrase(_phrase2Controller),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _phrase2Controller,
+                            enabled: !isLoading,
+                            style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 13),
+                            decoration: _inputDecoration(
+                              hint: 'Enter second recovery phrase (word string)',
+                              prefix: Icons.menu_book_outlined,
+                            ),
+                            maxLines: 3,
+                          ),
+                          const SizedBox(height: 32),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 50,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFFF9E0B),
+                                foregroundColor: Colors.black,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 0,
+                              ),
+                              onPressed: isLoading ? null : _submitRecovery,
+                              child: isLoading
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                                      ),
+                                    )
+                                  : Text(
+                                      'RECOVER MASTER KEY',
+                                      style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 1.5),
+                                    ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );
   }
 }
+
 
 // ==========================================
 // Reusable Premium Glassmorphic Container

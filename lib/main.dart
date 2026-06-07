@@ -31,27 +31,27 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'AMPCrypt Zero-Trust Vault',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        primaryColor: const Color(0xFF8B5CF6),
-        scaffoldBackgroundColor: const Color(0xFF070B19),
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF8B5CF6),
-          secondary: Color(0xFF3B82F6),
-          surface: Color(0xFF0F172A),
-          error: Color(0xFFEF4444),
+    return BlocProvider(
+      create: (context) => VaultBloc(vaultRepository: vaultRepository),
+      child: MaterialApp(
+        title: 'AMPCrypt Zero-Trust Vault',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          brightness: Brightness.dark,
+          primaryColor: const Color(0xFF8B5CF6),
+          scaffoldBackgroundColor: const Color(0xFF070B19),
+          colorScheme: const ColorScheme.dark(
+            primary: Color(0xFF8B5CF6),
+            secondary: Color(0xFF3B82F6),
+            surface: Color(0xFF0F172A),
+            error: Color(0xFFEF4444),
+          ),
+          textTheme: GoogleFonts.outfitTextTheme(
+            ThemeData.dark().textTheme,
+          ),
+          useMaterial3: true,
         ),
-        textTheme: GoogleFonts.outfitTextTheme(
-          ThemeData.dark().textTheme,
-        ),
-        useMaterial3: true,
-      ),
-      home: BlocProvider(
-        create: (context) => VaultBloc(vaultRepository: vaultRepository),
-        child: const VaultPage(),
+        home: const VaultPage(),
       ),
     );
   }
