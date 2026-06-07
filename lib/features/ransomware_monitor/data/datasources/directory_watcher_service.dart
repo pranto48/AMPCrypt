@@ -42,7 +42,7 @@ class DirectoryWatcherService {
     'zip', 'tar', 'gz', 'dmg', 'exe', 'app', 'class', 'gradle', 'properties',
     'iml', 'kt', 'java', 'swift', 'h', 'm', 'cpp', 'c', 'py', 'sh',
     'config', 'log', 'db', 'sqlite', 'svg', 'ico', 'webmanifest',
-    'toml', 'ini', 'cfg', 'plist', 'lock'
+    'toml', 'ini', 'cfg', 'plist'
   };
 
   /// Starts watching a directory recursively.

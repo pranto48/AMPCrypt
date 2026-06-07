@@ -1,10 +1,19 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../bloc/vault_bloc.dart';
 import '../bloc/vault_event.dart';
 import '../bloc/vault_state.dart';
+import '../../../biometrics/data/datasources/face_verification_service.dart';
+import '../../../ransomware_monitor/presentation/bloc/monitor_bloc.dart';
+import '../../../ransomware_monitor/presentation/bloc/monitor_event.dart';
+import '../../../ransomware_monitor/presentation/bloc/monitor_state.dart';
 
 class VaultPage extends StatefulWidget {
   const VaultPage({super.key});
