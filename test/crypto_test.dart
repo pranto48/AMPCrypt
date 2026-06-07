@@ -1,35 +1,61 @@
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:slip39/slip39dart.dart';
+import 'package:ampcrypt/core/crypto/crypto_service.dart';
+import 'package:ampcrypt/core/crypto/mock_crypto_service.dart';
 
 void main() {
-  test('SLIP-39 basic split and recovery', () {
-    final masterSecret = Uint8List.fromList(List.generate(32, (i) => i)); // 256-bit key
-    final groups = [
-      [1, 1], // Group 1: 1-of-1
-      [2, 3], // Group 2: 2-of-3
-    ];
-    
-    final slip = Slip39.from(
-      groups,
-      masterSecret: masterSecret,
-      passphrase: "test-passphrase",
-      threshold: 1, // 1 of the groups is required
+  late CryptoService cryptoService;
+
+  setUp(() {
+    cryptoService = MockCryptoService();
+  });
+
+  test('MockCryptoService - Master Key generation', () {
+    final key = cryptoService.generateSecureRandom(32);
+    expect(key.length, equals(32));
+    expect(key, isNot(equals(Uint8List(32)))); // Not all zeros
+  });
+
+  test('MockCryptoService - SLIP-39 split and recovery', () {
+    final secret = cryptoService.generateSecureRandom(32);
+    final passphrase = "test-passphrase";
+
+    // Split the secret
+    final mnemonics = cryptoService.splitSecret(secret, passphrase: passphrase);
+    expect(mnemonics.length, equals(7)); // 4 from Group 1 + 3 from Group 2 = 7 mnemonics
+
+    final group1Mnemonics = mnemonics.sublist(0, 4);
+    final group2Mnemonics = mnemonics.sublist(4);
+
+    // 1. Recover using Group 1 (operational group) - requires 4-of-4
+    final recovered1 = cryptoService.recoverSecret(group1Mnemonics, passphrase: passphrase);
+    expect(recovered1, equals(secret));
+
+    // 2. Recover using Group 2 (backup group) - requires 2-of-3
+    final recovered2 = cryptoService.recoverSecret(
+      [group2Mnemonics[0], group2Mnemonics[1]], 
+      passphrase: passphrase,
     );
-    
-    expect(slip, isNotNull);
-    final mnemonics = slip.mnemonics;
-    expect(mnemonics.length, equals(4)); // 1 + 3 = 4
-    
-    final group1Mnemonic = mnemonics[0];
-    final group2Mnemonics = mnemonics.sublist(1);
-    
-    // Recovery with Group 1
-    final recovered1 = Slip39.recoverSecret([group1Mnemonic], passphrase: "test-passphrase");
-    expect(recovered1, equals(masterSecret));
-    
-    // Recovery with Group 2 (any 2 of 3)
-    final recovered2 = Slip39.recoverSecret([group2Mnemonics[0], group2Mnemonics[1]], passphrase: "test-passphrase");
-    expect(recovered2, equals(masterSecret));
+    expect(recovered2, equals(secret));
+  });
+
+  test('MockCryptoService - key derivation and AES-GCM encryption/decryption', () async {
+    final password = "super-secret-password";
+    final salt = cryptoService.generateSecureRandom(16);
+
+    // Derive key
+    final derivedKey = await cryptoService.deriveKey(password, salt);
+    expect(derivedKey.length, equals(32)); // 256-bit key
+
+    // Data to encrypt
+    final originalData = Uint8List.fromList("Secret operational share data".codeUnits);
+
+    // Encrypt
+    final encryptedData = await cryptoService.encryptData(originalData, derivedKey);
+    expect(encryptedData.length, equals(originalData.length + 28)); // nonce (12) + tag (16) + cipher
+
+    // Decrypt
+    final decryptedData = await cryptoService.decryptData(encryptedData, derivedKey);
+    expect(decryptedData, equals(originalData));
   });
 }

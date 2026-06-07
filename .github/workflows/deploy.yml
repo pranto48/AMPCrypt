@@ -1,0 +1,55 @@
+name: Build and Deploy Flutter Web
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Run Tests
+        run: flutter test
+
+      - name: Build Web Application
+        # Note: If deploying to custom subdomain, base-href must be '/'
+        # If deploying to default username.github.io/repository_name, base-href must be '/repository_name/'
+        run: flutter build web --release --base-href "/"
+
+      # This step adds the CNAME file to build/web before deployment to route the custom subdomain correctly
+      - name: Create CNAME file for Custom Subdomain
+        run: |
+          if [ -f "CNAME" ]; then
+            cp CNAME build/web/
+          fi
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build/web
+          force_orphan: true
