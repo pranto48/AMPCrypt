@@ -34,64 +34,78 @@ class _VaultPageState extends State<VaultPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF070B19),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF080D21),
-              Color(0xFF130925),
-              Color(0xFF05060F),
-            ],
-          ),
-        ),
-        child: BlocConsumer<VaultBloc, VaultState>(
-          listener: (context, state) {
-            if (state is VaultFailureState) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: const Color(0xFF3F0B24),
-                  content: Row(
-                    children: [
-                      const Icon(Icons.error_outline, color: Color(0xFFFF4D88)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          state.errorMessage,
-                          style: GoogleFonts.outfit(color: Colors.white),
-                        ),
+      body: Stack(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF080D21),
+                  Color(0xFF130925),
+                  Color(0xFF05060F),
+                ],
+              ),
+            ),
+            child: BlocConsumer<VaultBloc, VaultState>(
+              listener: (context, state) {
+                if (state is VaultFailureState) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: const Color(0xFF3F0B24),
+                      content: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: Color(0xFFFF4D88)),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              state.errorMessage,
+                              style: GoogleFonts.outfit(color: Colors.white),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  duration: const Duration(seconds: 4),
-                  action: SnackBarAction(
-                    label: 'Dismiss',
-                    textColor: const Color(0xFFFF4D88),
-                    onPressed: () {},
-                  ),
-                ),
-              );
-            }
-          },
-          builder: (context, state) {
-            if (state is VaultInitialState) {
-              return const VaultLoadingView(message: 'Initializing Secure Environment...');
-            } else if (state is VaultLoadingState) {
-              return VaultLoadingView(message: state.message);
-            } else if (state is VaultUninitializedState) {
-              return const CreateVaultView();
-            } else if (state is VaultLockedState) {
-              return const UnlockVaultView();
-            } else if (state is VaultUnlockedState) {
-              return UnlockedDashboardView(state: state);
-            } else if (state is VaultFailureState) {
-              // Show previous view or retry options
-              return _buildFailureView(context, state);
-            }
-            return const Center(child: Text('Unknown State'));
-          },
-        ),
+                      duration: const Duration(seconds: 4),
+                      action: SnackBarAction(
+                        label: 'Dismiss',
+                        textColor: const Color(0xFFFF4D88),
+                        onPressed: () {},
+                      ),
+                    ),
+                  );
+                }
+              },
+              builder: (context, state) {
+                if (state is VaultInitialState) {
+                  return const VaultLoadingView(message: 'Initializing Secure Environment...');
+                } else if (state is VaultLoadingState) {
+                  return VaultLoadingView(message: state.message);
+                } else if (state is VaultUninitializedState) {
+                  return const CreateVaultView();
+                } else if (state is VaultLockedState) {
+                  return const UnlockVaultView();
+                } else if (state is VaultUnlockedState) {
+                  return UnlockedDashboardView(state: state);
+                } else if (state is VaultFailureState) {
+                  // Show previous view or retry options
+                  return _buildFailureView(context, state);
+                }
+                return const Center(child: Text('Unknown State'));
+              },
+            ),
+          ),
+          BlocBuilder<MonitorBloc, MonitorState>(
+            builder: (context, monitorState) {
+              if (monitorState.isAlarmTriggered) {
+                return RansomwareAlarmOverlay(
+                  watchedPath: monitorState.watchedPath ?? 'Unknown Path',
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+        ],
       ),
     );
   }
@@ -457,6 +471,29 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
   bool _fingerprintVerified = false;
   bool _voiceVerified = false;
 
+  void _verifyFaceBiometric() async {
+    final prefs = await SharedPreferences.getInstance();
+    final registeredEmbeddingStr = prefs.getString('registered_face_embedding');
+    final isEnrolled = registeredEmbeddingStr != null;
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return FaceVerificationDialog(
+          isEnrolled: isEnrolled,
+          onSuccess: () {
+            setState(() {
+              _faceVerified = true;
+            });
+          },
+        );
+      },
+    );
+  }
+
   void _submitUnlock() {
     if (_passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -570,7 +607,13 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
                     title: 'Face Verification Share',
                     value: _faceVerified,
                     icon: Icons.face_outlined,
-                    onChanged: (val) => setState(() => _faceVerified = val),
+                    onChanged: (val) {
+                      if (val) {
+                        _verifyFaceBiometric();
+                      } else {
+                        setState(() => _faceVerified = false);
+                      }
+                    },
                   ),
                   const SizedBox(height: 8),
                   _biometricSwitch(
@@ -697,6 +740,38 @@ class UnlockedDashboardView extends StatefulWidget {
 
 class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
   bool _copied = false;
+  String? _selectedMonitorPath;
+
+  Color _getScoreColor(double score) {
+    if (score < 0.3) return const Color(0xFF10B981);
+    if (score < 0.5) return Colors.yellow;
+    if (score < 0.65) return Colors.orange;
+    return const Color(0xFFEF4444);
+  }
+
+  String _getRiskLevelText(double score) {
+    if (score < 0.3) return 'LOW RISK';
+    if (score < 0.5) return 'NORMAL';
+    if (score < 0.65) return 'ELEVATED';
+    return 'CRITICAL';
+  }
+
+  Widget _featureMetric(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: GoogleFonts.outfit(fontSize: 8, color: const Color(0xFF64748B), fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: GoogleFonts.shareTechMono(fontSize: 11, color: Colors.white),
+        ),
+      ],
+    );
+  }
 
   void _copyKey(String hex) {
     Clipboard.setData(ClipboardData(text: hex));
@@ -990,6 +1065,319 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                     ],
                   ),
                 ),
+              ),
+              const SizedBox(height: 24),
+              
+              // 3. Ransomware Protection Monitor Card
+              BlocBuilder<MonitorBloc, MonitorState>(
+                builder: (context, monitorState) {
+                  return GlassmorphicCard(
+                    width: 700,
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.shield_outlined,
+                                    color: monitorState.isMonitoring 
+                                        ? (monitorState.isCalibrating ? Colors.orange : const Color(0xFF10B981)) 
+                                        : const Color(0xFF94A3B8),
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'HEURISTIC RANSOMWARE PROTECTOR',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.5,
+                                      color: monitorState.isMonitoring 
+                                          ? (monitorState.isCalibrating ? Colors.orange : const Color(0xFF10B981)) 
+                                          : const Color(0xFF94A3B8),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: monitorState.isMonitoring 
+                                      ? (monitorState.isCalibrating ? Colors.orange.withOpacity(0.1) : const Color(0xFF10B981).withOpacity(0.1)) 
+                                      : const Color(0xFF334155).withOpacity(0.3),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: monitorState.isMonitoring 
+                                        ? (monitorState.isCalibrating ? Colors.orange.withOpacity(0.3) : const Color(0xFF10B981).withOpacity(0.3)) 
+                                        : const Color(0xFF334155).withOpacity(0.4),
+                                  ),
+                                ),
+                                child: Text(
+                                  monitorState.isMonitoring 
+                                      ? (monitorState.isCalibrating ? 'CALIBRATING' : 'PROTECTION ACTIVE') 
+                                      : 'MONITOR INACTIVE',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: monitorState.isMonitoring 
+                                        ? (monitorState.isCalibrating ? Colors.orange : const Color(0xFF10B981)) 
+                                        : const Color(0xFF94A3B8),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Divider(color: Color(0xFF1E293B), height: 30),
+                          
+                          if (!monitorState.isMonitoring) ...[
+                            Text(
+                              'Select a local directory to watch and analyze for ransomware-like behavior (unsupervised anomaly detection).',
+                              style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF94A3B8)),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF0F172A).withOpacity(0.5),
+                                      border: Border.all(color: const Color(0xFF1E293B)),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      _selectedMonitorPath ?? 'No directory selected',
+                                      style: GoogleFonts.shareTechMono(
+                                        fontSize: 12,
+                                        color: _selectedMonitorPath != null ? Colors.white : const Color(0xFF475569),
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF1E293B),
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  ),
+                                  icon: const Icon(Icons.folder_open, size: 16),
+                                  label: Text('CHOOSE', style: GoogleFonts.outfit(fontSize: 12)),
+                                  onPressed: () async {
+                                    final path = await FilePicker.platform.getDirectoryPath();
+                                    if (path != null) {
+                                      setState(() => _selectedMonitorPath = path);
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF3B82F6),
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                ),
+                                onPressed: _selectedMonitorPath == null 
+                                    ? null 
+                                    : () {
+                                        context.read<MonitorBloc>().add(StartMonitoringEvent(_selectedMonitorPath!));
+                                      },
+                                child: Text('START ACTIVE MONITORING', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+                              ),
+                            ),
+                          ] else ...[
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'WATCHED FOLDER:',
+                                        style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.bold, color: const Color(0xFF475569)),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        monitorState.watchedPath ?? '',
+                                        style: GoogleFonts.shareTechMono(fontSize: 12, color: Colors.white),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    side: const BorderSide(color: Color(0xFFEF4444)),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  ),
+                                  icon: const Icon(Icons.stop, size: 16, color: Color(0xFFEF4444)),
+                                  label: Text('STOP MONITOR', style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFFEF4444))),
+                                  onPressed: () {
+                                    context.read<MonitorBloc>().add(StopMonitoringEvent());
+                                  },
+                                ),
+                              ],
+                            ),
+                            
+                            const SizedBox(height: 20),
+                            
+                            if (monitorState.isCalibrating) ...[
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'CALIBRATING DETECTOR BASELINE...',
+                                    style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.orange),
+                                  ),
+                                  Text(
+                                    '${(monitorState.calibrationProgress * 100).toInt()}%',
+                                    style: GoogleFonts.shareTechMono(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              LinearProgressIndicator(
+                                value: monitorState.calibrationProgress,
+                                backgroundColor: const Color(0xFF1E293B),
+                                color: Colors.orange,
+                                minHeight: 4,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Recording normal filesystem actions. Do not execute bulk renames or large edits yet.',
+                                style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFF64748B), fontStyle: FontStyle.italic),
+                              ),
+                            ] else ...[
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF0F172A).withOpacity(0.5),
+                                      border: Border.all(color: const Color(0xFF1E293B)),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Text(
+                                          'ANOMALY SCORE',
+                                          style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.bold, color: const Color(0xFF64748B)),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          monitorState.currentAnomalyScore.toStringAsFixed(3),
+                                          style: GoogleFonts.shareTechMono(
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.bold,
+                                            color: _getScoreColor(monitorState.currentAnomalyScore),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          _getRiskLevelText(monitorState.currentAnomalyScore),
+                                          style: GoogleFonts.outfit(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: _getScoreColor(monitorState.currentAnomalyScore),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Container(
+                                      height: 105,
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF0F172A).withOpacity(0.5),
+                                        border: Border.all(color: const Color(0xFF1E293B)),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'REAL-TIME ANOMALY TRACK (LAST 20 SECONDS)',
+                                            style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.bold, color: const Color(0xFF64748B)),
+                                          ),
+                                          const Spacer(),
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            crossAxisAlignment: CrossAxisAlignment.end,
+                                            children: List.generate(20, (index) {
+                                              final double val = index < monitorState.recentScores.length
+                                                  ? monitorState.recentScores[index]
+                                                  : 0.0;
+                                              return Container(
+                                                width: 18,
+                                                height: 55 * val + 3,
+                                                decoration: BoxDecoration(
+                                                  gradient: LinearGradient(
+                                                    begin: Alignment.bottomCenter,
+                                                    end: Alignment.topCenter,
+                                                    colors: [
+                                                      const Color(0xFF3B82F6).withOpacity(0.3),
+                                                      _getScoreColor(val),
+                                                    ],
+                                                  ),
+                                                  borderRadius: BorderRadius.circular(3),
+                                                ),
+                                              );
+                                            }),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              
+                              const SizedBox(height: 20),
+                              
+                              if (monitorState.recentFeatures.isNotEmpty) ...[
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF1E1E38).withOpacity(0.2),
+                                    border: Border.all(color: const Color(0xFF1E293B).withOpacity(0.5)),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      _featureMetric('Write rate', '${(monitorState.recentFeatures.last.writeRate * 5).toInt()} events/5s'),
+                                      _featureMetric('Delete rate', '${(monitorState.recentFeatures.last.deleteRate * 5).toInt()} events/5s'),
+                                      _featureMetric('Suspicious Ext', '${(monitorState.recentFeatures.last.extensionEntropy * 100).toInt()}%'),
+                                      _featureMetric('Avg size', '${monitorState.recentFeatures.last.sizeDifference.toStringAsFixed(1)} KB'),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ],
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -1394,4 +1782,498 @@ InputDecoration _inputDecoration({
       borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
     ),
   );
+}
+
+class RansomwareAlarmOverlay extends StatefulWidget {
+  final String watchedPath;
+  const RansomwareAlarmOverlay({super.key, required this.watchedPath});
+
+  @override
+  State<RansomwareAlarmOverlay> createState() => _RansomwareAlarmOverlayState();
+}
+
+class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with SingleTickerProviderStateMixin {
+  final _passwordController = TextEditingController();
+  late AnimationController _pulseController;
+  bool _isDeescalating = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _deescalate(BuildContext context) async {
+    final password = _passwordController.text;
+    if (password.isEmpty) {
+      setState(() => _error = 'Please enter your password to de-escalate');
+      return;
+    }
+    
+    setState(() {
+      _isDeescalating = true;
+      _error = null;
+    });
+
+    final vaultBloc = context.read<VaultBloc>();
+    vaultBloc.add(UnlockVaultEvent(password));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocListener<VaultBloc, VaultState>(
+      listener: (context, vaultState) {
+        if (vaultState is VaultUnlockedState) {
+          context.read<MonitorBloc>().add(ResetMonitorAlarmEvent());
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: const Color(0xFF10B981),
+              content: Text('Security alarm cleared. Vault unlocked.', style: GoogleFonts.outfit()),
+            ),
+          );
+        } else if (vaultState is VaultFailureState) {
+          setState(() {
+            _isDeescalating = false;
+            _error = 'Invalid password. Unable to clear alarm.';
+          });
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black.withOpacity(0.7),
+        body: Stack(
+          children: [
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+                child: Container(
+                  color: const Color(0xFFEF4444).withOpacity(0.08),
+                ),
+              ),
+            ),
+            Center(
+              child: SingleChildScrollView(
+                child: Container(
+                  width: 550,
+                  margin: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E1111).withOpacity(0.8),
+                    border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.4), width: 1.5),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFEF4444).withOpacity(0.2),
+                        blurRadius: 30,
+                        spreadRadius: 5,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnimatedBuilder(
+                        animation: _pulseController,
+                        builder: (context, child) {
+                          return Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEF4444).withOpacity(0.1 + (_pulseController.value * 0.15)),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: const Color(0xFFEF4444).withOpacity(0.3 + (_pulseController.value * 0.4)),
+                                width: 2,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.security_update_warning_outlined,
+                              color: Color(0xFFEF4444),
+                              size: 48,
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'RANSOMWARE ATTACK ALARM ACTIVE',
+                        style: GoogleFonts.outfit(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFFEF4444),
+                          letterSpacing: 1.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Anomalous file activity detected. Vault locked.',
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
+                          color: const Color(0xFFFDA4AF),
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.4),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.15)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'DETECTION DETAILS:',
+                              style: GoogleFonts.outfit(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFFEF4444),
+                                letterSpacing: 1.0,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Unusual frequency of file modifications, additions, or renames occurred inside the watched directory:',
+                              style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF94A3B8)),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              widget.watchedPath,
+                              style: GoogleFonts.shareTechMono(fontSize: 12, color: Colors.white),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Actions Taken: Cryptographic keys wiped from RAM, decryption cache invalidated, local database locked.',
+                              style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFFF43F5E), fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      Text(
+                        'PROVIDE MASTER PASSWORD TO OVERRIDE & DE-ESCALATE',
+                        style: GoogleFonts.outfit(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF94A3B8),
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _passwordController,
+                        obscureText: true,
+                        style: GoogleFonts.outfit(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: 'Enter vault password',
+                          hintStyle: GoogleFonts.outfit(color: const Color(0xFF475569)),
+                          filled: true,
+                          fillColor: const Color(0xFF0F172A).withOpacity(0.5),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: Border.all(color: const Color(0xFF334155)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFFEF4444)),
+                          ),
+                          errorText: _error,
+                          errorStyle: GoogleFonts.outfit(color: const Color(0xFFEF4444)),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFEF4444),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          onPressed: _isDeescalating ? null : () => _deescalate(context),
+                          child: _isDeescalating
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                )
+                              : Text(
+                                  'RESET ALARM & RE-AUTHENTICATE',
+                                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 1.0),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class FaceVerificationDialog extends StatefulWidget {
+  final bool isEnrolled;
+  final VoidCallback onSuccess;
+
+  const FaceVerificationDialog({
+    super.key,
+    required this.isEnrolled,
+    required this.onSuccess,
+  });
+
+  @override
+  State<FaceVerificationDialog> createState() => _FaceVerificationDialogState();
+}
+
+class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
+  final FaceVerificationService _faceService = FaceVerificationService();
+  bool _isLoading = false;
+  String _statusMessage = '';
+  String? _errorMessage;
+  File? _selectedFile;
+
+  @override
+  void initState() {
+    super.initState();
+    _statusMessage = widget.isEnrolled 
+        ? 'Please select your face image to verify.' 
+        : 'No face enrolled. Please select a face image to register.';
+    _faceService.loadModel();
+  }
+
+  void _pickAndProcessImage() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+        _statusMessage = 'Selecting image file...';
+      });
+
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+      );
+
+      if (result == null || result.files.single.path == null) {
+        setState(() {
+          _isLoading = false;
+          _statusMessage = widget.isEnrolled 
+              ? 'Select face image to verify.' 
+              : 'Select face image to register.';
+        });
+        return;
+      }
+
+      final file = File(result.files.single.path!);
+      setState(() {
+        _selectedFile = file;
+        _statusMessage = 'Processing image & extracting face embedding...';
+      });
+
+      await Future.delayed(const Duration(milliseconds: 800));
+
+      final embedding = await _faceService.getFaceEmbedding(file);
+      final prefs = await SharedPreferences.getInstance();
+
+      if (!widget.isEnrolled) {
+        final embeddingJson = jsonEncode(embedding);
+        await prefs.setString('registered_face_embedding', embeddingJson);
+        
+        setState(() {
+          _isLoading = false;
+          _statusMessage = 'Face Enrollment Successful!';
+        });
+
+        await Future.delayed(const Duration(seconds: 1));
+        if (mounted) {
+          widget.onSuccess();
+          Navigator.of(context).pop();
+        }
+      } else {
+        final registeredStr = prefs.getString('registered_face_embedding');
+        if (registeredStr == null) {
+          setState(() {
+            _isLoading = false;
+            _errorMessage = 'Registered face data corrupted. Please re-enroll.';
+          });
+          return;
+        }
+
+        final List<double> registeredEmbedding = List<double>.from(jsonDecode(registeredStr));
+        final distance = _faceService.calculateDistance(embedding, registeredEmbedding);
+        final matches = _faceService.verifyMatch(embedding, registeredEmbedding, threshold: 0.6);
+
+        if (matches) {
+          setState(() {
+            _isLoading = false;
+            _statusMessage = 'Face Verified! (Distance: ${distance.toStringAsFixed(4)})';
+          });
+
+          await Future.delayed(const Duration(milliseconds: 1000));
+          if (mounted) {
+            widget.onSuccess();
+            Navigator.of(context).pop();
+          }
+        } else {
+          setState(() {
+            _isLoading = false;
+            _selectedFile = null;
+            _errorMessage = 'Face verification failed.\nDistance: ${distance.toStringAsFixed(4)} (Threshold is < 0.60).\nEnsure you upload the same image.';
+            _statusMessage = 'Verification failed. Try again.';
+          });
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Error processing image: ${e.toString()}';
+        _statusMessage = 'Error occurred.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        width: 450,
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0F172A).withOpacity(0.95),
+          border: Border.all(color: const Color(0xFF334155).withOpacity(0.5)),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  widget.isEnrolled ? 'FACE VERIFICATION (OFFLINE)' : 'ENROLL FACE BIOMETRIC',
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.0,
+                    color: const Color(0xFF3B82F6),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Color(0xFF94A3B8), size: 18),
+                  onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            const Divider(color: Color(0xFF1E293B), height: 20),
+            const SizedBox(height: 16),
+            
+            Container(
+              height: 150,
+              width: 150,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1E38).withOpacity(0.5),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: _errorMessage != null 
+                      ? const Color(0xFFEF4444).withOpacity(0.5) 
+                      : const Color(0xFF3B82F6).withOpacity(0.3),
+                  width: 2,
+                ),
+              ),
+              child: ClipOval(
+                child: _selectedFile != null
+                    ? Image.file(_selectedFile!, fit: BoxFit.cover)
+                    : Icon(
+                        widget.isEnrolled ? Icons.face : Icons.add_a_photo_outlined,
+                        size: 64,
+                        color: _errorMessage != null ? const Color(0xFFEF4444) : const Color(0xFF3B82F6),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            
+            Text(
+              _statusMessage,
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _errorMessage!,
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  color: const Color(0xFFEF4444),
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+            
+            const SizedBox(height: 28),
+            
+            if (_isLoading)
+              const CircularProgressIndicator(color: Color(0xFF3B82F6))
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFF334155)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text('CANCEL', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF3B82F6),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      onPressed: _pickAndProcessImage,
+                      child: Text(
+                        widget.isEnrolled ? 'SELECT PHOTO' : 'ENROLL PHOTO',
+                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
