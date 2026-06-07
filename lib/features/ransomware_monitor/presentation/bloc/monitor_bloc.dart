@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../core/ml/isolation_forest.dart';
+import 'package:ampcrypt/core/ml/isolation_forest.dart';
 import '../../data/datasources/directory_watcher_service.dart';
 import '../../data/models/sliding_window_features.dart';
-import '../../../features/vault/presentation/bloc/vault_bloc.dart';
-import '../../../features/vault/presentation/bloc/vault_event.dart';
+import 'package:ampcrypt/features/vault/presentation/bloc/vault_bloc.dart';
+import 'package:ampcrypt/features/vault/presentation/bloc/vault_event.dart';
 import 'monitor_event.dart';
 import 'monitor_state.dart';
 

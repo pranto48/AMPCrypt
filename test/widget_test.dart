@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ampcrypt/core/crypto/mock_crypto_service.dart';
 import 'package:ampcrypt/features/vault/data/repositories/vault_repository_impl.dart';
+import 'package:ampcrypt/features/ransomware_monitor/data/datasources/directory_watcher_service.dart';
 import 'package:ampcrypt/main.dart';
 
 void main() {
@@ -15,9 +16,13 @@ void main() {
       cryptoService: cryptoService,
       prefs: prefs,
     );
+    final watcherService = DirectoryWatcherService();
 
     // 2. Build the app and trigger a frame
-    await tester.pumpWidget(MyApp(vaultRepository: vaultRepository));
+    await tester.pumpWidget(MyApp(
+      vaultRepository: vaultRepository,
+      watcherService: watcherService,
+    ));
     await tester.pumpAndSettle();
 
     // 3. Verify that it displays the setup screen elements

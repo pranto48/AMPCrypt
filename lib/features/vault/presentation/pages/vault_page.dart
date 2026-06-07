@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -1171,7 +1172,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                   icon: const Icon(Icons.folder_open, size: 16),
                                   label: Text('CHOOSE', style: GoogleFonts.outfit(fontSize: 12)),
                                   onPressed: () async {
-                                    final path = await FilePicker.platform.getDirectoryPath();
+                                    final path = await FilePicker.getDirectoryPath();
                                     if (path != null) {
                                       setState(() => _selectedMonitorPath = path);
                                     }
@@ -1984,7 +1985,7 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
                           fillColor: const Color(0xFF0F172A).withOpacity(0.5),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: Border.all(color: const Color(0xFF334155)),
+                            borderSide: const BorderSide(color: Color(0xFF334155)),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -2069,7 +2070,7 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
         _statusMessage = 'Selecting image file...';
       });
 
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.image,
         allowMultiple: false,
       );
