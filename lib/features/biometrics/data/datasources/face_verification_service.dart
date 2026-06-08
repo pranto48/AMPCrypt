@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:tflite_flutter/tflite_flutter.dart';
+import 'tflite_stub.dart'
+    if (dart.library.io) 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:crypto/crypto.dart'; // From cryptography / standard libraries
 
 /// Service to perform Face Verification using TFLite MobileFaceNet model
@@ -17,7 +19,7 @@ class FaceVerificationService {
     try {
       // Configure options (e.g. XNNPACK delegate for desktop performance)
       final options = InterpreterOptions();
-      if (Platform.isMacOS || Platform.isWindows) {
+      if (!kIsWeb && (Platform.isMacOS || Platform.isWindows)) {
         options.threads = 4;
       }
       
