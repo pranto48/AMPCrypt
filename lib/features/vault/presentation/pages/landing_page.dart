@@ -14,6 +14,15 @@ class _LandingPageState extends State<LandingPage> {
   final GlobalKey _featuresKey = GlobalKey();
   final GlobalKey _downloadsKey = GlobalKey();
 
+  // State variables for interactive factors mockup
+  bool _mockArgon2 = true;
+  bool _mockFace = false;
+  bool _mockFingerprint = false;
+  bool _mockVoice = false;
+
+  // State variable for mobile menu overlay
+  bool _isMobileMenuOpen = false;
+
   void _scrollToSection(GlobalKey key) {
     final context = key.currentContext;
     if (context != null) {
@@ -50,49 +59,55 @@ class _LandingPageState extends State<LandingPage> {
             ],
           ),
         ),
-        child: Column(
+        child: Stack(
           children: [
-            // 1. Navigation Header
-            _buildNavbar(isMobile),
-            
-            // Scrollable content
-            Expanded(
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                child: Column(
-                  children: [
-                    // 2. Hero Section
-                    _buildHeroSection(isMobile),
-                    
-                    const SizedBox(height: 80),
-                    
-                    // 3. App Mock Showcase
-                    _buildShowcaseWidget(isMobile),
-                    
-                    const SizedBox(height: 120),
-                    
-                    // 4. Security Features Section
-                    Container(
-                      key: _featuresKey,
-                      child: _buildFeaturesSection(isMobile),
+            Column(
+              children: [
+                // 1. Navigation Header
+                _buildNavbar(isMobile),
+                
+                // Scrollable content
+                Expanded(
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    child: Column(
+                      children: [
+                        // 2. Hero Section
+                        _buildHeroSection(isMobile),
+                        
+                        const SizedBox(height: 80),
+                        
+                        // 3. App Mock Showcase
+                        _buildShowcaseWidget(isMobile),
+                        
+                        const SizedBox(height: 120),
+                        
+                        // 4. Security Features Section
+                        Container(
+                          key: _featuresKey,
+                          child: _buildFeaturesSection(isMobile),
+                        ),
+                        
+                        const SizedBox(height: 120),
+                        
+                        // 5. Downloads Section
+                        Container(
+                          key: _downloadsKey,
+                          child: _buildDownloadsSection(isMobile),
+                        ),
+                        
+                        const SizedBox(height: 100),
+                        
+                        // 6. Footer Section
+                        _buildFooter(isMobile),
+                      ],
                     ),
-                    
-                    const SizedBox(height: 120),
-                    
-                    // 5. Downloads Section
-                    Container(
-                      key: _downloadsKey,
-                      child: _buildDownloadsSection(isMobile),
-                    ),
-                    
-                    const SizedBox(height: 100),
-                    
-                    // 6. Footer Section
-                    _buildFooter(isMobile),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
+            if (isMobile && _isMobileMenuOpen)
+              _buildMobileMenuOverlay(),
           ],
         ),
       ),
@@ -154,7 +169,78 @@ class _LandingPageState extends State<LandingPage> {
           if (!isMobile)
             Row(
               children: [
-                _buildNavLink('Features', () => _scrollToSection(_featuresKey)),
+                PopupMenuButton<String>(
+                  offset: const Offset(0, 40),
+                  color: const Color(0xFF0F172A),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: Colors.white.withOpacity(0.08), width: 1.5),
+                  ),
+                  tooltip: 'Features submenu',
+                  onSelected: (val) {
+                    _scrollToSection(_featuresKey);
+                  },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Features',
+                        style: GoogleFonts.outfit(
+                          fontSize: 15,
+                          color: const Color(0xFF94A3B8),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.keyboard_arrow_down,
+                        color: Color(0xFF94A3B8),
+                        size: 16,
+                      ),
+                    ],
+                  ),
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: '4fa',
+                      child: Row(
+                        children: [
+                          Icon(Icons.lock_open, color: const Color(0xFF8B5CF6), size: 18),
+                          const SizedBox(width: 12),
+                          Text(
+                            '4-Factor Biometrics',
+                            style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'sss',
+                      child: Row(
+                        children: [
+                          Icon(Icons.dashboard_customize_outlined, color: const Color(0xFF10B981), size: 18),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Shamir\'s Secret Sharing',
+                            style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'ransomware',
+                      child: Row(
+                        children: [
+                          Icon(Icons.shield_sharp, color: const Color(0xFF3B82F6), size: 18),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Ransomware Monitor',
+                            style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(width: 32),
                 _buildNavLink('Downloads', () => _scrollToSection(_downloadsKey)),
                 const SizedBox(width: 32),
@@ -189,10 +275,14 @@ class _LandingPageState extends State<LandingPage> {
             )
           else
             IconButton(
-              icon: const Icon(Icons.menu, color: Colors.white),
+              icon: Icon(
+                _isMobileMenuOpen ? Icons.close : Icons.menu,
+                color: Colors.white,
+              ),
               onPressed: () {
-                // Mobile simple drawer launch or direct route
-                Navigator.pushNamed(context, '/vault');
+                setState(() {
+                  _isMobileMenuOpen = !_isMobileMenuOpen;
+                });
               },
             ),
         ],
@@ -366,6 +456,8 @@ class _LandingPageState extends State<LandingPage> {
 
   // Interactive Mock Showcase Widget
   Widget _buildShowcaseWidget(bool isMobile) {
+    final bool allUnlocked = _mockArgon2 && _mockFace && _mockFingerprint && _mockVoice;
+    
     return Container(
       margin: EdgeInsets.symmetric(horizontal: isMobile ? 24 : 64),
       constraints: const BoxConstraints(maxWidth: 1000),
@@ -377,7 +469,7 @@ class _LandingPageState extends State<LandingPage> {
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF8B5CF6).withOpacity(0.06),
+            color: (allUnlocked ? const Color(0xFF10B981) : const Color(0xFF8B5CF6)).withOpacity(0.06),
             blurRadius: 64,
             spreadRadius: 8,
           ),
@@ -437,73 +529,160 @@ class _LandingPageState extends State<LandingPage> {
               
               // App Mock Contents
               Container(
-                padding: const EdgeInsets.all(32),
+                padding: EdgeInsets.all(isMobile ? 20 : 32),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Header Status Info
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'CRYPTO-VAULT OPERATIONS',
-                              style: GoogleFonts.shareTechMono(
-                                fontSize: 12,
-                                color: const Color(0xFF8B5CF6),
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 2.0,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'CRYPTO-VAULT OPERATIONS',
+                                style: GoogleFonts.shareTechMono(
+                                  fontSize: 12,
+                                  color: const Color(0xFF8B5CF6),
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 2.0,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Master Cryptographic Interlocking',
-                              style: GoogleFonts.outfit(
-                                fontSize: 18,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
+                              const SizedBox(height: 6),
+                              Text(
+                                'Master Cryptographic Interlocking',
+                                style: GoogleFonts.outfit(
+                                  fontSize: isMobile ? 16 : 20,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEF4444).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: const Color(0xFFEF4444).withOpacity(0.3),
-                            ),
+                            ],
                           ),
-                          child: Text(
-                            'SECURE STATUS: LOCKED',
-                            style: GoogleFonts.shareTechMono(
-                              color: const Color(0xFFEF4444),
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
+                        ),
+                        const SizedBox(width: 12),
+                        // Status Badge
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: allUnlocked
+                                ? const Color(0xFF10B981).withOpacity(0.15)
+                                : const Color(0xFFEF4444).withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: allUnlocked
+                                  ? const Color(0xFF10B981).withOpacity(0.5)
+                                  : const Color(0xFFEF4444).withOpacity(0.25),
+                              width: allUnlocked ? 1.5 : 1.0,
                             ),
+                            boxShadow: allUnlocked
+                                ? [
+                                    BoxShadow(
+                                      color: const Color(0xFF10B981).withOpacity(0.2),
+                                      blurRadius: 12,
+                                    )
+                                  ]
+                                : [],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                allUnlocked ? Icons.lock_open : Icons.lock_outline,
+                                color: allUnlocked ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                                size: 14,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                allUnlocked ? 'STATUS: UNLOCKED' : 'STATUS: SECURE & LOCKED',
+                                style: GoogleFonts.shareTechMono(
+                                  color: allUnlocked ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 16),
+                    // Simulation Instruction Subtext
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      child: Text(
+                        allUnlocked
+                            ? '🎉 All factors verified! Cryptographic shares successfully reconstructed.'
+                            : '⚡ Interactive Demo: Click the factor cards below to simulate SSS biometric interlocking.',
+                        key: ValueKey(allUnlocked),
+                        style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          color: allUnlocked ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                          fontWeight: allUnlocked ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
                     
-                    // Dashboard Interlocking Widgets
-                    isMobile
-                        ? Column(
-                            children: _buildMockFactorToggles(),
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: _buildMockFactorToggles()
-                                .map((w) => Expanded(
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6.0),
-                                        child: w,
-                                      ),
-                                    ))
-                                .toList(),
+                    // Grid of 4 boxes (2x2 on Desktop, 1x4 on Mobile)
+                    GridView.count(
+                      crossAxisCount: isMobile ? 1 : 2,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
+                      childAspectRatio: isMobile ? 3.0 : 3.4,
+                      children: _buildMockFactorToggles(),
+                    ),
+                    
+                    if (allUnlocked) ...[
+                      const SizedBox(height: 24),
+                      Center(
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween<double>(begin: 0.0, end: 1.0),
+                          duration: const Duration(milliseconds: 400),
+                          builder: (context, value, child) {
+                            return Opacity(
+                              opacity: value,
+                              child: Transform.scale(
+                                scale: 0.95 + (value * 0.05),
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/vault');
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF10B981),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              elevation: 8,
+                              shadowColor: const Color(0xFF10B981).withOpacity(0.3),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.vpn_key),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'ENTER SECURE WEB VAULT NOW',
+                                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                              ],
+                            ),
                           ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -516,98 +695,55 @@ class _LandingPageState extends State<LandingPage> {
 
   List<Widget> _buildMockFactorToggles() {
     return [
-      _buildMockFactorCard(
+      InteractiveFactorCard(
         title: 'Argon2id Hash Share',
         subtitle: 'Password Derivation',
         icon: Icons.key_outlined,
         color: const Color(0xFF8B5CF6),
-        isValid: true,
+        isValid: _mockArgon2,
+        onTap: () {
+          setState(() {
+            _mockArgon2 = !_mockArgon2;
+          });
+        },
       ),
-      const SizedBox(height: 12),
-      _buildMockFactorCard(
+      InteractiveFactorCard(
         title: 'MobileFaceNet Share',
         subtitle: 'Face Biometrics (TFLite)',
         icon: Icons.face_outlined,
         color: const Color(0xFF10B981),
-        isValid: false,
+        isValid: _mockFace,
+        onTap: () {
+          setState(() {
+            _mockFace = !_mockFace;
+          });
+        },
       ),
-      const SizedBox(height: 12),
-      _buildMockFactorCard(
+      InteractiveFactorCard(
         title: 'Hardware Enclave Share',
         subtitle: 'Device Fingerprint scan',
         icon: Icons.fingerprint,
         color: const Color(0xFFFF9E0B),
-        isValid: false,
+        isValid: _mockFingerprint,
+        onTap: () {
+          setState(() {
+            _mockFingerprint = !_mockFingerprint;
+          });
+        },
       ),
-      const SizedBox(height: 12),
-      _buildMockFactorCard(
+      InteractiveFactorCard(
         title: 'Speaker Voice Share',
         subtitle: 'Conformer voice encoder',
         icon: Icons.record_voice_over_outlined,
         color: const Color(0xFF3B82F6),
-        isValid: false,
+        isValid: _mockVoice,
+        onTap: () {
+          setState(() {
+            _mockVoice = !_mockVoice;
+          });
+        },
       ),
     ];
-  }
-
-  Widget _buildMockFactorCard({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-    required bool isValid,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B).withOpacity(0.4),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isValid ? color.withOpacity(0.3) : Colors.white.withOpacity(0.05),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color.withOpacity(0.1),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: GoogleFonts.outfit(
-                    fontSize: 10,
-                    color: const Color(0xFF64748B),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Icon(
-            isValid ? Icons.verified_user : Icons.hourglass_empty,
-            color: isValid ? const Color(0xFF10B981) : const Color(0xFF64748B),
-            size: 18,
-          ),
-        ],
-      ),
-    );
   }
 
   // Security Features Grid Section
@@ -1001,6 +1137,305 @@ class _LandingPageState extends State<LandingPage> {
                 ),
               ],
             ),
+    );
+  }
+
+  // Mobile Menu Overlay Widget
+  Widget _buildMobileMenuOverlay() {
+    return Positioned(
+      top: 80, // just below the navbar
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: ClipRRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            color: const Color(0xFF070B19).withOpacity(0.92),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 20),
+                Text(
+                  'NAVIGATION',
+                  style: GoogleFonts.shareTechMono(
+                    color: const Color(0xFF8B5CF6),
+                    fontSize: 12,
+                    letterSpacing: 2.0,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                
+                // Menu Items
+                _buildMobileMenuItem('Features', Icons.extension_outlined, () {
+                  setState(() => _isMobileMenuOpen = false);
+                  _scrollToSection(_featuresKey);
+                }),
+                // Mobile Submenu items under Features
+                Padding(
+                  padding: const EdgeInsets.only(left: 36, top: 4, bottom: 8),
+                  child: Column(
+                    children: [
+                      _buildMobileSubmenuItem('4FA Biometrics', const Color(0xFF8B5CF6), () {
+                        setState(() => _isMobileMenuOpen = false);
+                        _scrollToSection(_featuresKey);
+                      }),
+                      _buildMobileSubmenuItem('Shamir\'s SSS', const Color(0xFF10B981), () {
+                        setState(() => _isMobileMenuOpen = false);
+                        _scrollToSection(_featuresKey);
+                      }),
+                      _buildMobileSubmenuItem('Ransomware Shield', const Color(0xFF3B82F6), () {
+                        setState(() => _isMobileMenuOpen = false);
+                        _scrollToSection(_featuresKey);
+                      }),
+                    ],
+                  ),
+                ),
+                
+                _buildMobileMenuItem('Downloads', Icons.download_outlined, () {
+                  setState(() => _isMobileMenuOpen = false);
+                  _scrollToSection(_downloadsKey);
+                }),
+                _buildMobileMenuItem('GitHub Repository', Icons.code_outlined, () {
+                  setState(() => _isMobileMenuOpen = false);
+                }),
+                
+                const Spacer(),
+                
+                // Launch button at the bottom of the mobile drawer
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      setState(() => _isMobileMenuOpen = false);
+                      Navigator.pushNamed(context, '/vault');
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF8B5CF6),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 8,
+                      shadowColor: const Color(0xFF8B5CF6).withOpacity(0.3),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.vpn_key_outlined, size: 20),
+                        const SizedBox(width: 12),
+                        Text(
+                          'LAUNCH WEB CONSOLE',
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileMenuItem(String label, IconData icon, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            Icon(icon, color: const Color(0xFF94A3B8), size: 20),
+            const SizedBox(width: 16),
+            Text(
+              label,
+              style: GoogleFonts.outfit(
+                fontSize: 18,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const Spacer(),
+            const Icon(Icons.chevron_right, color: Color(0xFF475569), size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileSubmenuItem(String label, Color dotColor, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: dotColor),
+            ),
+            const SizedBox(width: 16),
+            Text(
+              label,
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                color: const Color(0xFF94A3B8),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Custom Interactive Factor Card with Hover and State Animations
+class InteractiveFactorCard extends StatefulWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final bool isValid;
+  final VoidCallback onTap;
+
+  const InteractiveFactorCard({
+    key,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.isValid,
+    required this.onTap,
+  }) : super(key: key);
+
+  @override
+  State<InteractiveFactorCard> createState() => _InteractiveFactorCardState();
+}
+
+class _InteractiveFactorCardState extends State<InteractiveFactorCard> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final borderGlowColor = widget.isValid 
+        ? widget.color.withOpacity(_isHovered ? 0.6 : 0.3)
+        : (_isHovered ? Colors.white.withOpacity(0.15) : Colors.white.withOpacity(0.05));
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _isHovered ? 1.03 : 1.0,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: widget.isValid 
+                  ? widget.color.withOpacity(0.08)
+                  : const Color(0xFF1E293B).withOpacity(0.4),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: borderGlowColor,
+                width: widget.isValid ? 1.5 : 1.0,
+              ),
+              boxShadow: _isHovered || widget.isValid
+                  ? [
+                      BoxShadow(
+                        color: widget.isValid 
+                            ? widget.color.withOpacity(0.15)
+                            : Colors.white.withOpacity(0.02),
+                        blurRadius: _isHovered ? 16 : 8,
+                        spreadRadius: _isHovered ? 2 : 0,
+                      )
+                    ]
+                  : [],
+            ),
+            child: Row(
+              children: [
+                // Icon wrapper with pulse decoration
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: widget.isValid 
+                        ? widget.color.withOpacity(0.2)
+                        : Colors.white.withOpacity(0.05),
+                    boxShadow: widget.isValid
+                        ? [
+                            BoxShadow(
+                              color: widget.color.withOpacity(0.3),
+                              blurRadius: 8,
+                            )
+                          ]
+                        : [],
+                  ),
+                  child: Icon(
+                    widget.icon, 
+                    color: widget.isValid ? widget.color : const Color(0xFF64748B), 
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        widget.title,
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.subtitle,
+                        style: GoogleFonts.outfit(
+                          fontSize: 11,
+                          color: const Color(0xFF94A3B8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Indicator status check / lock
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: widget.isValid 
+                        ? const Color(0xFF10B981).withOpacity(0.15)
+                        : Colors.white.withOpacity(0.03),
+                  ),
+                  child: Icon(
+                    widget.isValid ? Icons.check : Icons.lock_outline,
+                    color: widget.isValid ? const Color(0xFF10B981) : const Color(0xFF475569),
+                    size: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
