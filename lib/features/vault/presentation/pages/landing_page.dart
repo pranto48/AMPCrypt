@@ -80,6 +80,11 @@ class _LandingPageState extends State<LandingPage> {
                         // 3. App Mock Showcase
                         _buildShowcaseWidget(isMobile),
                         
+                        const SizedBox(height: 80),
+
+                        // Zero-Trust Pledge Banner
+                        _buildZeroTrustPromiseBanner(isMobile),
+                        
                         const SizedBox(height: 120),
                         
                         // 4. Security Features Section
@@ -374,7 +379,7 @@ class _LandingPageState extends State<LandingPage> {
           Container(
             constraints: const BoxConstraints(maxWidth: 680),
             child: Text(
-              'Secure your sensitive files locally. AMPCrypt interlocks 4-Factor Biometrics, Shamir\'s Secret Sharing, and dynamic Unsupervised ML models for ransomware protection. Completely client-side, zero cloud dependencies.',
+              'Mathematically uncrackable absolute Zero-Trust file security. If you use AMPCrypt, no one can crack your data without you. Interlocking 4-Factor Biometrics, Shamir\'s Secret Sharing, and local ransomware detection with zero cloud exposures.',
               style: GoogleFonts.outfit(
                 fontSize: isMobile ? 15 : 18,
                 color: const Color(0xFF94A3B8),
@@ -689,6 +694,72 @@ class _LandingPageState extends State<LandingPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // Zero-Trust Pledge Banner Callout
+  Widget _buildZeroTrustPromiseBanner(bool isMobile) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: isMobile ? 24 : 64),
+      padding: EdgeInsets.all(isMobile ? 24 : 40),
+      decoration: BoxDecoration(
+        color: const Color(0xFF10B981).withOpacity(0.04),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: const Color(0xFF10B981).withOpacity(0.18),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFF10B981).withOpacity(0.15),
+                ),
+                child: const Icon(
+                  Icons.lock_person_outlined,
+                  color: Color(0xFF10B981),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                'THE ZERO-TRUST PLEDGE',
+                style: GoogleFonts.shareTechMono(
+                  fontSize: 14,
+                  letterSpacing: 2.0,
+                  color: const Color(0xFF10B981),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'If you use AMPCrypt, no one can crack your data without you.',
+            style: GoogleFonts.outfit(
+              fontSize: isMobile ? 22 : 28,
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              height: 1.25,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'By interlocking your high-entropy password (Argon2id) with local-only face, fingerprint, and voice signatures using mathematical Shamir\'s Secret Sharing thresholds, your master encryption key does not exist anywhere in storage. It is reconstructed dynamically in RAM only when you verify all factors. With zero cloud dependencies, zero external trust, and offline-first execution, it is cryptographically impossible for hackers, developers, or hostiles to access or crack your vault without your explicit, physical authorization.',
+            style: GoogleFonts.outfit(
+              fontSize: isMobile ? 14 : 16,
+              color: const Color(0xFF94A3B8),
+              height: 1.6,
+            ),
+          ),
+        ],
       ),
     );
   }
