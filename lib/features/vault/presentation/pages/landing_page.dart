@@ -88,7 +88,7 @@ class _LandingPageState extends State<LandingPage> {
                     const SizedBox(height: 100),
                     
                     // 6. Footer Section
-                    _buildFooter(),
+                    _buildFooter(isMobile),
                   ],
                 ),
               ),
@@ -940,9 +940,9 @@ class _LandingPageState extends State<LandingPage> {
   }
 
   // Footer Widget
-  Widget _buildFooter() {
+  Widget _buildFooter(bool isMobile) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 40),
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 24 : 48, vertical: 40),
       decoration: BoxDecoration(
         color: const Color(0xFF05060F),
         border: Border(
@@ -952,29 +952,47 @@ class _LandingPageState extends State<LandingPage> {
           ),
         ),
       ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '© 2026 AMPCrypt. Released under the MIT License.',
-                style: GoogleFonts.outfit(
-                  fontSize: 12,
-                  color: const Color(0xFF64748B),
+      child: isMobile
+          ? Column(
+              children: [
+                Text(
+                  '© 2026 AMPCrypt. Released under the MIT License.',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: const Color(0xFF64748B),
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-              ),
-              Text(
-                'Zero-Trust • Peer-Verified • Local-First',
-                style: GoogleFonts.shareTechMono(
-                  fontSize: 11,
-                  color: const Color(0xFF8B5CF6).withOpacity(0.6),
+                const SizedBox(height: 12),
+                Text(
+                  'Zero-Trust • Peer-Verified • Local-First',
+                  style: GoogleFonts.shareTechMono(
+                    fontSize: 11,
+                    color: const Color(0xFF8B5CF6).withOpacity(0.6),
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-              ),
-            ],
-          ),
-        ],
-      ),
+              ],
+            )
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '© 2026 AMPCrypt. Released under the MIT License.',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: const Color(0xFF64748B),
+                  ),
+                ),
+                Text(
+                  'Zero-Trust • Peer-Verified • Local-First',
+                  style: GoogleFonts.shareTechMono(
+                    fontSize: 11,
+                    color: const Color(0xFF8B5CF6).withOpacity(0.6),
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }
