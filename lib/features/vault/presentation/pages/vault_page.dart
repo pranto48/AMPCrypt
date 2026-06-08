@@ -761,7 +761,7 @@ class _CreateVaultViewState extends State<CreateVaultView> {
           child: Form(
             key: _formKey,
             child: GlassmorphicCard(
-              width: 450,
+              width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width - 32,
               child: Padding(
                 padding: const EdgeInsets.all(32.0),
                 child: Column(
@@ -978,7 +978,10 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
-  // Mock Biometrics toggles
+  final _fingerprintService = FingerprintVerificationService();
+  final _voiceService = VoiceVerificationService();
+
+  // Biometrics toggles
   bool _faceVerified = false;
   bool _fingerprintVerified = false;
   bool _voiceVerified = false;
@@ -999,6 +1002,55 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
           onSuccess: () {
             setState(() {
               _faceVerified = true;
+            });
+          },
+        );
+      },
+    );
+  }
+
+  void _verifyFingerprint() async {
+    final available = await _fingerprintService.isBiometricAvailable();
+    if (available) {
+      final success = await _fingerprintService.authenticateFingerprint();
+      if (success) {
+        setState(() => _fingerprintVerified = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF10B981),
+            content: Text('Fingerprint factor validated!', style: GoogleFonts.outfit()),
+          ),
+        );
+      } else {
+        setState(() => _fingerprintVerified = false);
+      }
+    } else {
+      setState(() => _fingerprintVerified = true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF3B82F6),
+          content: Text('Biometric hardware unavailable. Simulating share verification...', style: GoogleFonts.outfit()),
+        ),
+      );
+    }
+  }
+
+  void _verifyVoiceBiometric() async {
+    final prefs = await SharedPreferences.getInstance();
+    final registeredEmbeddingStr = prefs.getString('registered_voice_embedding');
+    final isEnrolled = registeredEmbeddingStr != null;
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext dialogContext) {
+        return VoiceVerificationDialog(
+          isEnrolled: isEnrolled,
+          onSuccess: () {
+            setState(() {
+              _voiceVerified = true;
             });
           },
         );
@@ -1037,7 +1089,7 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: GlassmorphicCard(
-            width: 450,
+            width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width - 32,
             child: Padding(
               padding: const EdgeInsets.all(32.0),
               child: Column(
@@ -1132,14 +1184,26 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
                     title: 'Fingerprint Biometric Share',
                     value: _fingerprintVerified,
                     icon: Icons.fingerprint_outlined,
-                    onChanged: (val) => setState(() => _fingerprintVerified = val),
+                    onChanged: (val) {
+                      if (val) {
+                        _verifyFingerprint();
+                      } else {
+                        setState(() => _fingerprintVerified = false);
+                      }
+                    },
                   ),
                   const SizedBox(height: 8),
                   _biometricSwitch(
                     title: 'Voice Signature Share',
                     value: _voiceVerified,
                     icon: Icons.record_voice_over_outlined,
-                    onChanged: (val) => setState(() => _voiceVerified = val),
+                    onChanged: (val) {
+                      if (val) {
+                        _verifyVoiceBiometric();
+                      } else {
+                        setState(() => _voiceVerified = false);
+                      }
+                    },
                   ),
                   const SizedBox(height: 32),
                   SizedBox(
@@ -2669,7 +2733,7 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
     return Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
-        width: 450,
+        width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width - 32,
         padding: const EdgeInsets.all(28),
         decoration: BoxDecoration(
           color: const Color(0xFF0F172A).withOpacity(0.95),
@@ -2777,6 +2841,260 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
                       onPressed: _pickAndProcessImage,
                       child: Text(
                         widget.isEnrolled ? 'SELECT PHOTO' : 'ENROLL PHOTO',
+                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class VoiceVerificationDialog extends StatefulWidget {
+  final bool isEnrolled;
+  final VoidCallback onSuccess;
+
+  const VoiceVerificationDialog({
+    super.key,
+    required this.isEnrolled,
+    required this.onSuccess,
+  });
+
+  @override
+  State<VoiceVerificationDialog> createState() => _VoiceVerificationDialogState();
+}
+
+class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
+  final VoiceVerificationService _voiceService = VoiceVerificationService();
+  bool _isLoading = false;
+  String _statusMessage = '';
+  String? _errorMessage;
+  File? _selectedFile;
+
+  @override
+  void initState() {
+    super.initState();
+    _statusMessage = widget.isEnrolled 
+        ? 'Please select your voice WAV/MP3 file to verify.' 
+        : 'No voice enrolled. Please select a WAV/MP3 file to register.';
+  }
+
+  void _pickAndProcessAudio() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+        _statusMessage = 'Selecting audio file...';
+      });
+
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['wav', 'mp3', 'm4a'],
+        allowMultiple: false,
+      );
+
+      if (result == null || result.files.single.path == null) {
+        setState(() {
+          _isLoading = false;
+          _statusMessage = widget.isEnrolled 
+              ? 'Select voice WAV/MP3 to verify.' 
+              : 'Select voice WAV/MP3 to register.';
+        });
+        return;
+      }
+
+      final file = File(result.files.single.path!);
+      setState(() {
+        _selectedFile = file;
+        _statusMessage = 'Processing audio & extracting Conformer embedding...';
+      });
+
+      await Future.delayed(const Duration(milliseconds: 800));
+
+      final embedding = await _voiceService.getVoiceEmbedding(file);
+      final prefs = await SharedPreferences.getInstance();
+
+      if (!widget.isEnrolled) {
+        final embeddingJson = jsonEncode(embedding);
+        await prefs.setString('registered_voice_embedding', embeddingJson);
+        
+        setState(() {
+          _isLoading = false;
+          _statusMessage = 'Voice Enrollment Successful!';
+        });
+
+        await Future.delayed(const Duration(seconds: 1));
+        if (mounted) {
+          widget.onSuccess();
+          Navigator.of(context).pop();
+        }
+      } else {
+        final registeredStr = prefs.getString('registered_voice_embedding');
+        if (registeredStr == null) {
+          setState(() {
+            _isLoading = false;
+            _errorMessage = 'Registered voice data corrupted. Please re-enroll.';
+          });
+          return;
+        }
+
+        final List<double> registeredEmbedding = List<double>.from(jsonDecode(registeredStr));
+        final similarity = _voiceService.calculateCosineSimilarity(embedding, registeredEmbedding);
+        final matches = _voiceService.verifyVoiceMatch(embedding, registeredEmbedding, threshold: 0.8);
+
+        if (matches) {
+          setState(() {
+            _isLoading = false;
+            _statusMessage = 'Voice Signature Verified! (Similarity: ${similarity.toStringAsFixed(4)})';
+          });
+
+          await Future.delayed(const Duration(milliseconds: 1000));
+          if (mounted) {
+            widget.onSuccess();
+            Navigator.of(context).pop();
+          }
+        } else {
+          setState(() {
+            _isLoading = false;
+            _selectedFile = null;
+            _errorMessage = 'Voice verification failed.\nSimilarity: ${similarity.toStringAsFixed(4)} (Threshold is >= 0.80).\nEnsure you upload the same signature file.';
+            _statusMessage = 'Verification failed. Try again.';
+          });
+        }
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Error processing audio: ${e.toString()}';
+        _statusMessage = 'Error occurred.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: Container(
+        width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width - 32,
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0F172A).withOpacity(0.95),
+          border: Border.all(color: const Color(0xFF334155).withOpacity(0.5)),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  widget.isEnrolled ? 'VOICE VERIFICATION (OFFLINE)' : 'ENROLL VOICE SIGNATURE',
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.0,
+                    color: const Color(0xFF3B82F6),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Color(0xFF94A3B8), size: 18),
+                  onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            const Divider(color: Color(0xFF1E293B), height: 20),
+            const SizedBox(height: 16),
+            
+            Container(
+              height: 150,
+              width: 150,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1E38).withOpacity(0.5),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: _errorMessage != null 
+                      ? const Color(0xFFEF4444).withOpacity(0.5) 
+                      : const Color(0xFF3B82F6).withOpacity(0.3),
+                  width: 2,
+                ),
+              ),
+              child: ClipOval(
+                child: _selectedFile != null
+                    ? Container(
+                        color: const Color(0xFF1E293B),
+                        child: const Icon(
+                          Icons.audiotrack,
+                          size: 64,
+                          color: Color(0xFF10B981),
+                        ),
+                      )
+                    : Icon(
+                        widget.isEnrolled ? Icons.mic : Icons.mic_none_outlined,
+                        size: 64,
+                        color: _errorMessage != null ? const Color(0xFFEF4444) : const Color(0xFF3B82F6),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            
+            Text(
+              _statusMessage,
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _errorMessage!,
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  color: const Color(0xFFEF4444),
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+            
+            const SizedBox(height: 28),
+            
+            if (_isLoading)
+              const CircularProgressIndicator(color: Color(0xFF3B82F6))
+            else
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFF334155)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text('CANCEL', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF3B82F6),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      onPressed: _pickAndProcessAudio,
+                      child: Text(
+                        widget.isEnrolled ? 'SELECT WAV/MP3' : 'ENROLL AUDIO',
                         style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
                       ),
                     ),
