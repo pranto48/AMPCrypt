@@ -61,6 +61,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  msix: ^3.16.13
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -100,6 +101,14 @@ flutter:
   #       - asset: fonts/TrajanPro.ttf
   #       - asset: fonts/TrajanPro_Bold.ttf
   #         weight: 700
-  #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+msix_config:
+  display_name: AMPCrypt
+  publisher_display_name: AMPCrypt
+  identity_name: com.itsupport.ampcrypt
+  msix_version: 1.0.0.0
+  logo_path: macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png
+  capabilities: internetClient
+
