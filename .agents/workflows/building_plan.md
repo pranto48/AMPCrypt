@@ -27,3 +27,12 @@ Follow these phases strictly to build the AMPCrypt ecosystem. Do not proceed to 
 - [ ] Integrate TFLite Conformer-based Speaker Encoder for Voice Verification.
 - [ ] Finalize the Shamir's Secret Sharing (SSS) interlocking: The Master Key must only reconstruct when Password, Face, Fingerprint, and Voice shares are simultaneously validated.
 - [ ] Configure GitHub Actions to build the release APK/AAB and iOS IPA.
+
+## Phase 4: AMPCrypt Official Landing Page (Cryptomator style)
+- [ ] Create a responsive Landing Page UI in Flutter Web and set it as the initial default route (/).
+- [ ] Move the actual AMPCrypt Vault application to a separate secure route (e.g., /vault).
+- [ ] Design a modern, dark-themed Tailwind-style Hero Section with the title "AMPCrypt: Zero-Trust Data Safety".
+- [ ] Add a "Security Features" section explaining 4-Factor Auth (4FA), Shamir's Secret Sharing (SSS), and Ransomware Behavior Detection.
+- [ ] Add a "Downloads" section with prominent buttons for Windows (.msix/.exe), macOS, Linux, Android (.apk), and iOS.
+- [ ] Ensure SEO metadata, title, and open-graph tags are properly configured in web/index.html.
+- [ ] Test responsiveness for mobile and desktop browsers, then commit and push to trigger GitHub Pages CI/CD.
