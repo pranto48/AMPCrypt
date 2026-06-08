@@ -25,6 +25,13 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
+    // Verify it is on the LandingPage first
+    expect(find.text('AMPCrypt: Zero-Trust Data Safety'), findsOneWidget);
+
+    // Tap the CTA to navigate to the vault route
+    await tester.tap(find.text('LAUNCH WEB CONSOLE'));
+    await tester.pumpAndSettle();
+
     // Verify it is on the landing homepage first
     expect(find.text('Next-Gen Zero-Trust Vault'), findsOneWidget);
 
