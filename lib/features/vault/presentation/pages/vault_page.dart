@@ -119,8 +119,11 @@ class _VaultPageState extends State<VaultPage> {
   }
 
   Widget _buildTopHeader(VaultState state) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isCompact = screenWidth < 600;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+      padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 32, vertical: 16),
       decoration: BoxDecoration(
         color: const Color(0xFF0F172A).withOpacity(0.5),
         border: Border(
@@ -133,46 +136,56 @@ class _VaultPageState extends State<VaultPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFF8B5CF6).withOpacity(0.15),
-                  border: Border.all(
-                    color: const Color(0xFF8B5CF6).withOpacity(0.4),
-                    width: 1,
+          Expanded(
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF8B5CF6).withOpacity(0.15),
+                    border: Border.all(
+                      color: const Color(0xFF8B5CF6).withOpacity(0.4),
+                      width: 1,
+                    ),
+                  ),
+                  child: const Icon(Icons.shield, color: Color(0xFF8B5CF6), size: 20),
+                ),
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'AMPCrypt',
+                        style: GoogleFonts.outfit(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (!isCompact)
+                        Text(
+                          'Zero-Trust Security Console',
+                          style: GoogleFonts.outfit(
+                            fontSize: 10,
+                            color: const Color(0xFF94A3B8),
+                            fontWeight: FontWeight.w500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
                   ),
                 ),
-                child: const Icon(Icons.shield, color: Color(0xFF8B5CF6), size: 20),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'AMPCrypt',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  Text(
-                    'Zero-Trust Security Console',
-                    style: GoogleFonts.outfit(
-                      fontSize: 10,
-                      color: const Color(0xFF94A3B8),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
+          const SizedBox(width: 8),
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               _buildHeaderTab(
                 label: 'About Project',

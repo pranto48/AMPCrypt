@@ -25,6 +25,13 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
+    // Verify it is on the landing homepage first
+    expect(find.text('Next-Gen Zero-Trust Vault'), findsOneWidget);
+
+    // Tap the CTA to navigate to the console setup
+    await tester.tap(find.text('INITIALIZE SECURE VAULT'));
+    await tester.pumpAndSettle();
+
     // 3. Verify that it displays the setup screen elements
     expect(find.text('Initialize AMPCrypt Vault'), findsOneWidget);
     expect(find.text('GENERATE VAULT'), findsOneWidget);
