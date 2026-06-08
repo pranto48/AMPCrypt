@@ -775,28 +775,28 @@ class _LandingPageState extends State<LandingPage> {
               _buildDownloadTile(
                 platform: 'Apple macOS',
                 icon: Icons.laptop_mac,
-                badge: 'Universal (Apple Silicon/Intel)',
+                badge: 'Apple/Intel Universal',
                 downloadName: 'macOS Bundle (.dmg)',
                 onTap: () {},
               ),
               _buildDownloadTile(
                 platform: 'Linux Systems',
                 icon: Icons.terminal,
-                badge: 'x86_64 AppImage',
+                badge: 'x64 AppImage',
                 downloadName: 'Linux AppImage (.AppImage)',
                 onTap: () {},
               ),
               _buildDownloadTile(
                 platform: 'Android Mobile',
                 icon: Icons.phone_android,
-                badge: 'ARM64 Release APK',
+                badge: 'ARM64 APK',
                 downloadName: 'Android APK (.apk)',
                 onTap: () {},
               ),
               _buildDownloadTile(
                 platform: 'iOS Mobile',
                 icon: Icons.phone_iphone,
-                badge: 'App Store / TestFlight',
+                badge: 'TestFlight',
                 downloadName: 'Install via Apple TestFlight',
                 onTap: () {},
               ),
@@ -882,18 +882,23 @@ class _LandingPageState extends State<LandingPage> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Icon(icon, color: const Color(0xFF8B5CF6), size: 28),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF8B5CF6).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  badge,
-                  style: GoogleFonts.shareTechMono(
-                    fontSize: 8.5,
-                    color: const Color(0xFF8B5CF6),
-                    fontWeight: FontWeight.bold,
+              const SizedBox(width: 8),
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    badge,
+                    style: GoogleFonts.shareTechMono(
+                      fontSize: 8.5,
+                      color: const Color(0xFF8B5CF6),
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
               ),
@@ -926,9 +931,12 @@ class _LandingPageState extends State<LandingPage> {
                 children: [
                   const Icon(Icons.download, size: 14),
                   const SizedBox(width: 8),
-                  Text(
-                    downloadName,
-                    style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold),
+                  Flexible(
+                    child: Text(
+                      downloadName,
+                      style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),
