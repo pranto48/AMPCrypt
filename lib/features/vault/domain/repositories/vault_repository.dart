@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 
 abstract class VaultRepository {
   /// Check if the vault has already been set up/created on this device.
