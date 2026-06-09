@@ -8,6 +8,12 @@ import 'package:ampcrypt/main.dart';
 
 void main() {
   testWidgets('AMPCrypt smoke test - shows setup screen when uninitialized', (WidgetTester tester) async {
+    // Configure desktop viewport size for test
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     // 1. Setup mock SharedPreferences
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
@@ -23,6 +29,20 @@ void main() {
       vaultRepository: vaultRepository,
       watcherService: watcherService,
     ));
+    await tester.pumpAndSettle();
+
+    // Verify it is on the LandingPage first
+    expect(find.text('AMPCrypt: Zero-Trust Data Safety'), findsOneWidget);
+
+    // Tap the CTA to navigate to the vault route
+    await tester.tap(find.text('Launch Web Vault'));
+    await tester.pumpAndSettle();
+
+    // Verify it is on the landing homepage first
+    expect(find.text('Next-Gen Zero-Trust Vault'), findsOneWidget);
+
+    // Tap the CTA to navigate to the console setup
+    await tester.tap(find.text('INITIALIZE SECURE VAULT'));
     await tester.pumpAndSettle();
 
     // 3. Verify that it displays the setup screen elements

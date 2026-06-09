@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSFaceIDUsageDescription</key>
+	<string>AMPCrypt needs Face ID access to authenticate and unlock your secure cryptographic vault factor.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>AMPCrypt needs Microphone access to record and analyze your biometric voice signature.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
