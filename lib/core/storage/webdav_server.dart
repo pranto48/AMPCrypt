@@ -52,7 +52,10 @@ class WebDavServer {
       await _server!.close(force: true);
       _server = null;
     }
-    _masterKey = null;
+    if (_masterKey != null) {
+      _masterKey!.fillRange(0, _masterKey!.length, 0);
+      _masterKey = null;
+    }
     _vaultPath = null;
     _index = {'version': 1, 'files': {}, 'directories': []};
   }
@@ -106,10 +109,18 @@ class WebDavServer {
   // ─── REQUEST HANDLER ─────────────────────────────────────────────────────────
   
   Future<void> _handleRequest(HttpRequest request) async {
-    lastActivityTime = DateTime.now();
     final rawPath = request.uri.path;
     final path = Uri.decodeComponent(rawPath);
     final method = request.method;
+
+    final isRead = (method == 'GET' || method == 'HEAD' || method == 'PROPFIND');
+    final isWrite = (method == 'PUT' || method == 'DELETE' || method == 'MKCOL' || method == 'MOVE' || method == 'PROPPATCH');
+
+    if (isRead || isWrite) {
+      lastActivityTime = DateTime.now();
+      final typeStr = isWrite ? 'WRITE' : 'READ';
+      print('Filesystem I/O Event: $typeStr ($method) on $path. Inactivity timer refreshed.');
+    }
     
     // Normalize path to remove trailing slash except for root
     String normPath = path.endsWith('/') && path.length > 1

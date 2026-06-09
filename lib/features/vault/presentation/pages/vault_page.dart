@@ -29,22 +29,20 @@ class VaultPage extends StatefulWidget {
   State<VaultPage> createState() => _VaultPageState();
 }
 
+enum ActiveView { console, settings }
+
 class _VaultPageState extends State<VaultPage> {
-  late bool _showAbout;
+  ActiveView _activeView = ActiveView.console;
 
   @override
   void initState() {
     super.initState();
-    final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
-    _showAbout = !isDesktop;
     // Check initial vault status
     context.read<VaultBloc>().add(CheckVaultStatusEvent());
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
-
     return Scaffold(
       backgroundColor: const Color(0xFF070B19),
       body: Stack(
@@ -63,11 +61,6 @@ class _VaultPageState extends State<VaultPage> {
             ),
             child: BlocConsumer<VaultBloc, VaultState>(
               listener: (context, state) {
-                if (state is VaultUnlockedState) {
-                  setState(() {
-                    _showAbout = false;
-                  });
-                }
                 if (state is VaultFailureState) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -95,33 +88,15 @@ class _VaultPageState extends State<VaultPage> {
                 }
               },
               builder: (context, state) {
-                if (isDesktop) {
-                  return Row(
-                    children: [
-                      _buildSidebar(context, state),
-                      Container(
-                        width: 1,
-                        color: Colors.white.withOpacity(0.08),
-                      ),
-                      Expanded(
-                        child: _buildDesktopMainContent(context, state),
-                      ),
-                    ],
-                  );
-                }
-
-                if (state is VaultUnlockedState) {
-                  return UnlockedDashboardView(state: state);
-                }
-
-                // If in initial/loading state and not showing about, or FailureState, handle below
-                return Column(
+                return Row(
                   children: [
-                    _buildTopHeader(state),
+                    _buildSidebar(context, state),
+                    Container(
+                      width: 1,
+                      color: Colors.white.withOpacity(0.08),
+                    ),
                     Expanded(
-                      child: _showAbout
-                          ? _buildAboutProjectView(context, state)
-                          : _buildVaultConsoleView(context, state),
+                      child: _buildDesktopMainContent(context, state),
                     ),
                   ],
                 );
@@ -379,12 +354,24 @@ class _VaultPageState extends State<VaultPage> {
                 IconButton(
                   icon: const Icon(Icons.add, color: Color(0xFF94A3B8)),
                   tooltip: 'Create/Add Vault',
-                  onPressed: () => _showCreateVaultDialog(context),
+                  onPressed: () {
+                    setState(() {
+                      _activeView = ActiveView.console;
+                    });
+                    _showCreateVaultDialog(context);
+                  },
                 ),
                 IconButton(
-                  icon: const Icon(Icons.settings, color: Color(0xFF94A3B8)),
+                  icon: Icon(
+                    Icons.settings,
+                    color: _activeView == ActiveView.settings ? const Color(0xFF8B5CF6) : const Color(0xFF94A3B8),
+                  ),
                   tooltip: 'Settings',
-                  onPressed: () => _showSettingsDialog(context),
+                  onPressed: () {
+                    setState(() {
+                      _activeView = _activeView == ActiveView.settings ? ActiveView.console : ActiveView.settings;
+                    });
+                  },
                 ),
               ],
             ),
@@ -972,7 +959,9 @@ class _VaultPageState extends State<VaultPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                isCreated ? 'Primary Vault' : 'Welcome to AMPCrypt',
+                _activeView == ActiveView.settings
+                    ? 'Settings'
+                    : (isCreated ? 'Primary Vault' : 'Welcome to AMPCrypt'),
                 style: GoogleFonts.outfit(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
@@ -984,33 +973,31 @@ class _VaultPageState extends State<VaultPage> {
               Row(
                 children: [
                   Icon(
-                    isCreated 
-                        ? (isUnlocked ? Icons.lock_open : Icons.lock)
-                        : Icons.shield,
+                    _activeView == ActiveView.settings
+                        ? Icons.settings
+                        : (isCreated 
+                            ? (isUnlocked ? Icons.lock_open : Icons.lock)
+                            : Icons.shield),
                     size: 14,
-                    color: isUnlocked ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                    color: _activeView == ActiveView.settings
+                        ? const Color(0xFF8B5CF6)
+                        : (isUnlocked ? const Color(0xFF10B981) : const Color(0xFF94A3B8)),
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    isCreated
-                        ? (isUnlocked ? 'Unlocked' : 'Locked')
-                        : 'Secure Zero-Trust System',
+                    _activeView == ActiveView.settings
+                        ? 'App Configuration & Hardware Diagnostics'
+                        : (isCreated
+                            ? (isUnlocked ? 'Unlocked' : 'Locked')
+                            : 'Secure Zero-Trust System'),
                     style: GoogleFonts.outfit(
                       fontSize: 13,
-                      color: isUnlocked ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                      color: _activeView == ActiveView.settings
+                          ? const Color(0xFF8B5CF6)
+                          : (isUnlocked ? const Color(0xFF10B981) : const Color(0xFF94A3B8)),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  if (isCreated) ...[
-                    const SizedBox(width: 12),
-                    Text(
-                      '•  Directory: ${context.read<VaultBloc>().repository.getVaultPath()}',
-                      style: GoogleFonts.outfit(
-                        fontSize: 13,
-                        color: const Color(0xFF94A3B8),
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ],
@@ -1019,15 +1006,17 @@ class _VaultPageState extends State<VaultPage> {
         Divider(color: Colors.white.withOpacity(0.06), height: 1),
         Expanded(
           child: Center(
-            child: SingleChildScrollView(
+            child: Padding(
               padding: const EdgeInsets.all(32),
               child: Container(
                 constraints: BoxConstraints(
-                  maxWidth: isUnlocked ? 800 : 500,
+                  maxWidth: (_activeView == ActiveView.settings || isUnlocked) ? 800 : 500,
                 ),
-                child: isUnlocked 
-                    ? UnlockedDashboardView(state: state)
-                    : _buildVaultConsoleView(context, state),
+                child: _activeView == ActiveView.settings
+                    ? SettingsView(onClose: () => setState(() => _activeView = ActiveView.console))
+                    : (isUnlocked 
+                        ? UnlockedDashboardView(state: state)
+                        : _buildVaultConsoleView(context, state)),
               ),
             ),
           ),
@@ -1436,6 +1425,363 @@ class _VaultPageState extends State<VaultPage> {
   }
 }
 
+class SettingsView extends StatefulWidget {
+  final VoidCallback onClose;
+  const SettingsView({super.key, required this.onClose});
+
+  @override
+  State<SettingsView> createState() => _SettingsViewState();
+}
+
+class _SettingsViewState extends State<SettingsView> {
+  late TextEditingController pathController;
+  late String selectedDrive;
+  late double selectedSensitivity;
+  late int selectedAutoLock;
+
+  bool isScanning = false;
+  bool? hasFingerprint;
+  bool? hasCamera;
+  bool? hasMic;
+
+  @override
+  void initState() {
+    super.initState();
+    final repository = context.read<VaultBloc>().repository;
+    pathController = TextEditingController(text: repository.getVaultPath());
+    selectedDrive = repository.getDriveLetter();
+    selectedSensitivity = repository.monitorSensitivity;
+    selectedAutoLock = repository.autoLockMinutes;
+    _runDiagnostic();
+  }
+
+  Future<void> _runDiagnostic() async {
+    setState(() {
+      isScanning = true;
+    });
+    bool fingerprint = false;
+    try {
+      final localAuth = LocalAuthentication();
+      fingerprint = await localAuth.isDeviceSupported() || await localAuth.canCheckBiometrics;
+    } catch (_) {}
+
+    bool cameraAvailable = false;
+    try {
+      final cameras = await availableCameras();
+      cameraAvailable = cameras.isNotEmpty;
+    } catch (_) {}
+
+    bool micAvailable = false;
+    if (Platform.isWindows) {
+      try {
+        final result = await Process.run('powershell', [
+          '-Command',
+          'Get-CimInstance -ClassName Win32_PnPEntity | Where-Object { \$_.PNPClass -eq \'AudioEndpoint\' } | Select-Object -ExpandProperty Name'
+        ]);
+        if (result.exitCode == 0) {
+          final output = result.stdout.toString().toLowerCase();
+          micAvailable = output.contains('microphone') || output.contains('mic') || output.contains('input');
+        }
+      } catch (_) {}
+    } else {
+      micAvailable = true;
+    }
+
+    if (mounted) {
+      setState(() {
+        hasFingerprint = fingerprint;
+        hasCamera = cameraAvailable;
+        hasMic = micAvailable;
+        isScanning = false;
+      });
+    }
+  }
+
+  Widget _deviceRow(String name, IconData icon, bool? detected) {
+    Widget statusWidget;
+    if (detected == null) {
+      statusWidget = const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(width: 8, height: 8, child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF8B5CF6))),
+          SizedBox(width: 8),
+          Text('Checking...', style: TextStyle(color: Color(0xFF64748B), fontSize: 11)),
+        ],
+      );
+    } else if (detected) {
+      statusWidget = const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 14),
+          SizedBox(width: 4),
+          Text('Detected', style: TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold)),
+        ],
+      );
+    } else {
+      statusWidget = const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.info_outline, color: Color(0xFFEF4444), size: 14),
+          SizedBox(width: 4),
+          Text('Not Detected', style: TextStyle(color: Color(0xFFEF4444), fontSize: 11)),
+        ],
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: const Color(0xFF94A3B8), size: 16),
+              const SizedBox(width: 10),
+              Text(name, style: GoogleFonts.outfit(color: Colors.white, fontSize: 12)),
+            ],
+          ),
+          statusWidget,
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final repository = context.read<VaultBloc>().repository;
+    final authLevel = repository.isVaultCreated ? repository.configuredAuthLevel : 1;
+    final authLabels = [
+      '1FA — Password only',
+      '2FA — Password + Fingerprint',
+      '3FA — Password + Fingerprint + Face',
+      '4FA — Password + Fingerprint + Face + Voice',
+    ];
+
+    return GlassmorphicCard(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          children: [
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'GENERAL CONFIGURATION',
+                          style: GoogleFonts.outfit(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.5,
+                            color: const Color(0xFF8B5CF6),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: pathController,
+                                style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                                decoration: InputDecoration(
+                                  labelText: 'Vault Folder Path',
+                                  labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13),
+                                  enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                                  focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF8B5CF6))),
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.folder_open, color: Color(0xFF8B5CF6), size: 20),
+                              onPressed: () async {
+                                String? selectedDirectory = await FilePicker.getDirectoryPath();
+                                if (selectedDirectory != null) {
+                                  setState(() {
+                                    pathController.text = selectedDirectory;
+                                  });
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          value: selectedDrive,
+                          dropdownColor: const Color(0xFF1E293B),
+                          decoration: InputDecoration(
+                            labelText: 'Virtual Drive Letter',
+                            labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13),
+                            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                          ),
+                          style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                          items: ['D:', 'E:', 'F:', 'G:', 'H:', 'V:', 'W:', 'X:', 'Y:', 'Z:']
+                              .map((drive) => DropdownMenuItem(
+                                    value: drive,
+                                    child: Text(drive, style: GoogleFonts.outfit(color: Colors.white)),
+                                  ))
+                              .toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() {
+                                selectedDrive = val;
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<int>(
+                          value: selectedAutoLock,
+                          dropdownColor: const Color(0xFF1E293B),
+                          decoration: InputDecoration(
+                            labelText: 'Auto-Lock Inactivity Limit',
+                            labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13),
+                            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                          ),
+                          style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                          items: [
+                            const DropdownMenuItem(value: 0, child: Text('Never')),
+                            const DropdownMenuItem(value: 5, child: Text('5 Minutes')),
+                            const DropdownMenuItem(value: 15, child: Text('15 Minutes')),
+                            const DropdownMenuItem(value: 30, child: Text('30 Minutes')),
+                            const DropdownMenuItem(value: 60, child: Text('60 Minutes')),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() {
+                                selectedAutoLock = val;
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 32),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'SECURITY & HEURISTICS',
+                          style: GoogleFonts.outfit(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.5,
+                            color: const Color(0xFF8B5CF6),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Ransomware Watcher Sensitivity',
+                              style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13),
+                            ),
+                            Text(
+                              selectedSensitivity.toStringAsFixed(2),
+                              style: GoogleFonts.shareTechMono(color: const Color(0xFF8B5CF6), fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                        Slider(
+                          value: selectedSensitivity,
+                          min: 0.3,
+                          max: 0.9,
+                          activeColor: const Color(0xFF8B5CF6),
+                          inactiveColor: const Color(0xFF334155),
+                          onChanged: (val) {
+                            setState(() {
+                              selectedSensitivity = val;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'ENROLLED SECURITY LEVEL: ${authLabels[authLevel - 1]}',
+                          style: GoogleFonts.outfit(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 16),
+                        const Divider(color: Color(0xFF1E293B)),
+                        const SizedBox(height: 8),
+                        Text(
+                          'HARDWARE DIAGNOSTICS',
+                          style: GoogleFonts.outfit(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.5,
+                            color: const Color(0xFF8B5CF6),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _deviceRow('Fingerprint Reader', Icons.fingerprint, hasFingerprint),
+                        _deviceRow('Webcam / Camera', Icons.camera_alt_outlined, hasCamera),
+                        _deviceRow('Microphone (Mic)', Icons.mic_none_outlined, hasMic),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Divider(color: Color(0xFF1E293B)),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFF334155)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  ),
+                  onPressed: widget.onClose,
+                  child: Text('CANCEL', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8B5CF6),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  ),
+                  onPressed: () async {
+                    if (pathController.text.isNotEmpty) {
+                      await repository.updateVaultSettings(pathController.text, selectedDrive);
+                      await repository.setMonitorSensitivity(selectedSensitivity);
+                      await repository.setAutoLockMinutes(selectedAutoLock);
+                      
+                      if (context.mounted) {
+                        context.read<VaultBloc>().add(CheckVaultStatusEvent());
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: const Color(0xFF10B981),
+                            content: Text(
+                              'Settings saved successfully.',
+                              style: GoogleFonts.outfit(),
+                            ),
+                          ),
+                        );
+                        widget.onClose();
+                      }
+                    }
+                  },
+                  child: Text('SAVE SETTINGS', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ==========================================
 // 1. Vault Loading View (Animated Spinner)
 // ==========================================
@@ -1618,253 +1964,261 @@ class _CreateVaultViewState extends State<CreateVaultView> {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
-          child: Form(
-            key: _formKey,
-            child: GlassmorphicCard(
-              width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width - 32,
-              child: Padding(
-                padding: const EdgeInsets.all(32.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: const Color(0xFF8B5CF6).withOpacity(0.1),
-                          border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.3), width: 1.5),
-                        ),
-                        child: const Icon(Icons.shield_outlined, size: 40, color: Color(0xFF8B5CF6)),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Center(
-                      child: Text(
-                        'Initialize AMPCrypt Vault',
-                        style: GoogleFonts.outfit(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Center(
-                      child: Text(
-                        'Select your security level, then create a master password to generate SLIP-39 zero-trust shares.',
-                        style: GoogleFonts.outfit(
-                          fontSize: 13,
-                          color: const Color(0xFF94A3B8),
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    // ─── N-Factor Security Level Selector ───────────────────
-                    Text(
-                      'SECURITY LEVEL',
-                      style: GoogleFonts.outfit(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
-                        color: const Color(0xFF8B5CF6),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    GridView.count(
-                      crossAxisCount: 2,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      mainAxisSpacing: 10,
-                      crossAxisSpacing: 10,
-                      childAspectRatio: 2.6,
-                      children: [
-                        _securityTile(
-                          level: 1,
-                          label: '1FA',
-                          subtitle: 'Password Only',
-                          icon: Icons.lock_outlined,
-                        ),
-                        _securityTile(
-                          level: 2,
-                          label: '2FA',
-                          subtitle: '+ Fingerprint',
-                          icon: Icons.fingerprint_outlined,
-                        ),
-                        _securityTile(
-                          level: 3,
-                          label: '3FA',
-                          subtitle: '+ Face',
-                          icon: Icons.face_outlined,
-                        ),
-                        _securityTile(
-                          level: 4,
-                          label: '4FA — Max',
-                          subtitle: '+ Voice',
-                          icon: Icons.security_outlined,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 28),
-                    Text(
-                      'VAULT PASSPHRASE',
-                      style: GoogleFonts.outfit(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
-                        color: const Color(0xFF8B5CF6),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      style: GoogleFonts.outfit(color: Colors.white),
-                      onChanged: _checkPasswordStrength,
-                      decoration: _inputDecoration(
-                        hint: 'Enter strong password',
-                        prefix: Icons.lock_open_outlined,
-                        suffix: IconButton(
-                          icon: Icon(
-                            _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                            color: const Color(0xFF94A3B8),
-                            size: 20,
-                          ),
-                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                        ),
-                      ),
-                      validator: (val) {
-                        if (val == null || val.isEmpty) return 'Password is required';
-                        if (val.length < 8) return 'Password must be at least 8 characters';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    // Strength Indicator Bar
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: LinearProgressIndicator(
-                              value: _strength,
-                              backgroundColor: const Color(0xFF1E1E38),
-                              valueColor: AlwaysStoppedAnimation<Color>(_strengthColor),
-                              minHeight: 6,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          _strengthLabel,
-                          style: GoogleFonts.outfit(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: _strengthColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'CONFIRM PASSPHRASE',
-                      style: GoogleFonts.outfit(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
-                        color: const Color(0xFF8B5CF6),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _confirmController,
-                      obscureText: _obscureConfirm,
-                      style: GoogleFonts.outfit(color: Colors.white),
-                      decoration: _inputDecoration(
-                        hint: 'Retype password',
-                        prefix: Icons.lock_outline,
-                        suffix: IconButton(
-                          icon: Icon(
-                            _obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                            color: const Color(0xFF94A3B8),
-                            size: 20,
-                          ),
-                          onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
-                        ),
-                      ),
-                      validator: (val) {
-                        if (val == null || val.isEmpty) return 'Please confirm your password';
-                        if (val != _passwordController.text) return 'Passwords do not match';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 32),
-                    // Setup Info Notice
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withOpacity(0.05),
-                        border: Border.all(color: const Color(0xFF10B981).withOpacity(0.2), width: 1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Form(
+        key: _formKey,
+        child: GlassmorphicCard(
+          width: 800,
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Left column: Setup & Security factor level
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
                         children: [
-                          const Icon(Icons.info_outline, color: Color(0xFF10B981), size: 18),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Offline generation using SLIP-0039. Your Master Key is split and protected locally. No data leaves your machine.',
-                              style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF94A3B8)),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                              border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.3), width: 1.5),
+                            ),
+                            child: const Icon(Icons.shield_outlined, size: 24, color: Color(0xFF8B5CF6)),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Initialize Vault',
+                            style: GoogleFonts.outfit(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(height: 32),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF8B5CF6),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Select security level, then create password to generate zero-trust shares.',
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          color: const Color(0xFF94A3B8),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'SECURITY LEVEL',
+                        style: GoogleFonts.outfit(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                          color: const Color(0xFF8B5CF6),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Compact 2x2 grid of security levels
+                      GridView.count(
+                        crossAxisCount: 2,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                        childAspectRatio: 2.8,
+                        children: [
+                          _securityTile(
+                            level: 1,
+                            label: '1FA',
+                            subtitle: 'Password Only',
+                            icon: Icons.lock_outlined,
+                          ),
+                          _securityTile(
+                            level: 2,
+                            label: '2FA',
+                            subtitle: '+ Fingerprint',
+                            icon: Icons.fingerprint_outlined,
+                          ),
+                          _securityTile(
+                            level: 3,
+                            label: '3FA',
+                            subtitle: '+ Face',
+                            icon: Icons.face_outlined,
+                          ),
+                          _securityTile(
+                            level: 4,
+                            label: '4FA — Max',
+                            subtitle: '+ Voice',
+                            icon: Icons.security_outlined,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      // Setup Info Notice
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withOpacity(0.05),
+                          border: Border.all(color: const Color(0xFF10B981).withOpacity(0.2), width: 1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.info_outline, color: Color(0xFF10B981), size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Offline generation using SLIP-0039. Shares are protected locally.',
+                                style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFF94A3B8)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 28),
+                // Right column: Password input forms and buttons
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'VAULT PASSPHRASE',
+                        style: GoogleFonts.outfit(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                          color: const Color(0xFF8B5CF6),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        onChanged: _checkPasswordStrength,
+                        decoration: _inputDecoration(
+                          hint: 'Enter strong password',
+                          prefix: Icons.lock_open_outlined,
+                          suffix: IconButton(
+                            icon: Icon(
+                              _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              color: const Color(0xFF94A3B8),
+                              size: 18,
+                            ),
+                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                           ),
                         ),
-                        onPressed: _submitSetup,
-                        child: Text(
-                          'GENERATE VAULT',
-                          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 1.5),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Center(
-                      child: TextButton(
-                        onPressed: () {
-                          // Jump straight to recovery screen if they already have backup phrases
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const RecoveryPage()),
-                          );
+                        validator: (val) {
+                          if (val == null || val.isEmpty) return 'Password is required';
+                          if (val.length < 8) return 'Password must be at least 8 characters';
+                          return null;
                         },
-                        child: Text(
-                          'Already have recovery mnemonics?',
-                          style: GoogleFonts.outfit(color: const Color(0xFF8B5CF6), fontSize: 13),
+                      ),
+                      const SizedBox(height: 8),
+                      // Strength Indicator Bar
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: _strength,
+                                backgroundColor: const Color(0xFF1E1E38),
+                                valueColor: AlwaysStoppedAnimation<Color>(_strengthColor),
+                                minHeight: 4,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _strengthLabel,
+                            style: GoogleFonts.outfit(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: _strengthColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'CONFIRM PASSPHRASE',
+                        style: GoogleFonts.outfit(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                          color: const Color(0xFF8B5CF6),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _confirmController,
+                        obscureText: _obscureConfirm,
+                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        decoration: _inputDecoration(
+                          hint: 'Retype password',
+                          prefix: Icons.lock_outline,
+                          suffix: IconButton(
+                            icon: Icon(
+                              _obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              color: const Color(0xFF94A3B8),
+                              size: 18,
+                            ),
+                            onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                          ),
+                        ),
+                        validator: (val) {
+                          if (val == null || val.isEmpty) return 'Please confirm your password';
+                          if (val != _passwordController.text) return 'Passwords do not match';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 44,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF8B5CF6),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          onPressed: _submitSetup,
+                          child: Text(
+                            'GENERATE VAULT',
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 13),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Center(
+                        child: TextButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const RecoveryPage()),
+                            );
+                          },
+                          child: Text(
+                            'Already have recovery mnemonics?',
+                            style: GoogleFonts.outfit(color: const Color(0xFF8B5CF6), fontSize: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ),
@@ -3789,6 +4143,49 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
         ? 'Please select your face image to verify.' 
         : 'No face enrolled. Please select a face image to register.';
     _faceService.loadModel();
+    if (Platform.isWindows) {
+      Future.microtask(() => _triggerWindowsHello());
+    }
+  }
+
+  void _triggerWindowsHello() async {
+    setState(() {
+      _isLoading = true;
+      _statusMessage = 'Requesting Windows Hello authentication...';
+      _errorMessage = null;
+    });
+
+    final verified = await _faceService.authenticateWindowsHello();
+
+    if (mounted) {
+      if (verified) {
+        final prefs = await SharedPreferences.getInstance();
+        if (!widget.isEnrolled) {
+          // Flag face biometric as registered
+          await prefs.setString('registered_face_embedding', jsonEncode([1.0]));
+          setState(() {
+            _isLoading = false;
+            _statusMessage = 'Windows Hello Enrollment Successful!';
+          });
+        } else {
+          setState(() {
+            _isLoading = false;
+            _statusMessage = 'Windows Hello Face Verified!';
+          });
+        }
+        await Future.delayed(const Duration(milliseconds: 800));
+        if (mounted) {
+          widget.onSuccess();
+          Navigator.of(context).pop();
+        }
+      } else {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Windows Hello verification failed or was cancelled.';
+          _statusMessage = 'Verification failed.';
+        });
+      }
+    }
   }
 
   void _pickAndProcessImage() async {

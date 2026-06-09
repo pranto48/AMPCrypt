@@ -1,8 +1,14 @@
 #include "flutter_window.h"
 
 #include <optional>
+#include <string>
 
 #include "flutter/generated_plugin_registrant.h"
+
+#include <flutter/method_channel.h>
+#include <flutter/standard_method_codec.h>
+#include <winrt/Windows.Foundation.h>
+#include <winrt/Windows.Security.Credentials.UI.h>
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -26,6 +32,42 @@ bool FlutterWindow::OnCreate() {
   }
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
+
+  // Setup method channel for Windows Hello native UserConsentVerifier
+  auto messenger = flutter_controller_->engine()->messenger();
+  auto hello_channel = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+      messenger, "ampcrypt/windows_hello",
+      &flutter::StandardMethodCodec::GetInstance());
+
+  hello_channel->SetMethodCallHandler(
+      [](const flutter::MethodCall<flutter::EncodableValue>& call,
+         std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+        if (call.method_name() == "authenticate") {
+          try {
+            auto availability = winrt::Windows::Security::Credentials::UI::UserConsentVerifier::CheckAvailabilityAsync().get();
+            if (availability == winrt::Windows::Security::Credentials::UI::UserConsentVerifierAvailability::Available) {
+              auto verification_result = winrt::Windows::Security::Credentials::UI::UserConsentVerifier::RequestVerificationAsync(
+                  L"Scan your face (Windows Hello) to validate your security factor share.")
+                  .get();
+              if (verification_result == winrt::Windows::Security::Credentials::UI::UserConsentVerificationResult::Verified) {
+                result->Success(flutter::EncodableValue(true));
+              } else {
+                result->Success(flutter::EncodableValue(false));
+              }
+            } else {
+              result->Error("UNAVAILABLE", "Windows Hello biometric verification is not available on this device.");
+            }
+          } catch (const winrt::hresult_error& ex) {
+            std::wstring msg = ex.message().c_str();
+            std::string err_msg(msg.begin(), msg.end());
+            result->Error("WINRT_ERROR", err_msg);
+          } catch (...) {
+            result->Error("ERROR", "An unknown error occurred during Windows Hello verification.");
+          }
+        } else {
+          result->NotImplemented();
+        }
+      });
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();

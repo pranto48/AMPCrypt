@@ -8,7 +8,6 @@ import 'dart:io' show Platform;
 import 'core/crypto/crypto_service_impl.dart';
 import 'features/vault/data/repositories/vault_repository_impl.dart';
 import 'features/vault/presentation/bloc/vault_bloc.dart';
-import 'features/vault/presentation/pages/landing_page.dart';
 import 'features/vault/presentation/pages/vault_page.dart';
 import 'features/ransomware_monitor/data/datasources/directory_watcher_service.dart';
 import 'features/ransomware_monitor/presentation/bloc/monitor_bloc.dart';
@@ -78,12 +77,7 @@ class MyApp extends StatelessWidget {
             ),
             useMaterial3: true,
           ),
-          initialRoute: isDesktop ? '/vault' : '/',
-          routes: {
-            '/': (context) => const LandingPage(),
-            '/download': (context) => const LandingPage(),
-            '/vault': (context) => const VaultPage(),
-          },
+          home: const VaultPage(),
         ),
       ),
     );

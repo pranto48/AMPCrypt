@@ -215,7 +215,10 @@ class VaultRepositoryImpl implements VaultRepository {
 
   @override
   void lockVault() {
-    _cachedMasterKey = null;
+    if (_cachedMasterKey != null) {
+      _cachedMasterKey!.fillRange(0, _cachedMasterKey!.length, 0);
+      _cachedMasterKey = null;
+    }
     _stopServerAndUnmount();
   }
 

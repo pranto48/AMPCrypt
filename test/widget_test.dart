@@ -35,23 +35,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
-    if (!isDesktop) {
-      // Verify it is on the LandingPage first
-      expect(find.text('AMPCrypt: Zero-Trust Data Safety'), findsOneWidget);
-
-      // Tap the CTA to navigate to the vault route
-      await tester.tap(find.text('Launch Web Vault'));
-      await tester.pumpAndSettle();
-
-      // Verify it is on the landing homepage first
-      expect(find.text('Next-Gen Zero-Trust Vault'), findsOneWidget);
-
-      // Tap the CTA to navigate to the console setup
-      await tester.tap(find.text('INITIALIZE SECURE VAULT'));
-      await tester.pumpAndSettle();
-    }
 
     // 3. Verify that it displays the setup screen elements
     expect(find.text('Initialize AMPCrypt Vault'), findsOneWidget);

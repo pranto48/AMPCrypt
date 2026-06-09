@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'tflite_stub.dart'
     if (dart.library.io) 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:crypto/crypto.dart'; // From cryptography / standard libraries
@@ -8,10 +9,26 @@ import 'package:crypto/crypto.dart'; // From cryptography / standard libraries
 /// Service to perform Face Verification using TFLite MobileFaceNet model
 /// with a deterministic fallback for system testing without native TFLite binaries.
 class FaceVerificationService {
+  static const MethodChannel _channel = MethodChannel('ampcrypt/windows_hello');
+
   Interpreter? _interpreter;
   bool _isModelLoaded = false;
 
   bool get isModelLoaded => _isModelLoaded;
+
+  /// Invokes native Windows Hello prompt
+  Future<bool> authenticateWindowsHello() async {
+    if (kIsWeb || !Platform.isWindows) {
+      return false;
+    }
+    try {
+      final bool? success = await _channel.invokeMethod<bool>('authenticate');
+      return success ?? false;
+    } catch (e) {
+      print('Windows Hello native authentication failed: $e');
+      return false;
+    }
+  }
 
   /// Attempts to initialize the TFLite model from assets.
   Future<void> loadModel() async {
