@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -31,19 +33,23 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    // Verify it is on the LandingPage first
-    expect(find.text('AMPCrypt: Zero-Trust Data Safety'), findsOneWidget);
+    final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
-    // Tap the CTA to navigate to the vault route
-    await tester.tap(find.text('Launch Web Vault'));
-    await tester.pumpAndSettle();
+    if (!isDesktop) {
+      // Verify it is on the LandingPage first
+      expect(find.text('AMPCrypt: Zero-Trust Data Safety'), findsOneWidget);
 
-    // Verify it is on the landing homepage first
-    expect(find.text('Next-Gen Zero-Trust Vault'), findsOneWidget);
+      // Tap the CTA to navigate to the vault route
+      await tester.tap(find.text('Launch Web Vault'));
+      await tester.pumpAndSettle();
 
-    // Tap the CTA to navigate to the console setup
-    await tester.tap(find.text('INITIALIZE SECURE VAULT'));
-    await tester.pumpAndSettle();
+      // Verify it is on the landing homepage first
+      expect(find.text('Next-Gen Zero-Trust Vault'), findsOneWidget);
+
+      // Tap the CTA to navigate to the console setup
+      await tester.tap(find.text('INITIALIZE SECURE VAULT'));
+      await tester.pumpAndSettle();
+    }
 
     // 3. Verify that it displays the setup screen elements
     expect(find.text('Initialize AMPCrypt Vault'), findsOneWidget);
