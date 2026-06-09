@@ -2201,8 +2201,10 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 16,
+                    runSpacing: 8,
                     children: [
                       TextButton(
                         onPressed: () {

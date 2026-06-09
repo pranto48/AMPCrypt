@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ampcrypt/core/crypto/mock_crypto_service.dart';
@@ -14,6 +15,8 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
+    final tempDir = Directory.systemTemp.createTempSync('ampcrypt_bloc_test_');
+    await prefs.setString('vault_path', tempDir.path);
     final cryptoService = MockCryptoService();
     vaultRepository = VaultRepositoryImpl(
       cryptoService: cryptoService,

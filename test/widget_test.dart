@@ -19,6 +19,8 @@ void main() {
     // 1. Setup mock SharedPreferences
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
+    final tempDir = Directory.systemTemp.createTempSync('ampcrypt_widget_test_');
+    await prefs.setString('vault_path', tempDir.path);
     final cryptoService = MockCryptoService();
     final vaultRepository = VaultRepositoryImpl(
       cryptoService: cryptoService,
