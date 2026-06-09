@@ -198,25 +198,26 @@ class VaultRepositoryImpl implements VaultRepository {
   }
 
   Future<void> _startServerAndMount(Uint8List masterKey) async {
-    final home = _getHomeDir();
-    final vaultPath = p.join(home, '.ampcrypt_vault');
+    final vaultPath = getVaultPath();
+    final driveLetter = getDriveLetter();
 
     // Start WebDAV server
     await _webDavServer.start(masterKey, vaultPath);
 
-    // Mount to Z: on Windows
+    // Mount to driveLetter on Windows
     if (Platform.isWindows && _webDavServer.isRunning) {
       final port = _webDavServer.port;
-      // First try to safely unmount any existing Z: drive to prevent conflicts
-      await Process.run('cmd.exe', ['/c', 'net use Z: /delete /y']);
+      // First try to safely unmount any existing drive to prevent conflicts
+      await Process.run('cmd.exe', ['/c', 'net use $driveLetter /delete /y']);
       // Mount the network drive
-      await Process.run('cmd.exe', ['/c', 'net use Z: http://localhost:$port /persistent:no']);
+      await Process.run('cmd.exe', ['/c', 'net use $driveLetter http://localhost:$port /persistent:no']);
     }
   }
 
   Future<void> _stopServerAndUnmount() async {
     if (Platform.isWindows) {
-      await Process.run('cmd.exe', ['/c', 'net use Z: /delete /y']);
+      final driveLetter = getDriveLetter();
+      await Process.run('cmd.exe', ['/c', 'net use $driveLetter /delete /y']);
     }
     await _webDavServer.stop();
   }
@@ -238,6 +239,46 @@ class VaultRepositoryImpl implements VaultRepository {
   @override
   Future<void> trustCurrentDevice() async {
     await _prefs.setBool('is_device_trusted', true);
+  }
+
+  @override
+  String getVaultPath() {
+    final configuredPath = _prefs.getString('vault_path');
+    if (configuredPath != null && configuredPath.isNotEmpty) {
+      return configuredPath;
+    }
+    final home = _getHomeDir();
+    return p.join(home, '.ampcrypt_vault');
+  }
+
+  @override
+  String getDriveLetter() {
+    return _prefs.getString('drive_letter') ?? 'Z:';
+  }
+
+  @override
+  Future<void> updateVaultSettings(String path, String driveLetter) async {
+    final isCurrentlyUnlocked = isUnlocked;
+    final masterKey = _cachedMasterKey;
+    
+    if (isCurrentlyUnlocked && masterKey != null) {
+      await _stopServerAndUnmount();
+    }
+    
+    await _prefs.setString('vault_path', path);
+    await _prefs.setString('drive_letter', driveLetter);
+    
+    if (isCurrentlyUnlocked && masterKey != null) {
+      await _startServerAndMount(masterKey);
+    }
+  }
+
+  @override
+  double get monitorSensitivity => _prefs.getDouble('monitor_sensitivity') ?? 0.65;
+
+  @override
+  Future<void> setMonitorSensitivity(double value) async {
+    await _prefs.setDouble('monitor_sensitivity', value);
   }
 
   // ─── HELPERS ─────────────────────────────────────────────────────────────────

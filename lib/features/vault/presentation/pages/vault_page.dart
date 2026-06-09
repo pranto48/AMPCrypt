@@ -8,6 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path/path.dart' as p;
 
 import '../bloc/vault_bloc.dart';
 import '../bloc/vault_event.dart';
@@ -272,7 +273,7 @@ class _VaultPageState extends State<VaultPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
             child: Row(
               children: [
                 Container(
@@ -343,7 +344,7 @@ class _VaultPageState extends State<VaultPage> {
                         ),
                       ),
                       subtitle: Text(
-                        '~\\.ampcrypt_vault',
+                        context.read<VaultBloc>().repository.getVaultPath(),
                         style: GoogleFonts.shareTechMono(
                           fontSize: 11,
                           color: const Color(0xFF94A3B8),
@@ -376,40 +377,317 @@ class _VaultPageState extends State<VaultPage> {
                 IconButton(
                   icon: const Icon(Icons.add, color: Color(0xFF94A3B8)),
                   tooltip: 'Create/Add Vault',
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Multiple vaults is a premium feature.',
-                          style: GoogleFonts.outfit(),
-                        ),
-                        backgroundColor: const Color(0xFF1E293B),
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-                  },
+                  onPressed: () => _showCreateVaultDialog(context),
                 ),
                 IconButton(
                   icon: const Icon(Icons.settings, color: Color(0xFF94A3B8)),
                   tooltip: 'Settings',
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Desktop settings configured automatically.',
-                          style: GoogleFonts.outfit(),
-                        ),
-                        backgroundColor: const Color(0xFF1E293B),
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-                  },
+                  onPressed: () => _showSettingsDialog(context),
                 ),
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  void _showCreateVaultDialog(BuildContext context) {
+    final repository = context.read<VaultBloc>().repository;
+    final defaultPath = repository.getVaultPath();
+    final defaultDrive = repository.getDriveLetter();
+
+    final nameController = TextEditingController(text: 'Primary');
+    final pathController = TextEditingController(text: defaultPath);
+    String selectedDrive = defaultDrive;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF0F172A),
+              title: Text(
+                'Create New Vault',
+                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+              content: SizedBox(
+                width: 450,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      style: GoogleFonts.outfit(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'Vault Name',
+                        labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
+                        enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                      ),
+                      onChanged: (val) {
+                        final cleanName = val.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_').toLowerCase();
+                        if (cleanName.isNotEmpty) {
+                          final parentDir = Directory(defaultPath).parent.path;
+                          setDialogState(() {
+                            pathController.text = p.join(parentDir, '.ampcrypt_vault_$cleanName');
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: pathController,
+                            style: GoogleFonts.outfit(color: Colors.white),
+                            decoration: InputDecoration(
+                              labelText: 'Vault Folder Path',
+                              labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
+                              enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.folder_open, color: Color(0xFF8B5CF6)),
+                          onPressed: () async {
+                            String? selectedDirectory = await FilePicker.getDirectoryPath();
+                            if (selectedDirectory != null) {
+                              setDialogState(() {
+                                pathController.text = selectedDirectory;
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: selectedDrive,
+                      dropdownColor: const Color(0xFF1E293B),
+                      decoration: InputDecoration(
+                        labelText: 'Virtual Drive Letter',
+                        labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
+                        enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                      ),
+                      style: GoogleFonts.outfit(color: Colors.white),
+                      items: ['D:', 'E:', 'F:', 'G:', 'H:', 'V:', 'W:', 'X:', 'Y:', 'Z:']
+                          .map((drive) => DropdownMenuItem(
+                                value: drive,
+                                child: Text(drive, style: GoogleFonts.outfit(color: Colors.white)),
+                              ))
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() {
+                            selectedDrive = val;
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: Text('Cancel', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8))),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8B5CF6),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () async {
+                    if (pathController.text.isNotEmpty) {
+                      final path = pathController.text;
+                      final drive = selectedDrive;
+                      Navigator.of(dialogContext).pop();
+                      
+                      await repository.updateVaultSettings(path, drive);
+                      
+                      if (context.mounted) {
+                        context.read<VaultBloc>().add(ResetToUninitializedEvent());
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: const Color(0xFF10B981),
+                            content: Text(
+                              'Vault profile configured. Setup your security keys.',
+                              style: GoogleFonts.outfit(),
+                            ),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  child: Text('Create & Setup', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showSettingsDialog(BuildContext context) {
+    final repository = context.read<VaultBloc>().repository;
+    final currentPath = repository.getVaultPath();
+    final currentDrive = repository.getDriveLetter();
+    final currentSensitivity = repository.monitorSensitivity;
+
+    final pathController = TextEditingController(text: currentPath);
+    String selectedDrive = currentDrive;
+    double selectedSensitivity = currentSensitivity;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF0F172A),
+              title: Text(
+                'AMPCrypt Settings',
+                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+              content: SizedBox(
+                width: 450,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: pathController,
+                            style: GoogleFonts.outfit(color: Colors.white),
+                            decoration: InputDecoration(
+                              labelText: 'Vault Folder Path',
+                              labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
+                              enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.folder_open, color: Color(0xFF8B5CF6)),
+                          onPressed: () async {
+                            String? selectedDirectory = await FilePicker.getDirectoryPath();
+                            if (selectedDirectory != null) {
+                              setDialogState(() {
+                                pathController.text = selectedDirectory;
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: selectedDrive,
+                      dropdownColor: const Color(0xFF1E293B),
+                      decoration: InputDecoration(
+                        labelText: 'Virtual Drive Letter',
+                        labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
+                        enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                      ),
+                      style: GoogleFonts.outfit(color: Colors.white),
+                      items: ['D:', 'E:', 'F:', 'G:', 'H:', 'V:', 'W:', 'X:', 'Y:', 'Z:']
+                          .map((drive) => DropdownMenuItem(
+                                value: drive,
+                                child: Text(drive, style: GoogleFonts.outfit(color: Colors.white)),
+                              ))
+                          .toList(),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setDialogState(() {
+                            selectedDrive = val;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Ransomware Detection Sensitivity',
+                              style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13),
+                            ),
+                            Text(
+                              selectedSensitivity.toStringAsFixed(2),
+                              style: GoogleFonts.shareTechMono(color: const Color(0xFF8B5CF6), fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                        Slider(
+                          value: selectedSensitivity,
+                          min: 0.3,
+                          max: 0.9,
+                          activeColor: const Color(0xFF8B5CF6),
+                          inactiveColor: const Color(0xFF334155),
+                          onChanged: (val) {
+                            setDialogState(() {
+                              selectedSensitivity = val;
+                            });
+                          },
+                        ),
+                        Text(
+                          'Lower value = higher protection (more sensitive), Higher value = fewer false alarms.',
+                          style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: Text('Cancel', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8))),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8B5CF6),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () async {
+                    if (pathController.text.isNotEmpty) {
+                      final path = pathController.text;
+                      final drive = selectedDrive;
+                      final sensitivity = selectedSensitivity;
+                      Navigator.of(dialogContext).pop();
+                      
+                      await repository.updateVaultSettings(path, drive);
+                      await repository.setMonitorSensitivity(sensitivity);
+                      
+                      if (context.mounted) {
+                        context.read<VaultBloc>().add(CheckVaultStatusEvent());
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: const Color(0xFF10B981),
+                            content: Text(
+                              'Settings updated successfully.',
+                              style: GoogleFonts.outfit(),
+                            ),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  child: Text('Save Settings', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -458,7 +736,7 @@ class _VaultPageState extends State<VaultPage> {
                   if (isCreated) ...[
                     const SizedBox(width: 12),
                     Text(
-                      '•  Directory: C:\\Users\\${Platform.environment['USERNAME'] ?? 'User'}\\.ampcrypt_vault',
+                      '•  Directory: ${context.read<VaultBloc>().repository.getVaultPath()}',
                       style: GoogleFonts.outfit(
                         fontSize: 13,
                         color: const Color(0xFF94A3B8),

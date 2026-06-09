@@ -7,6 +7,8 @@ import 'vault_state.dart';
 class VaultBloc extends Bloc<VaultEvent, VaultState> {
   final VaultRepository _vaultRepository;
 
+  VaultRepository get repository => _vaultRepository;
+
   VaultBloc({required VaultRepository vaultRepository})
       : _vaultRepository = vaultRepository,
         super(VaultInitialState()) {
@@ -114,7 +116,15 @@ class VaultBloc extends Bloc<VaultEvent, VaultState> {
   Future<void> _onResetToUninitialized(ResetToUninitializedEvent event, Emitter<VaultState> emit) async {
     _vaultRepository.lockVault();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await prefs.remove('vault_created');
+    await prefs.remove('auth_level');
+    await prefs.remove('password_salt');
+    await prefs.remove('encrypted_password_share');
+    await prefs.remove('mock_fingerprint_share');
+    await prefs.remove('mock_face_share');
+    await prefs.remove('mock_voice_share');
+    await prefs.remove('registered_face_embedding');
+    await prefs.remove('registered_voice_embedding');
     emit(VaultUninitializedState());
   }
 }

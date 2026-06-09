@@ -36,4 +36,19 @@ abstract class VaultRepository {
 
   /// Registers/Trusts the current device (mock).
   Future<void> trustCurrentDevice();
+
+  /// Gets the vault folder path.
+  String getVaultPath();
+
+  /// Gets the virtual drive mount letter.
+  String getDriveLetter();
+
+  /// Updates the vault storage path and drive letter.
+  Future<void> updateVaultSettings(String path, String driveLetter);
+
+  /// Gets the Ransomware Monitor sensitivity threshold.
+  double get monitorSensitivity;
+
+  /// Sets the Ransomware Monitor sensitivity threshold.
+  Future<void> setMonitorSensitivity(double value);
 }

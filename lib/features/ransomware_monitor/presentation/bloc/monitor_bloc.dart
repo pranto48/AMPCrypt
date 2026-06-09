@@ -5,6 +5,7 @@ import '../../data/datasources/directory_watcher_service.dart';
 import '../../data/models/sliding_window_features.dart';
 import 'package:ampcrypt/features/vault/presentation/bloc/vault_bloc.dart';
 import 'package:ampcrypt/features/vault/presentation/bloc/vault_event.dart';
+import 'package:ampcrypt/features/vault/domain/repositories/vault_repository.dart';
 import 'monitor_event.dart';
 import 'monitor_state.dart';
 
@@ -12,6 +13,7 @@ import 'monitor_state.dart';
 class MonitorBloc extends Bloc<MonitorEvent, MonitorState> {
   final DirectoryWatcherService _watcherService;
   final VaultBloc _vaultBloc;
+  final VaultRepository _vaultRepository;
   final IsolationForest _isolationForest;
 
   StreamSubscription<SlidingWindowFeatures>? _featuresSubscription;
@@ -24,8 +26,10 @@ class MonitorBloc extends Bloc<MonitorEvent, MonitorState> {
   MonitorBloc({
     required DirectoryWatcherService watcherService,
     required VaultBloc vaultBloc,
+    required VaultRepository vaultRepository,
   })  : _watcherService = watcherService,
         _vaultBloc = vaultBloc,
+        _vaultRepository = vaultRepository,
         _isolationForest = IsolationForest(numTrees: 100, subsampleSize: 256),
         super(const MonitorState()) {
     on<StartMonitoringEvent>(_onStartMonitoring);
@@ -125,9 +129,12 @@ class MonitorBloc extends Bloc<MonitorEvent, MonitorState> {
       bool triggerAlarm = state.isAlarmTriggered;
       String status = 'Monitoring active.';
 
-      if (score >= 0.65 && !triggerAlarm) {
+      final threshold = _vaultRepository.monitorSensitivity;
+      if (score >= threshold && !triggerAlarm) {
         triggerAlarm = true;
         status = 'ALERT: ANOMALOUS ACTIVITY DETECTED!';
+        // Stop watching to prevent further alerts during alarm state
+        _watcherService.stopWatching();
         // Lock the vault immediately to protect contents
         _vaultBloc.add(LockVaultEvent());
       }
@@ -143,6 +150,9 @@ class MonitorBloc extends Bloc<MonitorEvent, MonitorState> {
   }
 
   void _onResetAlarm(ResetMonitorAlarmEvent event, Emitter<MonitorState> emit) {
+    if (state.watchedPath != null) {
+      _watcherService.startWatching(state.watchedPath!);
+    }
     emit(state.copyWith(
       isAlarmTriggered: false,
       currentAnomalyScore: 0.0,

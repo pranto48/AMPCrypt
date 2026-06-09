@@ -58,6 +58,7 @@ class MyApp extends StatelessWidget {
         create: (context) => MonitorBloc(
           watcherService: watcherService,
           vaultBloc: context.read<VaultBloc>(),
+          vaultRepository: vaultRepository,
         ),
         child: MaterialApp(
           title: 'AMPCrypt Zero-Trust Vault',
