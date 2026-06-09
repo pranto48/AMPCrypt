@@ -709,6 +709,7 @@ class _CreateVaultViewState extends State<CreateVaultView> {
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   final _formKey = GlobalKey<FormState>();
+  int _selectedAuthLevel = 4;
 
   double _strength = 0;
   String _strengthLabel = "Too Weak";
@@ -748,8 +749,72 @@ class _CreateVaultViewState extends State<CreateVaultView> {
 
   void _submitSetup() {
     if (_formKey.currentState!.validate()) {
-      context.read<VaultBloc>().add(CreateVaultEvent(_passwordController.text));
+      context.read<VaultBloc>().add(
+        CreateVaultEvent(_passwordController.text, authLevel: _selectedAuthLevel),
+      );
     }
+  }
+
+  Widget _securityTile({
+    required int level,
+    required String label,
+    required String subtitle,
+    required IconData icon,
+  }) {
+    final isSelected = _selectedAuthLevel == level;
+    final accentColors = [
+      const Color(0xFF10B981), // 1FA
+      const Color(0xFF3B82F6), // 2FA
+      const Color(0xFFF59E0B), // 3FA
+      const Color(0xFF8B5CF6), // 4FA
+    ];
+    final accent = accentColors[level - 1];
+    return GestureDetector(
+      onTap: () => setState(() => _selectedAuthLevel = level),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? accent.withOpacity(0.12) : const Color(0xFF1E1E38).withOpacity(0.4),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? accent.withOpacity(0.6) : const Color(0xFF2E3556),
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: isSelected ? accent : const Color(0xFF64748B)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    label,
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.outfit(
+                      fontSize: 10,
+                      color: isSelected ? accent : const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isSelected)
+              Icon(Icons.check_circle_rounded, size: 14, color: accent),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -978,13 +1043,28 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
-  final _fingerprintService = FingerprintVerificationService();
-  final _voiceService = VoiceVerificationService();
+  // The auth level configured at vault creation time (loaded from prefs)
+  int _configuredAuthLevel = 4;
 
-  // Biometrics toggles
+  @override
+  void initState() {
+    super.initState();
+    _loadConfiguredAuthLevel();
+  }
+
+  Future<void> _loadConfiguredAuthLevel() async {
+    final prefs = await SharedPreferences.getInstance();
+    final level = prefs.getInt('auth_level') ?? 4;
+    if (mounted) setState(() => _configuredAuthLevel = level);
+  }
+
+  // Biometric factor toggles — only shown/required based on _configuredAuthLevel
   bool _faceVerified = false;
   bool _fingerprintVerified = false;
   bool _voiceVerified = false;
+
+  final _fingerprintService = FingerprintVerificationService();
+  final _voiceService = VoiceVerificationService();
 
   void _verifyFaceBiometric() async {
     final prefs = await SharedPreferences.getInstance();
@@ -1069,11 +1149,26 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
       return;
     }
 
-    if (!_faceVerified || !_fingerprintVerified || !_voiceVerified) {
+    // Only require biometric factors that were configured at vault creation
+    final bool needsFingerprint = _configuredAuthLevel >= 2;
+    final bool needsFace = _configuredAuthLevel >= 3;
+    final bool needsVoice = _configuredAuthLevel >= 4;
+
+    if ((needsFingerprint && !_fingerprintVerified) ||
+        (needsFace && !_faceVerified) ||
+        (needsVoice && !_voiceVerified)) {
+      final missing = [
+        if (needsFingerprint && !_fingerprintVerified) 'Fingerprint',
+        if (needsFace && !_faceVerified) 'Face',
+        if (needsVoice && !_voiceVerified) 'Voice',
+      ].join(', ');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: const Color(0xFF3F0B24),
-          content: Text('All interlocking biometric factors must be validated.', style: GoogleFonts.outfit()),
+          content: Text(
+            'Missing factors: $missing. All $_configuredAuthLevel configured factors required.',
+            style: GoogleFonts.outfit(),
+          ),
         ),
       );
       return;

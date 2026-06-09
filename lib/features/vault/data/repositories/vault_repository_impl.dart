@@ -5,6 +5,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/crypto/crypto_service.dart';
 import '../../domain/repositories/vault_repository.dart';
 
+/// Factor names in Group 1, indexed by position.
+/// For an authLevel of N, only the first N factors are used.
+const _kFactorKeys = [
+  'encrypted_password_share',  // Factor 0 — always present
+  'mock_fingerprint_share',    // Factor 1 — 2FA+
+  'mock_face_share',           // Factor 2 — 3FA+
+  'mock_voice_share',          // Factor 3 — 4FA
+];
+
 class VaultRepositoryImpl implements VaultRepository {
   final CryptoService _cryptoService;
   final SharedPreferences _prefs;
@@ -31,55 +40,77 @@ class VaultRepositoryImpl implements VaultRepository {
   }
 
   @override
-  Future<List<String>> createVault(String password) async {
-    // 1. Generate Master Key (256-bit)
-    final masterKey = _cryptoService.generateSecureRandom(32);
+  int get configuredAuthLevel => _prefs.getInt('auth_level') ?? 4;
 
-    // 2. Generate Salt (16 bytes)
+  // ─── CREATE VAULT ────────────────────────────────────────────────────────────
+
+  @override
+  Future<List<String>> createVault(String password, {int authLevel = 4}) async {
+    final level = authLevel.clamp(1, 4);
+
+    // 1. Generate Master Key (256-bit) and Salt (16 bytes)
+    final masterKey = _cryptoService.generateSecureRandom(32);
     final salt = _cryptoService.generateSecureRandom(16);
 
-    // 3. Split Master Key via SLIP-39
-    // Returns 7 mnemonics:
-    // 0-3: Group 1 (Operational: Password-bound, Face, Fingerprint, Voice)
-    // 4-6: Group 2 (Backup Recovery: 3 shares, threshold 2)
+    // 2. Split Master Key via SLIP-39 using the selected auth level.
+    //    Returns: level Group-1 shares + 3 Group-2 backup shares = level+3 mnemonics.
+    //    Ordering: [0..level-1] = Group 1 operational, [level..level+2] = Group 2 backup.
     final passphrase = "ampcrypt-secure-passphrase";
-    final mnemonics = _cryptoService.splitSecret(masterKey, passphrase: passphrase);
+    final mnemonics = _cryptoService.splitSecret(
+      masterKey,
+      passphrase: passphrase,
+      authLevel: level,
+    );
 
-    final passwordShare = mnemonics[0];
-    final faceShare = mnemonics[1];
-    final fingerprintShare = mnemonics[2];
-    final voiceShare = mnemonics[3];
-    final recoveryMnemonics = mnemonics.sublist(4);
+    // Group 1 shares: indices 0 … level-1
+    final operationalShares = mnemonics.sublist(0, level);
+    // Group 2 recovery shares: indices level … level+2
+    final recoveryMnemonics = mnemonics.sublist(level, level + 3);
 
-    // 4. Derive key from password
+    // 3. Derive key from password using Argon2id
     final derivedKey = await _cryptoService.deriveKey(password, salt);
 
-    // 5. Encrypt Password-Bound Share
+    // 4. Encrypt the password-bound share (Factor 0) with the derived key
     final encryptedPasswordShare = await _cryptoService.encryptData(
-      Uint8List.fromList(utf8.encode(passwordShare)),
+      Uint8List.fromList(utf8.encode(operationalShares[0])),
       derivedKey,
     );
 
-    // 6. Save encrypted shares, salt, and details in SharedPreferences
+    // 5. Persist salt + encrypted password share
     await _prefs.setString('password_salt', base64Encode(salt));
     await _prefs.setString('encrypted_password_share', base64Encode(encryptedPasswordShare));
-    await _prefs.setString('mock_face_share', base64Encode(utf8.encode(faceShare)));
-    await _prefs.setString('mock_fingerprint_share', base64Encode(utf8.encode(fingerprintShare)));
-    await _prefs.setString('mock_voice_share', base64Encode(utf8.encode(voiceShare)));
+
+    // 6. Persist the remaining operational shares (Factors 1-3) as mock biometric shares.
+    //    We store only the shares that exist for this auth level.
+    for (int i = 1; i < level; i++) {
+      await _prefs.setString(
+        _kFactorKeys[i],
+        base64Encode(utf8.encode(operationalShares[i])),
+      );
+    }
+    // Clear any old shares from a previous higher auth level
+    for (int i = level; i < 4; i++) {
+      await _prefs.remove(_kFactorKeys[i]);
+    }
+
+    // 7. Persist metadata
+    await _prefs.setInt('auth_level', level);
     await _prefs.setBool('vault_created', true);
     await _prefs.setBool('is_device_trusted', true);
     await _prefs.setString('device_fingerprint', _generateMockDeviceFingerprint());
 
-    // Cache the master key since it's just created (unlocked state)
+    // 8. Cache master key (vault is now unlocked)
     _cachedMasterKey = masterKey;
 
-    // Return the recovery mnemonics to display to the user
     return recoveryMnemonics;
   }
+
+  // ─── UNLOCK VAULT ────────────────────────────────────────────────────────────
 
   @override
   Future<bool> unlockVault(String password) async {
     try {
+      final level = configuredAuthLevel;
       final saltBase64 = _prefs.getString('password_salt');
       final encryptedShareBase64 = _prefs.getString('encrypted_password_share');
       if (saltBase64 == null || encryptedShareBase64 == null) return false;
@@ -87,40 +118,35 @@ class VaultRepositoryImpl implements VaultRepository {
       final salt = base64Decode(saltBase64);
       final encryptedPasswordShare = base64Decode(encryptedShareBase64);
 
-      // 1. Derive key from password
+      // 1. Derive key from password and decrypt the password share (Factor 0)
       final derivedKey = await _cryptoService.deriveKey(password, salt);
-
-      // 2. Decrypt Password-Bound Share
       final decryptedBytes = await _cryptoService.decryptData(encryptedPasswordShare, derivedKey);
       final passwordShare = utf8.decode(decryptedBytes);
 
-      // 3. Load other operational shares
-      final faceShareBase64 = _prefs.getString('mock_face_share');
-      final fingerprintShareBase64 = _prefs.getString('mock_fingerprint_share');
-      final voiceShareBase64 = _prefs.getString('mock_voice_share');
+      // 2. Collect all Group-1 shares needed to reconstruct the master key
+      final List<String> sharesToReconstruct = [passwordShare];
 
-      if (faceShareBase64 == null || fingerprintShareBase64 == null || voiceShareBase64 == null) {
-        return false;
+      for (int i = 1; i < level; i++) {
+        final shareBase64 = _prefs.getString(_kFactorKeys[i]);
+        if (shareBase64 == null) return false; // Missing required share
+        sharesToReconstruct.add(utf8.decode(base64Decode(shareBase64)));
       }
 
-      final faceShare = utf8.decode(base64Decode(faceShareBase64));
-      final fingerprintShare = utf8.decode(base64Decode(fingerprintShareBase64));
-      final voiceShare = utf8.decode(base64Decode(voiceShareBase64));
-
-      // 4. Reconstruct Master Key using SLIP-39 Group 1 shares (4-of-4)
+      // 3. Reconstruct master key — all Group-1 shares (threshold = level = all required)
       final passphrase = "ampcrypt-secure-passphrase";
       final recoveredMasterKey = _cryptoService.recoverSecret(
-        [passwordShare, faceShare, fingerprintShare, voiceShare],
+        sharesToReconstruct,
         passphrase: passphrase,
       );
 
       _cachedMasterKey = recoveredMasterKey;
       return true;
     } catch (e) {
-      // Failed decryption or recovery
       return false;
     }
   }
+
+  // ─── RECOVERY ────────────────────────────────────────────────────────────────
 
   @override
   Future<bool> recoverVault(List<String> recoveryPhrases) async {
@@ -141,10 +167,14 @@ class VaultRepositoryImpl implements VaultRepository {
     }
   }
 
+  // ─── LOCK ────────────────────────────────────────────────────────────────────
+
   @override
   void lockVault() {
     _cachedMasterKey = null;
   }
+
+  // ─── DEVICE STATUS ───────────────────────────────────────────────────────────
 
   @override
   Future<Map<String, dynamic>> getDeviceStatus() async {
@@ -153,7 +183,7 @@ class VaultRepositoryImpl implements VaultRepository {
     return {
       'is_trusted': isTrusted,
       'device_fingerprint': fingerprint,
-      'device_name': 'Local Web Browser Client',
+      'device_name': 'Local Windows Client',
       'last_verified': DateTime.now().toIso8601String(),
     };
   }
@@ -162,6 +192,8 @@ class VaultRepositoryImpl implements VaultRepository {
   Future<void> trustCurrentDevice() async {
     await _prefs.setBool('is_device_trusted', true);
   }
+
+  // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
   String _generateMockDeviceFingerprint() {
     final random = Random();
