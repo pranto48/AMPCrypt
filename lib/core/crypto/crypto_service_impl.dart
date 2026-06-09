@@ -33,20 +33,25 @@ class CryptoServiceImpl implements CryptoService {
   }
 
   @override
-  List<String> splitSecret(Uint8List secret, {required String passphrase}) {
+  List<String> splitSecret(Uint8List secret, {required String passphrase, int authLevel = 4}) {
     // SLIP-39 group structure:
-    // Group 1: Operational Factors -> threshold 4, size 4 (Password-bound, Face, Fingerprint, Voice)
-    // Group 2: Backup Recovery -> threshold 2, size 3
+    // Group 1: Operational Factors -> threshold = authLevel, size = authLevel
+    //   1FA: [1,1] Password only
+    //   2FA: [2,2] Password + Fingerprint
+    //   3FA: [3,3] Password + Fingerprint + Face
+    //   4FA: [4,4] Password + Fingerprint + Face + Voice
+    // Group 2: Backup Recovery -> threshold 2, size 3 (always)
+    final level = authLevel.clamp(1, 4);
     final groups = [
-      [4, 4], // Group 1
-      [2, 3], // Group 2
+      [level, level], // Group 1 — operational
+      [2, 3],         // Group 2 — backup recovery
     ];
 
     final slip = Slip39.from(
       groups,
       masterSecret: secret,
       passphrase: passphrase,
-      threshold: 1, // Either group is sufficient to recover the secret
+      threshold: 1, // Either group alone is sufficient to recover the secret
     );
 
     return slip.fromPath('r').mnemonics;

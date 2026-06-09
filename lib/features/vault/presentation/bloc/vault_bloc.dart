@@ -29,7 +29,10 @@ class VaultBloc extends Bloc<VaultEvent, VaultState> {
   Future<void> _onCreateVault(CreateVaultEvent event, Emitter<VaultState> emit) async {
     emit(const VaultLoadingState(message: 'Hashing password via Argon2id & creating SLIP-39 shares...'));
     try {
-      final recoveryPhrases = await _vaultRepository.createVault(event.password);
+      final recoveryPhrases = await _vaultRepository.createVault(
+        event.password,
+        authLevel: event.authLevel,
+      );
       final masterKey = _vaultRepository.masterKeyHex ?? '';
       final deviceStatus = await _vaultRepository.getDeviceStatus();
       
@@ -37,6 +40,7 @@ class VaultBloc extends Bloc<VaultEvent, VaultState> {
         masterKeyHex: masterKey,
         backupRecoveryPhrases: recoveryPhrases,
         deviceStatus: deviceStatus,
+        authLevel: event.authLevel,
       ));
     } catch (e) {
       emit(VaultFailureState(
@@ -53,9 +57,11 @@ class VaultBloc extends Bloc<VaultEvent, VaultState> {
       if (success) {
         final masterKey = _vaultRepository.masterKeyHex ?? '';
         final deviceStatus = await _vaultRepository.getDeviceStatus();
+        final authLevel = _vaultRepository.configuredAuthLevel;
         emit(VaultUnlockedState(
           masterKeyHex: masterKey,
           deviceStatus: deviceStatus,
+          authLevel: authLevel,
         ));
       } else {
         emit(VaultFailureState(

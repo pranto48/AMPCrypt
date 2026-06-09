@@ -8,10 +8,14 @@ abstract class CryptoService {
   Future<Uint8List> deriveKey(String password, Uint8List salt);
 
   /// Splits a master secret into SLIP-39 mnemonic shares.
-  /// 
-  /// Group 1 (Operational): 4-of-4 threshold (Password-bound, Face, Fingerprint, Voice).
-  /// Group 2 (Backup): 2-of-3 threshold (Backup Recovery mnemonics).
-  List<String> splitSecret(Uint8List secret, {required String passphrase});
+  ///
+  /// [authLevel] controls the Group 1 configuration (1–4):
+  ///   1FA → Group 1 = [1, 1]  (Password only)
+  ///   2FA → Group 1 = [2, 2]  (Password + Fingerprint)
+  ///   3FA → Group 1 = [3, 3]  (Password + Fingerprint + Face)
+  ///   4FA → Group 1 = [4, 4]  (All four factors)
+  /// Group 2 (Backup): always 2-of-3 threshold.
+  List<String> splitSecret(Uint8List secret, {required String passphrase, int authLevel = 4});
 
   /// Recovers the master secret from SLIP-39 mnemonic shares.
   Uint8List recoverSecret(List<String> mnemonics, {required String passphrase});

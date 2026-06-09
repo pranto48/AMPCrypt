@@ -26,15 +26,17 @@ class VaultUnlockedState extends VaultState {
   final String masterKeyHex;
   final List<String>? backupRecoveryPhrases;
   final Map<String, dynamic> deviceStatus;
+  final int authLevel;
 
   const VaultUnlockedState({
     required this.masterKeyHex,
     this.backupRecoveryPhrases,
     required this.deviceStatus,
+    this.authLevel = 4,
   });
 
   @override
-  List<Object?> get props => [masterKeyHex, backupRecoveryPhrases, deviceStatus];
+  List<Object?> get props => [masterKeyHex, backupRecoveryPhrases, deviceStatus, authLevel];
 }
 
 class VaultFailureState extends VaultState {

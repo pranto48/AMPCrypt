@@ -24,10 +24,11 @@ class MockCryptoService implements CryptoService {
   }
 
   @override
-  List<String> splitSecret(Uint8List secret, {required String passphrase}) {
+  List<String> splitSecret(Uint8List secret, {required String passphrase, int authLevel = 4}) {
+    final level = authLevel.clamp(1, 4);
     final groups = [
-      [4, 4], // Group 1
-      [2, 3], // Group 2
+      [level, level], // Group 1 — dynamic
+      [2, 3],         // Group 2 — backup
     ];
 
     final slip = Slip39.from(
