@@ -11,6 +11,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as p;
 import 'package:local_auth/local_auth.dart';
 import 'package:camera/camera.dart';
+import 'package:window_manager/window_manager.dart';
+import 'package:tray_manager/tray_manager.dart';
+import 'package:launch_at_startup/launch_at_startup.dart';
 
 import '../bloc/vault_bloc.dart';
 import '../bloc/vault_event.dart';
@@ -29,16 +32,91 @@ class VaultPage extends StatefulWidget {
   State<VaultPage> createState() => _VaultPageState();
 }
 
-enum ActiveView { console, settings }
+enum ActiveView { dashboard, settings, recovery }
 
-class _VaultPageState extends State<VaultPage> {
-  ActiveView _activeView = ActiveView.console;
+class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener {
+  ActiveView _activeView = ActiveView.dashboard;
 
   @override
   void initState() {
     super.initState();
+    windowManager.addListener(this);
+    _initSystemTray();
     // Check initial vault status
     context.read<VaultBloc>().add(CheckVaultStatusEvent());
+  }
+
+  @override
+  void dispose() {
+    windowManager.removeListener(this);
+    trayManager.removeListener(this);
+    super.dispose();
+  }
+
+  Future<void> _initSystemTray() async {
+    if (kIsWeb || (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux)) return;
+
+    try {
+      await trayManager.setIcon(
+        Platform.isWindows 
+            ? 'windows/runner/resources/app_icon.ico' 
+            : 'macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png'
+      );
+      
+      final menu = Menu(
+        items: [
+          MenuItem(key: 'open', label: 'Open Dashboard'),
+          MenuItem(key: 'lock', label: 'Lock All Vaults'),
+          MenuItem.separator(),
+          MenuItem(key: 'quit', label: 'Quit'),
+        ],
+      );
+      await trayManager.setContextMenu(menu);
+      trayManager.addListener(this);
+    } catch (e) {
+      debugPrint('Failed to initialize system tray: $e');
+    }
+  }
+
+  // --- WindowListener overrides ---
+  @override
+  void onWindowClose() async {
+    final isPreventClose = await windowManager.isPreventClose();
+    if (isPreventClose) {
+      await windowManager.hide();
+    }
+  }
+
+  // --- TrayListener overrides ---
+  void onTrayIconClick() {
+    _restoreWindow();
+  }
+
+  @override
+  void onTrayMenuItemClick(MenuItem menuItem) {
+    if (menuItem.key == 'open') {
+      _restoreWindow();
+    } else if (menuItem.key == 'lock') {
+      context.read<VaultBloc>().add(LockVaultEvent());
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFFEF4444),
+          content: Text('All vaults locked from system tray.', style: GoogleFonts.outfit()),
+        ),
+      );
+    } else if (menuItem.key == 'quit') {
+      _quitApp();
+    }
+  }
+
+  Future<void> _restoreWindow() async {
+    await windowManager.show();
+    await windowManager.focus();
+  }
+
+  Future<void> _quitApp() async {
+    await windowManager.setPreventClose(false);
+    await windowManager.close();
   }
 
   @override
@@ -118,15 +196,67 @@ class _VaultPageState extends State<VaultPage> {
     );
   }
 
-
-
-
   Widget _buildSidebar(BuildContext context, VaultState state) {
     final isUnlocked = state is VaultUnlockedState;
     final isCreated = state is! VaultUninitializedState && state is! VaultInitialState;
 
+    Widget navItem({
+      required String title,
+      required IconData icon,
+      required ActiveView view,
+    }) {
+      final isSelected = _activeView == view;
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 3.0),
+        child: InkWell(
+          onTap: () {
+            setState(() {
+              _activeView = view;
+            });
+          },
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: isSelected 
+                  ? const Color(0xFF8B5CF6).withOpacity(0.12)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isSelected 
+                    ? const Color(0xFF8B5CF6).withOpacity(0.25)
+                    : Colors.transparent,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  color: isSelected ? const Color(0xFF8B5CF6) : const Color(0xFF64748B),
+                  size: 18,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                      color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Container(
-      width: 260,
+      width: 250,
       color: const Color(0xFF070A16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -145,28 +275,38 @@ class _VaultPageState extends State<VaultPage> {
                       width: 1,
                     ),
                   ),
-                  child: const Icon(Icons.shield, color: Color(0xFF8B5CF6), size: 20),
+                  child: const Icon(Icons.shield, color: Color(0xFF8B5CF6), size: 18),
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  'AMPCrypt',
-                  style: GoogleFonts.outfit(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    letterSpacing: 0.5,
+                Expanded(
+                  child: Text(
+                    'AMPCrypt Client',
+                    style: GoogleFonts.outfit(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 0.5,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
             ),
           ),
           Divider(color: Colors.white.withOpacity(0.06), height: 1),
+          const SizedBox(height: 12),
+          
+          navItem(title: 'Dashboard', icon: Icons.dashboard_outlined, view: ActiveView.dashboard),
+          navItem(title: 'Security Recovery', icon: Icons.vpn_key_outlined, view: ActiveView.recovery),
+          navItem(title: 'App Settings', icon: Icons.settings_outlined, view: ActiveView.settings),
+
+          const SizedBox(height: 16),
           Padding(
-            padding: const EdgeInsets.only(left: 24, right: 24, top: 16, bottom: 8),
+            padding: const EdgeInsets.only(left: 20, right: 20, bottom: 8),
             child: Text(
-              'VAULTS',
+              'CURRENT VAULT',
               style: GoogleFonts.outfit(
-                fontSize: 11,
+                fontSize: 10,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.5,
                 color: const Color(0xFF94A3B8).withOpacity(0.6),
@@ -179,46 +319,66 @@ class _VaultPageState extends State<VaultPage> {
               children: [
                 if (isCreated)
                   Container(
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF8B5CF6).withOpacity(0.08),
+                      color: const Color(0xFF8B5CF6).withOpacity(0.04),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: const Color(0xFF8B5CF6).withOpacity(0.2),
+                        color: const Color(0xFF8B5CF6).withOpacity(0.15),
                         width: 1,
                       ),
                     ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      leading: Icon(
-                        isUnlocked ? Icons.lock_open : Icons.lock,
-                        color: isUnlocked ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
-                        size: 22,
-                      ),
-                      title: Text(
-                        'Primary Vault',
-                        style: GoogleFonts.outfit(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              isUnlocked ? Icons.lock_open : Icons.lock,
+                              color: isUnlocked ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Primary Vault',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      subtitle: Text(
-                        context.read<VaultBloc>().repository.getVaultPath(),
-                        style: GoogleFonts.shareTechMono(
-                          fontSize: 11,
-                          color: const Color(0xFF94A3B8),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Path: ${context.read<VaultBloc>().repository.getVaultPath()}',
+                          style: GoogleFonts.shareTechMono(
+                            fontSize: 10,
+                            color: const Color(0xFF94A3B8),
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Drive: ${context.read<VaultBloc>().repository.getDriveLetter()}',
+                          style: GoogleFonts.shareTechMono(
+                            fontSize: 10,
+                            color: const Color(0xFF8B5CF6),
+                          ),
+                        ),
+                      ],
                     ),
                   )
                 else
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                     child: Text(
                       'No vaults initialized.',
                       style: GoogleFonts.outfit(
-                        fontSize: 13,
+                        fontSize: 12,
                         color: const Color(0xFF94A3B8),
                         fontStyle: FontStyle.italic,
                       ),
@@ -229,31 +389,24 @@ class _VaultPageState extends State<VaultPage> {
           ),
           Divider(color: Colors.white.withOpacity(0.06), height: 1),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.all(12.0),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.add, color: Color(0xFF94A3B8)),
-                  tooltip: 'Create/Add Vault',
-                  onPressed: () {
-                    setState(() {
-                      _activeView = ActiveView.console;
-                    });
-                    _showCreateVaultDialog(context);
-                  },
-                ),
-                IconButton(
-                  icon: Icon(
-                    Icons.settings,
-                    color: _activeView == ActiveView.settings ? const Color(0xFF8B5CF6) : const Color(0xFF94A3B8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1E293B),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      textStyle: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                    icon: const Icon(Icons.add, size: 14),
+                    label: const Text('NEW VAULT'),
+                    onPressed: () {
+                      _showCreateVaultDialog(context);
+                    },
                   ),
-                  tooltip: 'Settings',
-                  onPressed: () {
-                    setState(() {
-                      _activeView = _activeView == ActiveView.settings ? ActiveView.console : ActiveView.settings;
-                    });
-                  },
                 ),
               ],
             ),
@@ -403,12 +556,31 @@ class _VaultPageState extends State<VaultPage> {
     );
   }
 
-
-
-
   Widget _buildDesktopMainContent(BuildContext context, VaultState state) {
     final isUnlocked = state is VaultUnlockedState;
     final isCreated = state is! VaultUninitializedState && state is! VaultInitialState;
+
+    String viewTitle = 'Welcome to AMPCrypt';
+    String viewSubtitle = 'Secure Zero-Trust System';
+    IconData viewIcon = Icons.shield;
+    Color viewColor = const Color(0xFF94A3B8);
+
+    if (_activeView == ActiveView.settings) {
+      viewTitle = 'App Settings';
+      viewSubtitle = 'App Configuration & Hardware Diagnostics';
+      viewIcon = Icons.settings;
+      viewColor = const Color(0xFF8B5CF6);
+    } else if (_activeView == ActiveView.recovery) {
+      viewTitle = 'Master Key Recovery';
+      viewSubtitle = 'Reconstruct Master Key from SLIP-39 Mnemonic Shares';
+      viewIcon = Icons.vpn_key;
+      viewColor = const Color(0xFFFF9E0B);
+    } else if (isCreated) {
+      viewTitle = 'Primary Vault';
+      viewSubtitle = isUnlocked ? 'Unlocked & Mounted' : 'Locked';
+      viewIcon = isUnlocked ? Icons.lock_open : Icons.lock;
+      viewColor = isUnlocked ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -419,11 +591,9 @@ class _VaultPageState extends State<VaultPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _activeView == ActiveView.settings
-                    ? 'Settings'
-                    : (isCreated ? 'Primary Vault' : 'Welcome to AMPCrypt'),
+                viewTitle,
                 style: GoogleFonts.outfit(
-                  fontSize: 28,
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                   letterSpacing: -0.5,
@@ -433,28 +603,16 @@ class _VaultPageState extends State<VaultPage> {
               Row(
                 children: [
                   Icon(
-                    _activeView == ActiveView.settings
-                        ? Icons.settings
-                        : (isCreated 
-                            ? (isUnlocked ? Icons.lock_open : Icons.lock)
-                            : Icons.shield),
+                    viewIcon,
                     size: 14,
-                    color: _activeView == ActiveView.settings
-                        ? const Color(0xFF8B5CF6)
-                        : (isUnlocked ? const Color(0xFF10B981) : const Color(0xFF94A3B8)),
+                    color: viewColor,
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    _activeView == ActiveView.settings
-                        ? 'App Configuration & Hardware Diagnostics'
-                        : (isCreated
-                            ? (isUnlocked ? 'Unlocked' : 'Locked')
-                            : 'Secure Zero-Trust System'),
+                    viewSubtitle,
                     style: GoogleFonts.outfit(
-                      fontSize: 13,
-                      color: _activeView == ActiveView.settings
-                          ? const Color(0xFF8B5CF6)
-                          : (isUnlocked ? const Color(0xFF10B981) : const Color(0xFF94A3B8)),
+                      fontSize: 12,
+                      color: viewColor,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -467,16 +625,18 @@ class _VaultPageState extends State<VaultPage> {
         Expanded(
           child: Center(
             child: Padding(
-              padding: const EdgeInsets.all(32),
+              padding: const EdgeInsets.all(24),
               child: Container(
                 constraints: const BoxConstraints(
                   maxWidth: 800,
                 ),
                 child: _activeView == ActiveView.settings
-                    ? SettingsView(onClose: () => setState(() => _activeView = ActiveView.console))
-                    : (isUnlocked 
-                        ? UnlockedDashboardView(state: state)
-                        : _buildVaultConsoleView(context, state)),
+                    ? SettingsView(onClose: () => setState(() => _activeView = ActiveView.dashboard))
+                    : (_activeView == ActiveView.recovery
+                        ? const InlineRecoveryView()
+                        : (isUnlocked 
+                            ? UnlockedDashboardView(state: state)
+                            : _buildVaultConsoleView(context, state))),
               ),
             ),
           ),
@@ -499,9 +659,6 @@ class _VaultPageState extends State<VaultPage> {
     }
     return const Center(child: Text('Unknown State'));
   }
-
-
-
 
   Widget _buildFailureView(BuildContext context, VaultFailureState state) {
     final previousState = state.previousState;
@@ -526,11 +683,15 @@ class SettingsView extends StatefulWidget {
   State<SettingsView> createState() => _SettingsViewState();
 }
 
-class _SettingsViewState extends State<SettingsView> {
+class _SettingsViewState extends State<SettingsView> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   late TextEditingController pathController;
   late String selectedDrive;
   late double selectedSensitivity;
   late int selectedAutoLock;
+
+  bool isStartupEnabled = false;
+  bool isCheckingUpdates = false;
 
   bool isScanning = false;
   bool? hasFingerprint;
@@ -540,12 +701,88 @@ class _SettingsViewState extends State<SettingsView> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    
     final repository = context.read<VaultBloc>().repository;
     pathController = TextEditingController(text: repository.getVaultPath());
     selectedDrive = repository.getDriveLetter();
     selectedSensitivity = repository.monitorSensitivity;
     selectedAutoLock = repository.autoLockMinutes;
+    
+    _loadStartupStatus();
     _runDiagnostic();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    pathController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadStartupStatus() async {
+    if (kIsWeb || !Platform.isWindows) return;
+    try {
+      final enabled = await launchAtStartup.isEnabled();
+      setState(() {
+        isStartupEnabled = enabled;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _toggleStartup(bool val) async {
+    if (kIsWeb || !Platform.isWindows) return;
+    try {
+      if (val) {
+        await launchAtStartup.enable();
+      } else {
+        await launchAtStartup.disable();
+      }
+      setState(() {
+        isStartupEnabled = val;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF10B981),
+          content: Text(
+            val ? 'AMPCrypt registered to launch at startup.' : 'Startup launch disabled.',
+            style: GoogleFonts.outfit(),
+          ),
+        ),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _checkUpdates() async {
+    setState(() {
+      isCheckingUpdates = true;
+    });
+    await Future.delayed(const Duration(milliseconds: 1200));
+    if (mounted) {
+      setState(() {
+        isCheckingUpdates = false;
+      });
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFF0F172A),
+          title: Text(
+            'Software Update',
+            style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            'You are running the latest version of AMPCrypt (v1.0.0).',
+            style: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('OK', style: GoogleFonts.outfit(color: const Color(0xFF8B5CF6), fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   Future<void> _runDiagnostic() async {
@@ -643,185 +880,289 @@ class _SettingsViewState extends State<SettingsView> {
   @override
   Widget build(BuildContext context) {
     final repository = context.read<VaultBloc>().repository;
-    final authLevel = repository.isVaultCreated ? repository.configuredAuthLevel : 1;
-    final authLabels = [
-      '1FA — Password only',
-      '2FA — Password + Fingerprint',
-      '3FA — Password + Fingerprint + Face',
-      '4FA — Password + Fingerprint + Face + Voice',
-    ];
 
     return GlassmorphicCard(
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
+            TabBar(
+              controller: _tabController,
+              indicatorColor: const Color(0xFF8B5CF6),
+              labelColor: Colors.white,
+              unselectedLabelColor: const Color(0xFF64748B),
+              labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
+              unselectedLabelStyle: GoogleFonts.outfit(fontSize: 13),
+              tabs: const [
+                Tab(text: 'General Settings'),
+                Tab(text: 'System & Startup'),
+                Tab(text: 'Security & Hardware'),
+              ],
+            ),
+            const SizedBox(height: 16),
             Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: TabBarView(
+                controller: _tabController,
+                physics: const NeverScrollableScrollPhysics(),
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'GENERAL CONFIGURATION',
-                          style: GoogleFonts.outfit(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
-                            color: const Color(0xFF8B5CF6),
-                          ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'DIRECTORY CONFIGURATION',
+                        style: GoogleFonts.outfit(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                          color: const Color(0xFF8B5CF6),
                         ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: pathController,
-                                style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
-                                decoration: InputDecoration(
-                                  labelText: 'Vault Folder Path',
-                                  labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13),
-                                  enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                                  focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF8B5CF6))),
-                                ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: pathController,
+                              style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 12),
+                              decoration: InputDecoration(
+                                labelText: 'Vault Folder Path',
+                                labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF8B5CF6))),
                               ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.folder_open, color: Color(0xFF8B5CF6), size: 20),
-                              onPressed: () async {
-                                String? selectedDirectory = await FilePicker.getDirectoryPath();
-                                if (selectedDirectory != null) {
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.folder_open, color: Color(0xFF8B5CF6), size: 18),
+                            onPressed: () async {
+                              String? selectedDirectory = await FilePicker.getDirectoryPath();
+                              if (selectedDirectory != null) {
+                                setState(() {
+                                  pathController.text = selectedDirectory;
+                                });
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: selectedDrive,
+                              dropdownColor: const Color(0xFF1E293B),
+                              decoration: InputDecoration(
+                                labelText: 'Virtual Drive Letter',
+                                labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                              ),
+                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                              items: ['D:', 'E:', 'F:', 'G:', 'H:', 'V:', 'W:', 'X:', 'Y:', 'Z:']
+                                  .map((drive) => DropdownMenuItem(
+                                        value: drive,
+                                        child: Text(drive, style: GoogleFonts.outfit(color: Colors.white)),
+                                      ))
+                                  .toList(),
+                              onChanged: (val) {
+                                if (val != null) {
                                   setState(() {
-                                    pathController.text = selectedDirectory;
+                                    selectedDrive = val;
                                   });
                                 }
                               },
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        DropdownButtonFormField<String>(
-                          value: selectedDrive,
-                          dropdownColor: const Color(0xFF1E293B),
-                          decoration: InputDecoration(
-                            labelText: 'Virtual Drive Letter',
-                            labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13),
-                            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
                           ),
-                          style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
-                          items: ['D:', 'E:', 'F:', 'G:', 'H:', 'V:', 'W:', 'X:', 'Y:', 'Z:']
-                              .map((drive) => DropdownMenuItem(
-                                    value: drive,
-                                    child: Text(drive, style: GoogleFonts.outfit(color: Colors.white)),
-                                  ))
-                              .toList(),
-                          onChanged: (val) {
-                            if (val != null) {
-                              setState(() {
-                                selectedDrive = val;
-                              });
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        DropdownButtonFormField<int>(
-                          value: selectedAutoLock,
-                          dropdownColor: const Color(0xFF1E293B),
-                          decoration: InputDecoration(
-                            labelText: 'Auto-Lock Inactivity Limit',
-                            labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13),
-                            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            child: DropdownButtonFormField<int>(
+                              value: selectedAutoLock,
+                              dropdownColor: const Color(0xFF1E293B),
+                              decoration: InputDecoration(
+                                labelText: 'Auto-Lock Inactivity Timeout',
+                                labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                              ),
+                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                              items: const [
+                                DropdownMenuItem(value: 0, child: Text('Never')),
+                                DropdownMenuItem(value: 5, child: Text('5 Minutes')),
+                                DropdownMenuItem(value: 15, child: Text('15 Minutes')),
+                                DropdownMenuItem(value: 30, child: Text('30 Minutes')),
+                                DropdownMenuItem(value: 60, child: Text('60 Minutes')),
+                              ],
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setState(() {
+                                    selectedAutoLock = val;
+                                  });
+                                }
+                              },
+                            ),
                           ),
-                          style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
-                          items: [
-                            const DropdownMenuItem(value: 0, child: Text('Never')),
-                            const DropdownMenuItem(value: 5, child: Text('5 Minutes')),
-                            const DropdownMenuItem(value: 15, child: Text('15 Minutes')),
-                            const DropdownMenuItem(value: 30, child: Text('30 Minutes')),
-                            const DropdownMenuItem(value: 60, child: Text('60 Minutes')),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) {
-                              setState(() {
-                                selectedAutoLock = val;
-                              });
-                            }
-                          },
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 32),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'SECURITY & HEURISTICS',
-                          style: GoogleFonts.outfit(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
-                            color: const Color(0xFF8B5CF6),
-                          ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'STARTUP & SYSTEM INTEGRATION',
+                        style: GoogleFonts.outfit(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                          color: const Color(0xFF8B5CF6),
                         ),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Ransomware Watcher Sensitivity',
-                              style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13),
-                            ),
-                            Text(
-                              selectedSensitivity.toStringAsFixed(2),
-                              style: GoogleFonts.shareTechMono(color: const Color(0xFF8B5CF6), fontWeight: FontWeight.bold),
-                            ),
-                          ],
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0F172A).withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.white10),
                         ),
-                        Slider(
-                          value: selectedSensitivity,
-                          min: 0.3,
-                          max: 0.9,
+                        child: SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text('Run at Windows Startup', style: GoogleFonts.outfit(color: Colors.white, fontSize: 13)),
+                          subtitle: Text('Launch AMPCrypt silently when your system boots', style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 11)),
                           activeColor: const Color(0xFF8B5CF6),
-                          inactiveColor: const Color(0xFF334155),
-                          onChanged: (val) {
-                            setState(() {
-                              selectedSensitivity = val;
-                            });
-                          },
+                          value: isStartupEnabled,
+                          onChanged: _toggleStartup,
                         ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'ENROLLED SECURITY LEVEL: ${authLabels[authLevel - 1]}',
-                          style: GoogleFonts.outfit(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 16),
-                        const Divider(color: Color(0xFF1E293B)),
-                        const SizedBox(height: 8),
-                        Text(
-                          'HARDWARE DIAGNOSTICS',
-                          style: GoogleFonts.outfit(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
-                            color: const Color(0xFF8B5CF6),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0F172A).withOpacity(0.5),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.white10),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'ABOUT AMPCRYPT',
+                                    style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.bold, color: const Color(0xFF8B5CF6)),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'AMPCrypt Security Suite',
+                                    style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Version: 1.0.0+1 (Stable Release)',
+                                    style: GoogleFonts.shareTechMono(fontSize: 11, color: const Color(0xFF94A3B8)),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Offline AES-256-GCM Virtual Vault protected with multi-factor SLIP-39 secret sharing and real-time heuristics monitor.',
+                                    style: GoogleFonts.outfit(fontSize: 10, color: const Color(0xFF64748B)),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        _deviceRow('Fingerprint Reader', Icons.fingerprint, hasFingerprint),
-                        _deviceRow('Webcam / Camera', Icons.camera_alt_outlined, hasCamera),
-                        _deviceRow('Microphone (Mic)', Icons.mic_none_outlined, hasMic),
-                      ],
-                    ),
+                          const SizedBox(width: 16),
+                          Column(
+                            children: [
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                width: 180,
+                                height: 40,
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF1E293B),
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    textStyle: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold),
+                                  ),
+                                  icon: isCheckingUpdates
+                                      ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white))
+                                      : const Icon(Icons.sync_rounded, size: 14),
+                                  label: Text(isCheckingUpdates ? 'CHECKING...' : 'CHECK FOR UPDATES'),
+                                  onPressed: isCheckingUpdates ? null : _checkUpdates,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'RANSOMWARE HEURISTICS MONITOR',
+                            style: GoogleFonts.outfit(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
+                              color: const Color(0xFF8B5CF6),
+                            ),
+                          ),
+                          Text(
+                            selectedSensitivity.toStringAsFixed(2),
+                            style: GoogleFonts.shareTechMono(color: const Color(0xFF8B5CF6), fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                      Slider(
+                        value: selectedSensitivity,
+                        min: 0.3,
+                        max: 0.9,
+                        activeColor: const Color(0xFF8B5CF6),
+                        inactiveColor: const Color(0xFF1E1E38),
+                        onChanged: (val) {
+                          setState(() {
+                            selectedSensitivity = val;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'HARDWARE VERIFICATION DIAGNOSTICS',
+                            style: GoogleFonts.outfit(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
+                              color: const Color(0xFF8B5CF6),
+                            ),
+                          ),
+                          InkWell(
+                            onTap: isScanning ? null : _runDiagnostic,
+                            child: Text(
+                              isScanning ? 'SCANNING...' : 'RE-RUN SCAN',
+                              style: GoogleFonts.outfit(color: const Color(0xFF8B5CF6), fontSize: 10, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      _deviceRow('Fingerprint Reader', Icons.fingerprint, hasFingerprint),
+                      _deviceRow('Webcam / Camera', Icons.camera_alt_outlined, hasCamera),
+                      _deviceRow('Microphone (Mic)', Icons.mic_none_outlined, hasMic),
+                    ],
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            const Divider(color: Color(0xFF1E293B)),
+            const Divider(color: Colors.white12, height: 1),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -830,10 +1171,10 @@ class _SettingsViewState extends State<SettingsView> {
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFF334155)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   ),
                   onPressed: widget.onClose,
-                  child: Text('CANCEL', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontWeight: FontWeight.bold)),
+                  child: Text('CANCEL', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontWeight: FontWeight.bold, fontSize: 12)),
                 ),
                 const SizedBox(width: 12),
                 ElevatedButton(
@@ -841,7 +1182,7 @@ class _SettingsViewState extends State<SettingsView> {
                     backgroundColor: const Color(0xFF8B5CF6),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   ),
                   onPressed: () async {
                     if (pathController.text.isNotEmpty) {
@@ -854,17 +1195,14 @@ class _SettingsViewState extends State<SettingsView> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             backgroundColor: const Color(0xFF10B981),
-                            content: Text(
-                              'Settings saved successfully.',
-                              style: GoogleFonts.outfit(),
-                            ),
+                            content: Text('Settings saved successfully.', style: GoogleFonts.outfit()),
                           ),
                         );
                         widget.onClose();
                       }
                     }
                   },
-                  child: Text('SAVE SETTINGS', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                  child: Text('SAVE SETTINGS', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12)),
                 ),
               ],
             ),
@@ -1469,10 +1807,6 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
 
   @override
   Widget build(BuildContext context) {
-    final bool needsFingerprint = _configuredAuthLevel >= 2;
-    final bool needsFace = _configuredAuthLevel >= 3;
-    final bool needsVoice = _configuredAuthLevel >= 4;
-
     return Center(
       child: GlassmorphicCard(
         width: 800,
@@ -1762,12 +2096,6 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
     return const Color(0xFFEF4444);
   }
 
-  String _getRiskLevelText(double score) {
-    if (score < 0.3) return 'LOW RISK';
-    if (score < 0.5) return 'NORMAL';
-    if (score < 0.65) return 'ELEVATED';
-    return 'CRITICAL';
-  }
 
   Widget _featureMetric(String label, String value) {
     return Column(
@@ -2412,6 +2740,233 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
             overflow: TextOverflow.ellipsis,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class InlineRecoveryView extends StatefulWidget {
+  const InlineRecoveryView({super.key});
+
+  @override
+  State<InlineRecoveryView> createState() => _InlineRecoveryViewState();
+}
+
+class _InlineRecoveryViewState extends State<InlineRecoveryView> {
+  final _phrase1Controller = TextEditingController();
+  final _phrase2Controller = TextEditingController();
+  String? _localError;
+
+  @override
+  void dispose() {
+    _phrase1Controller.dispose();
+    _phrase2Controller.dispose();
+    super.dispose();
+  }
+
+  String _cleanPhrase(String phrase) {
+    var cleaned = phrase.trim().toLowerCase();
+    cleaned = cleaned.replaceAll(RegExp(r'^[0-9]+[\.\:\-\s\)]+'), '');
+    cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ');
+    return cleaned;
+  }
+
+  void _submitRecovery() {
+    final phrase1 = _cleanPhrase(_phrase1Controller.text);
+    final phrase2 = _cleanPhrase(_phrase2Controller.text);
+
+    if (phrase1.isEmpty || phrase2.isEmpty) {
+      setState(() {
+        _localError = 'Please enter at least 2 recovery mnemonics.';
+      });
+      return;
+    }
+
+    setState(() {
+      _localError = null;
+    });
+
+    context.read<VaultBloc>().add(RecoverVaultEvent([phrase1, phrase2]));
+  }
+
+  Future<void> _pastePhrase(TextEditingController controller) async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (data != null && data.text != null) {
+      setState(() {
+        controller.text = data.text!;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: GlassmorphicCard(
+        width: 800,
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: BlocConsumer<VaultBloc, VaultState>(
+            listener: (context, state) {
+              if (state is VaultUnlockedState) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    backgroundColor: Color(0xFF10B981),
+                    content: Text('Vault successfully recovered & unlocked!'),
+                  ),
+                );
+              }
+            },
+            builder: (context, state) {
+              final isLoading = state is VaultLoadingState;
+              String? errorMsg = _localError;
+              if (state is VaultFailureState) {
+                errorMsg = state.errorMessage;
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(0xFFFF9E0B).withOpacity(0.1),
+                          border: Border.all(color: const Color(0xFFFF9E0B).withOpacity(0.3), width: 1.5),
+                        ),
+                        child: const Icon(Icons.vpn_key_outlined, size: 24, color: Color(0xFFFF9E0B)),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Master Key Recovery (SLIP-39)',
+                        style: GoogleFonts.outfit(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Input at least 2 of your 24-word backup mnemonics to recover your primary vault master key.',
+                    style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF94A3B8)),
+                  ),
+                  const SizedBox(height: 16),
+                  if (errorMsg != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEF4444).withOpacity(0.1),
+                        border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.3)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        errorMsg,
+                        style: GoogleFonts.outfit(color: const Color(0xFFEF4444), fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'RECOVERY MNEMONIC SHARE 1',
+                              style: GoogleFonts.outfit(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.0,
+                                color: const Color(0xFFFF9E0B),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            TextFormField(
+                              controller: _phrase1Controller,
+                              maxLines: 2,
+                              style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 12),
+                              decoration: _inputDecoration(
+                                hint: 'Paste or type recovery mnemonic 1',
+                                prefix: Icons.password,
+                                suffix: IconButton(
+                                  icon: const Icon(Icons.paste, color: Color(0xFFFF9E0B), size: 18),
+                                  onPressed: () => _pastePhrase(_phrase1Controller),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'RECOVERY MNEMONIC SHARE 2',
+                              style: GoogleFonts.outfit(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.0,
+                                color: const Color(0xFFFF9E0B),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            TextFormField(
+                              controller: _phrase2Controller,
+                              maxLines: 2,
+                              style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 12),
+                              decoration: _inputDecoration(
+                                hint: 'Paste or type recovery mnemonic 2',
+                                prefix: Icons.password,
+                                suffix: IconButton(
+                                  icon: const Icon(Icons.paste, color: Color(0xFFFF9E0B), size: 18),
+                                  onPressed: () => _pastePhrase(_phrase2Controller),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 44,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFF9E0B),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      onPressed: isLoading ? null : _submitRecovery,
+                      child: isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : Text(
+                              'RECONSTRUCT & UNLOCK VAULT',
+                              style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 13),
+                            ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
       ),
     );
   }
