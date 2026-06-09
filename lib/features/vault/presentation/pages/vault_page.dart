@@ -13,7 +13,7 @@ import '../bloc/vault_event.dart';
 import '../bloc/vault_state.dart';
 import '../../../biometrics/data/datasources/face_verification_service.dart';
 import '../../../biometrics/data/datasources/fingerprint_verification_service.dart';
-
+import '../../../biometrics/data/datasources/voice_verification_service.dart';
 import '../../../ransomware_monitor/presentation/bloc/monitor_bloc.dart';
 import '../../../ransomware_monitor/presentation/bloc/monitor_event.dart';
 import '../../../ransomware_monitor/presentation/bloc/monitor_state.dart';

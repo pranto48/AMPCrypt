@@ -114,3 +114,6 @@ msix_config:
   logo_path: macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png
   capabilities: internetClient
 
+inno_bundle:
+  id: 4e8dd1a0-63ba-11f1-83ab-d7eb17d52ca0
+  publisher: ArifMahmud
