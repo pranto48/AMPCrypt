@@ -1,4 +1,3 @@
-
 abstract class VaultRepository {
   /// Check if the vault has already been set up/created on this device.
   bool get isVaultCreated;
@@ -51,4 +50,16 @@ abstract class VaultRepository {
 
   /// Sets the Ransomware Monitor sensitivity threshold.
   Future<void> setMonitorSensitivity(double value);
+
+  /// Gets the auto-lock time limit in minutes.
+  int get autoLockMinutes;
+
+  /// Sets the auto-lock time limit in minutes.
+  Future<void> setAutoLockMinutes(int minutes);
+
+  /// Gets the last activity time on WebDAV.
+  DateTime? get lastActivityTime;
+
+  /// Deletes the local vault config (vault.json) and encrypted data files.
+  Future<void> clearVaultData();
 }

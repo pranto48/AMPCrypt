@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'tflite_stub.dart'
     if (dart.library.io) 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:crypto/crypto.dart'; // From cryptography / standard libraries
@@ -71,8 +70,6 @@ class FaceVerificationService {
 
   /// Processes the image and performs TFLite inference.
   Future<List<double>> _runTfliteInference(File imageFile) async {
-    // 1. Read image bytes
-    final bytes = await imageFile.readAsBytes();
     
     // Note: In a complete native production build, we would use the 'image' package 
     // to decode the image, resize to 112x112, normalize it, and feed it into the interpreter.

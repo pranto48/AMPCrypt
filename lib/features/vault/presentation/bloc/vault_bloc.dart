@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/repositories/vault_repository.dart';
@@ -6,6 +7,7 @@ import 'vault_state.dart';
 
 class VaultBloc extends Bloc<VaultEvent, VaultState> {
   final VaultRepository _vaultRepository;
+  Timer? _autoLockTimer;
 
   VaultRepository get repository => _vaultRepository;
 
@@ -28,6 +30,27 @@ class VaultBloc extends Bloc<VaultEvent, VaultState> {
     }
   }
 
+  void _startAutoLockTimer() {
+    _autoLockTimer?.cancel();
+    _autoLockTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      final minutes = _vaultRepository.autoLockMinutes;
+      if (minutes > 0 && _vaultRepository.isUnlocked) {
+        final lastActivity = _vaultRepository.lastActivityTime;
+        if (lastActivity != null) {
+          final idle = DateTime.now().difference(lastActivity);
+          if (idle >= Duration(minutes: minutes)) {
+            add(LockVaultEvent());
+          }
+        }
+      }
+    });
+  }
+
+  void _stopAutoLockTimer() {
+    _autoLockTimer?.cancel();
+    _autoLockTimer = null;
+  }
+
   Future<void> _onCreateVault(CreateVaultEvent event, Emitter<VaultState> emit) async {
     emit(const VaultLoadingState(message: 'Hashing password via Argon2id & creating SLIP-39 shares...'));
     try {
@@ -38,6 +61,8 @@ class VaultBloc extends Bloc<VaultEvent, VaultState> {
       final masterKey = _vaultRepository.masterKeyHex ?? '';
       final deviceStatus = await _vaultRepository.getDeviceStatus();
       
+      _startAutoLockTimer();
+
       emit(VaultUnlockedState(
         masterKeyHex: masterKey,
         backupRecoveryPhrases: recoveryPhrases,
@@ -61,6 +86,9 @@ class VaultBloc extends Bloc<VaultEvent, VaultState> {
         final masterKey = _vaultRepository.masterKeyHex ?? '';
         final deviceStatus = await _vaultRepository.getDeviceStatus();
         final authLevel = _vaultRepository.configuredAuthLevel;
+        
+        _startAutoLockTimer();
+
         emit(VaultUnlockedState(
           masterKeyHex: masterKey,
           deviceStatus: deviceStatus,
@@ -89,6 +117,9 @@ class VaultBloc extends Bloc<VaultEvent, VaultState> {
       if (success) {
         final masterKey = _vaultRepository.masterKeyHex ?? '';
         final deviceStatus = await _vaultRepository.getDeviceStatus();
+        
+        _startAutoLockTimer();
+
         emit(VaultUnlockedState(
           masterKeyHex: masterKey,
           deviceStatus: deviceStatus,
@@ -109,12 +140,15 @@ class VaultBloc extends Bloc<VaultEvent, VaultState> {
   }
 
   void _onLockVault(LockVaultEvent event, Emitter<VaultState> emit) {
+    _stopAutoLockTimer();
     _vaultRepository.lockVault();
     emit(VaultLockedState());
   }
 
   Future<void> _onResetToUninitialized(ResetToUninitializedEvent event, Emitter<VaultState> emit) async {
+    _stopAutoLockTimer();
     _vaultRepository.lockVault();
+    await _vaultRepository.clearVaultData();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('vault_created');
     await prefs.remove('auth_level');
@@ -126,5 +160,11 @@ class VaultBloc extends Bloc<VaultEvent, VaultState> {
     await prefs.remove('registered_face_embedding');
     await prefs.remove('registered_voice_embedding');
     emit(VaultUninitializedState());
+  }
+
+  @override
+  Future<void> close() {
+    _stopAutoLockTimer();
+    return super.close();
   }
 }

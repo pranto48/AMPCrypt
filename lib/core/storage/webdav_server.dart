@@ -16,6 +16,11 @@ class WebDavServer {
   bool get isRunning => _server != null;
   int get port => _server?.port ?? 0;
   
+  DateTime? lastActivityTime;
+  int _cachedTotalSize = 100 * 1024 * 1024 * 1024; // 100 GB fallback
+  int _cachedFreeSize = 50 * 1024 * 1024 * 1024;  // 50 GB fallback
+  DateTime? _lastQuotaUpdate;
+  
   WebDavServer(this._cryptoService);
   
   /// Starts the WebDAV server on loopback IPv4 with a dynamic port.
@@ -101,6 +106,7 @@ class WebDavServer {
   // ─── REQUEST HANDLER ─────────────────────────────────────────────────────────
   
   Future<void> _handleRequest(HttpRequest request) async {
+    lastActivityTime = DateTime.now();
     final rawPath = request.uri.path;
     final path = Uri.decodeComponent(rawPath);
     final method = request.method;
@@ -153,6 +159,7 @@ class WebDavServer {
   // ─── PROPFIND (DIRECTORY LISTINGS) ───────────────────────────────────────────
   
   Future<void> _handlePropfind(HttpRequest request, String normPath) async {
+    await _updateQuota();
     final depth = request.headers.value('depth') ?? '1';
     
     final bool isRoot = normPath == '/';
@@ -237,6 +244,8 @@ class WebDavServer {
       String contentLength = '';
       if (isItemDir) {
         resourceType = '<D:resourcetype><D:collection/></D:resourcetype>';
+        contentLength = '''<D:quota-available-bytes>$_cachedFreeSize</D:quota-available-bytes>
+        <D:quota-used-bytes>${_cachedTotalSize - _cachedFreeSize}</D:quota-used-bytes>''';
       } else {
         resourceType = '<D:resourcetype/>';
         contentLength = '<D:getcontentlength>$size</D:getcontentlength>';
@@ -628,5 +637,58 @@ class WebDavServer {
     final second = utc.second.toString().padLeft(2, '0');
     
     return "$dayName, $day $monthName $year $hour:$minute:$second GMT";
+  }
+
+  Future<void> _updateQuota() async {
+    if (_vaultPath == null) return;
+    
+    if (_lastQuotaUpdate != null && 
+        DateTime.now().difference(_lastQuotaUpdate!) < const Duration(seconds: 10)) {
+      return;
+    }
+    
+    _lastQuotaUpdate = DateTime.now();
+    
+    if (Platform.isWindows) {
+      try {
+        final driveMatch = RegExp(r'^([A-Za-z]):').firstMatch(_vaultPath!);
+        final driveLetter = driveMatch != null ? driveMatch.group(1) : 'C';
+        
+        final result = await Process.run('powershell', [
+          '-Command',
+          '\$d = [System.IO.DriveInfo]::new(\'$driveLetter\'); \$d.TotalSize; \$d.AvailableFreeSpace'
+        ]);
+        
+        if (result.exitCode == 0) {
+          final lines = result.stdout.toString().trim().split(RegExp(r'\r?\n'));
+          if (lines.length >= 2) {
+            final total = int.tryParse(lines[0].trim());
+            final free = int.tryParse(lines[1].trim());
+            if (total != null && free != null) {
+              _cachedTotalSize = total;
+              _cachedFreeSize = free;
+            }
+          }
+        }
+      } catch (_) {}
+    } else {
+      try {
+        final result = await Process.run('df', ['-k', _vaultPath!]);
+        if (result.exitCode == 0) {
+          final lines = result.stdout.toString().trim().split('\n');
+          if (lines.length >= 2) {
+            final parts = lines[1].split(RegExp(r'\s+'));
+            if (parts.length >= 4) {
+              final totalKb = int.tryParse(parts[1]);
+              final freeKb = int.tryParse(parts[3]);
+              if (totalKb != null && freeKb != null) {
+                _cachedTotalSize = totalKb * 1024;
+                _cachedFreeSize = freeKb * 1024;
+              }
+            }
+          }
+        }
+      } catch (_) {}
+    }
   }
 }

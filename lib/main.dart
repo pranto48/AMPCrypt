@@ -81,6 +81,7 @@ class MyApp extends StatelessWidget {
           initialRoute: isDesktop ? '/vault' : '/',
           routes: {
             '/': (context) => const LandingPage(),
+            '/download': (context) => const LandingPage(),
             '/vault': (context) => const VaultPage(),
           },
         ),

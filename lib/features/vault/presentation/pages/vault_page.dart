@@ -9,6 +9,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as p;
+import 'package:local_auth/local_auth.dart';
+import 'package:camera/camera.dart';
 
 import '../bloc/vault_bloc.dart';
 import '../bloc/vault_event.dart';
@@ -537,113 +539,376 @@ class _VaultPageState extends State<VaultPage> {
     final currentPath = repository.getVaultPath();
     final currentDrive = repository.getDriveLetter();
     final currentSensitivity = repository.monitorSensitivity;
+    final currentAutoLock = repository.autoLockMinutes;
 
     final pathController = TextEditingController(text: currentPath);
     String selectedDrive = currentDrive;
     double selectedSensitivity = currentSensitivity;
+    int selectedAutoLock = currentAutoLock;
+
+    int activeTab = 0;
+    bool isScanning = false;
+    bool? hasFingerprint;
+    bool? hasCamera;
+    bool? hasMic;
 
     showDialog(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            return AlertDialog(
-              backgroundColor: const Color(0xFF0F172A),
-              title: Text(
-                'AMPCrypt Settings',
-                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-              content: SizedBox(
-                width: 450,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: pathController,
-                            style: GoogleFonts.outfit(color: Colors.white),
-                            decoration: InputDecoration(
-                              labelText: 'Vault Folder Path',
-                              labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
-                              enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+            Future<void> runDiagnostic() async {
+              setDialogState(() {
+                isScanning = true;
+              });
+              bool fingerprint = false;
+              try {
+                final localAuth = LocalAuthentication();
+                fingerprint = await localAuth.isDeviceSupported() || await localAuth.canCheckBiometrics;
+              } catch (_) {}
+
+              bool cameraAvailable = false;
+              try {
+                final cameras = await availableCameras();
+                cameraAvailable = cameras.isNotEmpty;
+              } catch (_) {}
+
+              bool micAvailable = false;
+              if (Platform.isWindows) {
+                try {
+                  final result = await Process.run('powershell', [
+                    '-Command',
+                    'Get-CimInstance -ClassName Win32_PnPEntity | Where-Object { \$_.PNPClass -eq \'AudioEndpoint\' } | Select-Object -ExpandProperty Name'
+                  ]);
+                  if (result.exitCode == 0) {
+                    final output = result.stdout.toString().toLowerCase();
+                    micAvailable = output.contains('microphone') || output.contains('mic') || output.contains('input');
+                  }
+                } catch (_) {}
+              } else {
+                micAvailable = true;
+              }
+
+              setDialogState(() {
+                hasFingerprint = fingerprint;
+                hasCamera = cameraAvailable;
+                hasMic = micAvailable;
+                isScanning = false;
+              });
+            }
+
+            if (hasFingerprint == null && hasCamera == null && hasMic == null && !isScanning) {
+              Future.microtask(() => runDiagnostic());
+            }
+
+            Widget tabButton(int tabIndex, String label, IconData icon) {
+              final isSelected = activeTab == tabIndex;
+              return InkWell(
+                onTap: () => setDialogState(() => activeTab = tabIndex),
+                hoverColor: Colors.transparent,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(icon, size: 15, color: isSelected ? const Color(0xFF8B5CF6) : const Color(0xFF64748B)),
+                          const SizedBox(width: 6),
+                          Text(
+                            label,
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                              color: isSelected ? Colors.white : const Color(0xFF64748B),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(Icons.folder_open, color: Color(0xFF8B5CF6)),
-                          onPressed: () async {
-                            String? selectedDirectory = await FilePicker.getDirectoryPath();
-                            if (selectedDirectory != null) {
-                              setDialogState(() {
-                                pathController.text = selectedDirectory;
-                              });
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: selectedDrive,
-                      dropdownColor: const Color(0xFF1E293B),
-                      decoration: InputDecoration(
-                        labelText: 'Virtual Drive Letter',
-                        labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
-                        enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                        ],
                       ),
-                      style: GoogleFonts.outfit(color: Colors.white),
-                      items: ['D:', 'E:', 'F:', 'G:', 'H:', 'V:', 'W:', 'X:', 'Y:', 'Z:']
-                          .map((drive) => DropdownMenuItem(
-                                value: drive,
-                                child: Text(drive, style: GoogleFonts.outfit(color: Colors.white)),
-                              ))
-                          .toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          setDialogState(() {
-                            selectedDrive = val;
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Ransomware Detection Sensitivity',
-                              style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13),
-                            ),
-                            Text(
-                              selectedSensitivity.toStringAsFixed(2),
-                              style: GoogleFonts.shareTechMono(color: const Color(0xFF8B5CF6), fontWeight: FontWeight.bold),
-                            ),
-                          ],
+                      const SizedBox(height: 6),
+                      Container(
+                        width: 70,
+                        height: 2.5,
+                        decoration: BoxDecoration(
+                          color: isSelected ? const Color(0xFF8B5CF6) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(2),
                         ),
-                        Slider(
-                          value: selectedSensitivity,
-                          min: 0.3,
-                          max: 0.9,
-                          activeColor: const Color(0xFF8B5CF6),
-                          inactiveColor: const Color(0xFF334155),
-                          onChanged: (val) {
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            Widget buildGeneralTab() {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: pathController,
+                          style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                          decoration: InputDecoration(
+                            labelText: 'Vault Folder Path',
+                            labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13),
+                            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF8B5CF6))),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.folder_open, color: Color(0xFF8B5CF6)),
+                        onPressed: () async {
+                          String? selectedDirectory = await FilePicker.getDirectoryPath();
+                          if (selectedDirectory != null) {
                             setDialogState(() {
-                              selectedSensitivity = val;
+                              pathController.text = selectedDirectory;
                             });
-                          },
-                        ),
-                        Text(
-                          'Lower value = higher protection (more sensitive), Higher value = fewer false alarms.',
-                          style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 11),
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: selectedDrive,
+                    dropdownColor: const Color(0xFF1E293B),
+                    decoration: InputDecoration(
+                      labelText: 'Virtual Drive Letter',
+                      labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13),
+                      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                      focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF8B5CF6))),
+                    ),
+                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                    items: ['D:', 'E:', 'F:', 'G:', 'H:', 'V:', 'W:', 'X:', 'Y:', 'Z:']
+                        .map((drive) => DropdownMenuItem(
+                              value: drive,
+                              child: Text(drive, style: GoogleFonts.outfit(color: Colors.white)),
+                            ))
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() {
+                          selectedDrive = val;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<int>(
+                    value: selectedAutoLock,
+                    dropdownColor: const Color(0xFF1E293B),
+                    decoration: InputDecoration(
+                      labelText: 'Auto-Lock Inactivity Limit',
+                      labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13),
+                      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                      focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF8B5CF6))),
+                    ),
+                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                    items: [
+                      const DropdownMenuItem(value: 0, child: Text('Never')),
+                      const DropdownMenuItem(value: 5, child: Text('5 Minutes')),
+                      const DropdownMenuItem(value: 15, child: Text('15 Minutes')),
+                      const DropdownMenuItem(value: 30, child: Text('30 Minutes')),
+                      const DropdownMenuItem(value: 60, child: Text('60 Minutes')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() {
+                          selectedAutoLock = val;
+                        });
+                      }
+                    },
+                  ),
+                ],
+              );
+            }
+
+            Widget buildSecurityTab() {
+              final authLevel = repository.isVaultCreated ? repository.configuredAuthLevel : 1;
+              final authLabels = [
+                '1FA — Password only',
+                '2FA — Password + Fingerprint',
+                '3FA — Password + Fingerprint + Face',
+                '4FA — Password + Fingerprint + Face + Voice',
+              ];
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Ransomware Watcher Sensitivity',
+                        style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13),
+                      ),
+                      Text(
+                        selectedSensitivity.toStringAsFixed(2),
+                        style: GoogleFonts.shareTechMono(color: const Color(0xFF8B5CF6), fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  Slider(
+                    value: selectedSensitivity,
+                    min: 0.3,
+                    max: 0.9,
+                    activeColor: const Color(0xFF8B5CF6),
+                    inactiveColor: const Color(0xFF334155),
+                    onChanged: (val) {
+                      setDialogState(() {
+                        selectedSensitivity = val;
+                      });
+                    },
+                  ),
+                  Text(
+                    'Lower value = higher protection, Higher value = fewer false alarms.',
+                    style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 11),
+                  ),
+                  const SizedBox(height: 20),
+                  const Divider(color: Color(0xFF1E293B)),
+                  const SizedBox(height: 10),
+                  Text(
+                    'ENROLLED SECURITY FACTOR LEVEL',
+                    style: GoogleFonts.shareTechMono(color: const Color(0xFF8B5CF6), fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E293B).withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFF334155).withOpacity(0.5)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.verified_user_outlined, color: Color(0xFF10B981), size: 18),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            authLabels[authLevel - 1],
+                            style: GoogleFonts.outfit(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                          ),
                         ),
                       ],
                     ),
+                  ),
+                ],
+              );
+            }
+
+            Widget buildHardwareTab() {
+              Widget deviceRow(String name, IconData icon, bool? detected) {
+                Widget statusWidget;
+                if (detected == null) {
+                  statusWidget = Row(
+                    children: [
+                      const SizedBox(width: 8, height: 8, child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF8B5CF6))),
+                      const SizedBox(width: 8),
+                      Text('Checking...', style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 12)),
+                    ],
+                  );
+                } else if (detected) {
+                  statusWidget = Row(
+                    children: [
+                      const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 16),
+                      const SizedBox(width: 6),
+                      Text('Detected', style: GoogleFonts.outfit(color: Color(0xFF10B981), fontSize: 12, fontWeight: FontWeight.bold)),
+                    ],
+                  );
+                } else {
+                  statusWidget = Row(
+                    children: [
+                      const Icon(Icons.info_outline, color: Color(0xFFEF4444), size: 16),
+                      const SizedBox(width: 6),
+                      Text('Not Detected / Supported', style: GoogleFonts.outfit(color: const Color(0xFFEF4444), fontSize: 12)),
+                    ],
+                  );
+                }
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(icon, color: const Color(0xFF94A3B8), size: 18),
+                          const SizedBox(width: 12),
+                          Text(name, style: GoogleFonts.outfit(color: Colors.white, fontSize: 13)),
+                        ],
+                      ),
+                      statusWidget,
+                    ],
+                  ),
+                );
+              }
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  deviceRow('Fingerprint Reader', Icons.fingerprint, hasFingerprint),
+                  deviceRow('Webcam / Camera', Icons.camera_alt_outlined, hasCamera),
+                  deviceRow('Microphone (Mic)', Icons.mic_none_outlined, hasMic),
+                  const SizedBox(height: 16),
+                  const Divider(color: Color(0xFF1E293B)),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Offline hardware scans via native APIs',
+                        style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 11),
+                      ),
+                      TextButton.icon(
+                        onPressed: isScanning ? null : () => runDiagnostic(),
+                        icon: const Icon(Icons.refresh, size: 14, color: Color(0xFF8B5CF6)),
+                        label: Text('Scan Again', style: GoogleFonts.outfit(color: const Color(0xFF8B5CF6), fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            }
+
+            return AlertDialog(
+              backgroundColor: const Color(0xFF0F172A),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: Colors.white.withOpacity(0.08), width: 1.5),
+              ),
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'AMPCrypt Settings',
+                    style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      tabButton(0, 'General', Icons.settings_outlined),
+                      tabButton(1, 'Security', Icons.shield_outlined),
+                      tabButton(2, 'Hardware', Icons.developer_board),
+                    ],
+                  ),
+                  const Divider(color: Color(0xFF1E293B)),
+                ],
+              ),
+              content: SizedBox(
+                width: 480,
+                child: IndexedStack(
+                  index: activeTab,
+                  children: [
+                    buildGeneralTab(),
+                    buildSecurityTab(),
+                    buildHardwareTab(),
                   ],
                 ),
               ),
@@ -656,16 +921,19 @@ class _VaultPageState extends State<VaultPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF8B5CF6),
                     foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   onPressed: () async {
                     if (pathController.text.isNotEmpty) {
                       final path = pathController.text;
                       final drive = selectedDrive;
                       final sensitivity = selectedSensitivity;
+                      final autoLock = selectedAutoLock;
                       Navigator.of(dialogContext).pop();
                       
                       await repository.updateVaultSettings(path, drive);
                       await repository.setMonitorSensitivity(sensitivity);
+                      await repository.setAutoLockMinutes(autoLock);
                       
                       if (context.mounted) {
                         context.read<VaultBloc>().add(CheckVaultStatusEvent());
@@ -673,7 +941,7 @@ class _VaultPageState extends State<VaultPage> {
                           SnackBar(
                             backgroundColor: const Color(0xFF10B981),
                             content: Text(
-                              'Settings updated successfully.',
+                              'Settings saved successfully.',
                               style: GoogleFonts.outfit(),
                             ),
                           ),

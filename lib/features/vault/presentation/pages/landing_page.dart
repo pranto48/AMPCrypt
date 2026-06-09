@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class LandingPage extends StatefulWidget {
   const LandingPage({super.key});
@@ -13,6 +14,17 @@ class _LandingPageState extends State<LandingPage> {
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _featuresKey = GlobalKey();
   final GlobalKey _downloadsKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final currentRoute = ModalRoute.of(context)?.settings.name;
+      if (currentRoute == '/download') {
+        _scrollToSection(_downloadsKey);
+      }
+    });
+  }
 
   // State variables for interactive factors mockup
   bool _mockArgon2 = true;
@@ -976,8 +988,13 @@ class _LandingPageState extends State<LandingPage> {
                 platform: 'Windows Desktop',
                 icon: Icons.window,
                 badge: 'Intel x64',
-                downloadName: 'Windows Installer (.msix)',
-                onTap: () {},
+                downloadName: 'Windows Installer (.exe)',
+                onTap: () async {
+                  final url = Uri.parse('https://ampcrypt.itsupport.bd/downloads/Ampcrypt-x86_64-1.0.0+1-Installer.exe');
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                  }
+                },
               ),
               _buildDownloadTile(
                 platform: 'Apple macOS',

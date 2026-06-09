@@ -36,7 +36,12 @@ class VaultRepositoryImpl implements VaultRepository {
   int? get webDavPort => _webDavServer.isRunning ? _webDavServer.port : null;
 
   @override
-  bool get isVaultCreated => _prefs.getBool('vault_created') ?? false;
+  bool get isVaultCreated {
+    final localCreated = _prefs.getBool('vault_created') ?? false;
+    if (localCreated) return true;
+    final config = _loadVaultConfig();
+    return config != null && (config['vault_created'] == true);
+  }
 
   @override
   bool get isUnlocked => _cachedMasterKey != null;
@@ -48,7 +53,13 @@ class VaultRepositoryImpl implements VaultRepository {
   }
 
   @override
-  int get configuredAuthLevel => _prefs.getInt('auth_level') ?? 4;
+  int get configuredAuthLevel {
+    final config = _loadVaultConfig();
+    if (config != null && config.containsKey('auth_level')) {
+      return config['auth_level'] as int;
+    }
+    return _prefs.getInt('auth_level') ?? 4;
+  }
 
   // ─── CREATE VAULT ────────────────────────────────────────────────────────────
 
@@ -84,19 +95,34 @@ class VaultRepositoryImpl implements VaultRepository {
       derivedKey,
     );
 
-    // 5. Persist salt + encrypted password share
+    final vaultPath = getVaultPath();
+
+    // Build portable config
+    final Map<String, dynamic> configMap = {
+      'vault_created': true,
+      'auth_level': level,
+      'password_salt': base64Encode(salt),
+      'encrypted_password_share': base64Encode(encryptedPasswordShare),
+    };
+    for (int i = 1; i < level; i++) {
+      configMap[_kFactorKeys[i]] = base64Encode(utf8.encode(operationalShares[i]));
+    }
+    
+    // Ensure vault directory exists
+    Directory(vaultPath).createSync(recursive: true);
+    await _saveVaultConfig(configMap);
+
+    // 5. Persist locally for caching/compatibility
     await _prefs.setString('password_salt', base64Encode(salt));
     await _prefs.setString('encrypted_password_share', base64Encode(encryptedPasswordShare));
 
-    // 6. Persist the remaining operational shares (Factors 1-3) as mock biometric shares.
-    //    We store only the shares that exist for this auth level.
+    // 6. Persist mock shares locally
     for (int i = 1; i < level; i++) {
       await _prefs.setString(
         _kFactorKeys[i],
         base64Encode(utf8.encode(operationalShares[i])),
       );
     }
-    // Clear any old shares from a previous higher auth level
     for (int i = level; i < 4; i++) {
       await _prefs.remove(_kFactorKeys[i]);
     }
@@ -107,10 +133,9 @@ class VaultRepositoryImpl implements VaultRepository {
     await _prefs.setBool('is_device_trusted', true);
     await _prefs.setString('device_fingerprint', _generateMockDeviceFingerprint());
 
-    // 8. Cache master key (vault is now unlocked)
+    // 8. Cache master key
     _cachedMasterKey = masterKey;
 
-    // Start WebDAV server and mount drive
     await _startServerAndMount(masterKey);
 
     return recoveryMnemonics;
@@ -121,9 +146,9 @@ class VaultRepositoryImpl implements VaultRepository {
   @override
   Future<bool> unlockVault(String password) async {
     try {
-      final level = configuredAuthLevel;
-      final saltBase64 = _prefs.getString('password_salt');
-      final encryptedShareBase64 = _prefs.getString('encrypted_password_share');
+      final config = _loadVaultConfig();
+      final String? saltBase64 = config != null ? config['password_salt'] : _prefs.getString('password_salt');
+      final String? encryptedShareBase64 = config != null ? config['encrypted_password_share'] : _prefs.getString('encrypted_password_share');
       if (saltBase64 == null || encryptedShareBase64 == null) return false;
 
       final salt = base64Decode(saltBase64);
@@ -137,8 +162,14 @@ class VaultRepositoryImpl implements VaultRepository {
       // 2. Collect all Group-1 shares needed to reconstruct the master key
       final List<String> sharesToReconstruct = [passwordShare];
 
-      for (int i = 1; i < level; i++) {
-        final shareBase64 = _prefs.getString(_kFactorKeys[i]);
+      final actualLevel = config != null && config.containsKey('auth_level') 
+          ? (config['auth_level'] as int) 
+          : configuredAuthLevel;
+
+      for (int i = 1; i < actualLevel; i++) {
+        final shareBase64 = config != null 
+            ? config[_kFactorKeys[i]] 
+            : _prefs.getString(_kFactorKeys[i]);
         if (shareBase64 == null) return false; // Missing required share
         sharesToReconstruct.add(utf8.decode(base64Decode(shareBase64)));
       }
@@ -281,7 +312,54 @@ class VaultRepositoryImpl implements VaultRepository {
     await _prefs.setDouble('monitor_sensitivity', value);
   }
 
+  @override
+  int get autoLockMinutes => _prefs.getInt('auto_lock_minutes') ?? 0;
+
+  @override
+  Future<void> setAutoLockMinutes(int minutes) async {
+    await _prefs.setInt('auto_lock_minutes', minutes);
+  }
+
+  @override
+  DateTime? get lastActivityTime => _webDavServer.lastActivityTime;
+
+  @override
+  Future<void> clearVaultData() async {
+    try {
+      final vaultPath = getVaultPath();
+      final configFile = File(p.join(vaultPath, 'vault.json'));
+      if (configFile.existsSync()) {
+        configFile.deleteSync();
+      }
+      final dataDir = Directory(p.join(vaultPath, 'data'));
+      if (dataDir.existsSync()) {
+        dataDir.deleteSync(recursive: true);
+      }
+      final indexFile = File(p.join(vaultPath, 'metadata.json.enc'));
+      if (indexFile.existsSync()) {
+        indexFile.deleteSync();
+      }
+    } catch (_) {}
+  }
+
   // ─── HELPERS ─────────────────────────────────────────────────────────────────
+
+  Future<void> _saveVaultConfig(Map<String, dynamic> config) async {
+    final vaultPath = getVaultPath();
+    final configFile = File(p.join(vaultPath, 'vault.json'));
+    await configFile.writeAsString(json.encode(config), flush: true);
+  }
+
+  Map<String, dynamic>? _loadVaultConfig() {
+    try {
+      final vaultPath = getVaultPath();
+      final configFile = File(p.join(vaultPath, 'vault.json'));
+      if (configFile.existsSync()) {
+        return json.decode(configFile.readAsStringSync()) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return null;
+  }
 
   String _generateMockDeviceFingerprint() {
     final random = Random();
