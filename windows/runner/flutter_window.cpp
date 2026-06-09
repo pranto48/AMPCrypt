@@ -59,7 +59,9 @@ bool FlutterWindow::OnCreate() {
             }
           } catch (const winrt::hresult_error& ex) {
             std::wstring msg = ex.message().c_str();
-            std::string err_msg(msg.begin(), msg.end());
+            int size_needed = WideCharToMultiByte(CP_UTF8, 0, msg.data(), static_cast<int>(msg.size()), NULL, 0, NULL, NULL);
+            std::string err_msg(size_needed, 0);
+            WideCharToMultiByte(CP_UTF8, 0, msg.data(), static_cast<int>(msg.size()), &err_msg[0], size_needed, NULL, NULL);
             result->Error("WINRT_ERROR", err_msg);
           } catch (...) {
             result->Error("ERROR", "An unknown error occurred during Windows Hello verification.");

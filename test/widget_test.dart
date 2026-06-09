@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -38,7 +37,7 @@ void main() {
 
 
     // 3. Verify that it displays the setup screen elements
-    expect(find.text('Initialize AMPCrypt Vault'), findsOneWidget);
+    expect(find.text('Initialize Vault'), findsOneWidget);
     expect(find.text('GENERATE VAULT'), findsOneWidget);
     expect(find.text('VAULT PASSPHRASE'), findsOneWidget);
   });
