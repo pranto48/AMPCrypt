@@ -1009,8 +1009,8 @@ class _VaultPageState extends State<VaultPage> {
             child: Padding(
               padding: const EdgeInsets.all(32),
               child: Container(
-                constraints: BoxConstraints(
-                  maxWidth: (_activeView == ActiveView.settings || isUnlocked) ? 800 : 500,
+                constraints: const BoxConstraints(
+                  maxWidth: 800,
                 ),
                 child: _activeView == ActiveView.settings
                     ? SettingsView(onClose: () => setState(() => _activeView = ActiveView.console))
@@ -2263,7 +2263,6 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
 
   final _fingerprintService = FingerprintVerificationService();
 
-
   void _verifyFaceBiometric() async {
     final prefs = await SharedPreferences.getInstance();
     final registeredEmbeddingStr = prefs.getString('registered_face_embedding');
@@ -2377,82 +2376,54 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
 
   @override
   Widget build(BuildContext context) {
+    final bool needsFingerprint = _configuredAuthLevel >= 2;
+    final bool needsFace = _configuredAuthLevel >= 3;
+    final bool needsVoice = _configuredAuthLevel >= 4;
+
     return Center(
-      child: SingleChildScrollView(
+      child: GlassmorphicCard(
+        width: 800,
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: GlassmorphicCard(
-            width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width - 32,
-            child: Padding(
-              padding: const EdgeInsets.all(32.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: const Color(0xFF3B82F6).withOpacity(0.1),
-                        border: Border.all(color: const Color(0xFF3B82F6).withOpacity(0.3), width: 1.5),
-                      ),
-                      child: const Icon(Icons.lock_outline, size: 40, color: Color(0xFF3B82F6)),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Center(
-                    child: Text(
-                      'Vault Locked',
-                      style: GoogleFonts.outfit(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Center(
-                    child: Text(
-                      'Provide password and biometric factors to reconstruct the Master Key.',
-                      style: GoogleFonts.outfit(fontSize: 13, color: const Color(0xFF94A3B8)),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  // Password Input
-                  Text(
-                    'PASSWORD FACTOR',
-                    style: GoogleFonts.outfit(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
-                      color: const Color(0xFF3B82F6),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextFormField(
-                    controller: _passwordController,
-                    obscureText: _obscurePassword,
-                    style: GoogleFonts.outfit(color: Colors.white),
-                    decoration: _inputDecoration(
-                      hint: 'Enter vault password',
-                      prefix: Icons.key_outlined,
-                      suffix: IconButton(
-                        icon: Icon(
-                          _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                          color: const Color(0xFF94A3B8),
-                          size: 20,
+          padding: const EdgeInsets.all(24.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Left Column: Password Factor & Action Buttons
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: const Color(0xFF3B82F6).withOpacity(0.1),
+                            border: Border.all(color: const Color(0xFF3B82F6).withOpacity(0.3), width: 1.5),
+                          ),
+                          child: const Icon(Icons.lock_outline, size: 24, color: Color(0xFF3B82F6)),
                         ),
-                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                      ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Vault Locked',
+                          style: GoogleFonts.outfit(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  // ─── Dynamic Security Factors (based on auth level) ────────
-                  if (_configuredAuthLevel > 1) ...[
+                    const SizedBox(height: 12),
                     Text(
-                      '$_configuredAuthLevel-FACTOR AUTHENTICATION (${_configuredAuthLevel}FA)',
+                      'Provide password and biometric factors to reconstruct the Master Key.',
+                      style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF94A3B8)),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'PASSWORD FACTOR',
                       style: GoogleFonts.outfit(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
@@ -2460,133 +2431,175 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
                         color: const Color(0xFF3B82F6),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Validate each factor to reconstruct the SLIP-39 master key.',
-                      style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFF64748B)),
-                    ),
-                    const SizedBox(height: 12),
-                    // Factor 1: Fingerprint (2FA+)
-                    _biometricSwitch(
-                      title: 'Fingerprint Biometric Share',
-                      value: _fingerprintVerified,
-                      icon: Icons.fingerprint_outlined,
-                      onChanged: (val) {
-                        if (val) {
-                          _verifyFingerprint();
-                        } else {
-                          setState(() => _fingerprintVerified = false);
-                        }
-                      },
-                    ),
-                    // Factor 2: Face (3FA+)
-                    if (_configuredAuthLevel >= 3) ...[
-                      const SizedBox(height: 8),
-                      _biometricSwitch(
-                        title: 'Face Verification Share',
-                        value: _faceVerified,
-                        icon: Icons.face_outlined,
-                        onChanged: (val) {
-                          if (val) {
-                            _verifyFaceBiometric();
-                          } else {
-                            setState(() => _faceVerified = false);
-                          }
-                        },
-                      ),
-                    ],
-                    // Factor 3: Voice (4FA)
-                    if (_configuredAuthLevel >= 4) ...[
-                      const SizedBox(height: 8),
-                      _biometricSwitch(
-                        title: 'Voice Signature Share',
-                        value: _voiceVerified,
-                        icon: Icons.record_voice_over_outlined,
-                        onChanged: (val) {
-                          if (val) {
-                            _verifyVoiceBiometric();
-                          } else {
-                            setState(() => _voiceVerified = false);
-                          }
-                        },
-                      ),
-                    ],
-                  ] else ...[
-                    // 1FA: password-only notice
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withOpacity(0.05),
-                        border: Border.all(color: const Color(0xFF10B981).withOpacity(0.2)),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.lock_outlined, color: Color(0xFF10B981), size: 16),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              '1FA Vault — password is the only required factor.',
-                              style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF94A3B8)),
-                            ),
+                    const SizedBox(height: 6),
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: _obscurePassword,
+                      style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                      decoration: _inputDecoration(
+                        hint: 'Enter vault password',
+                        prefix: Icons.key_outlined,
+                        suffix: IconButton(
+                          icon: Icon(
+                            _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                            color: const Color(0xFF94A3B8),
+                            size: 18,
                           ),
-                        ],
+                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const RecoveryPage()),
+                            );
+                          },
+                          child: Text(
+                            'Recovery Mode',
+                            style: GoogleFonts.outfit(color: const Color(0xFFFF9E0B), fontSize: 12),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            context.read<VaultBloc>().add(ResetToUninitializedEvent());
+                          },
+                          child: Text(
+                            'Reset & Wipe Vault',
+                            style: GoogleFonts.outfit(color: const Color(0xFFEF4444), fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 32),
+              // Right Column: Biometric Shares & Unlock Button
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_configuredAuthLevel > 1) ...[
+                      Text(
+                        '$_configuredAuthLevel-FACTOR AUTHENTICATION (${_configuredAuthLevel}FA)',
+                        style: GoogleFonts.outfit(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                          color: const Color(0xFF3B82F6),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Validate each factor to reconstruct the SLIP-39 master key.',
+                        style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFF64748B)),
+                      ),
+                      const SizedBox(height: 12),
+                      _biometricSwitch(
+                        title: 'Fingerprint Biometric Share',
+                        value: _fingerprintVerified,
+                        icon: Icons.fingerprint_outlined,
+                        onChanged: (val) {
+                          if (val) {
+                            _verifyFingerprint();
+                          } else {
+                            setState(() => _fingerprintVerified = false);
+                          }
+                        },
+                      ),
+                      if (_configuredAuthLevel >= 3) ...[
+                        const SizedBox(height: 8),
+                        _biometricSwitch(
+                          title: 'Face Verification Share',
+                          value: _faceVerified,
+                          icon: Icons.face_outlined,
+                          onChanged: (val) {
+                            if (val) {
+                              _verifyFaceBiometric();
+                            } else {
+                              setState(() => _faceVerified = false);
+                            }
+                          },
+                        ),
+                      ],
+                      if (_configuredAuthLevel >= 4) ...[
+                        const SizedBox(height: 8),
+                        _biometricSwitch(
+                          title: 'Voice Signature Share',
+                          value: _voiceVerified,
+                          icon: Icons.record_voice_over_outlined,
+                          onChanged: (val) {
+                            if (val) {
+                              _verifyVoiceBiometric();
+                            } else {
+                              setState(() => _voiceVerified = false);
+                            }
+                          },
+                        ),
+                      ],
+                    ] else ...[
+                      Text(
+                        'SECURITY PROFILE',
+                        style: GoogleFonts.outfit(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                          color: const Color(0xFF10B981),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withOpacity(0.05),
+                          border: Border.all(color: const Color(0xFF10B981).withOpacity(0.2)),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.lock_outlined, color: Color(0xFF10B981), size: 16),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                '1FA Vault — password is the only required factor.',
+                                style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF94A3B8)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 44,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF3B82F6),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          elevation: 0,
+                        ),
+                        onPressed: _submitUnlock,
+                        child: Text(
+                          'UNLOCK VAULT',
+                          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 13),
+                        ),
                       ),
                     ),
                   ],
-                  const SizedBox(height: 32),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF3B82F6),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      onPressed: _submitUnlock,
-                      child: Text(
-                        'UNLOCK VAULT',
-                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 1.5),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    spacing: 16,
-                    runSpacing: 8,
-                    children: [
-                      TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const RecoveryPage()),
-                          );
-                        },
-                        child: Text(
-                          'Recovery Mode',
-                          style: GoogleFonts.outfit(color: const Color(0xFFFF9E0B), fontSize: 13),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          // Clear everything (Reset)
-                          context.read<VaultBloc>().add(ResetToUninitializedEvent());
-                        },
-                        child: Text(
-                          'Reset & Wipe Vault',
-                          style: GoogleFonts.outfit(color: const Color(0xFFEF4444), fontSize: 13),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),
@@ -2600,24 +2613,24 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
     required ValueChanged<bool> onChanged,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: value ? const Color(0xFF3B82F6).withOpacity(0.08) : const Color(0xFF1E1E38).withOpacity(0.4),
         border: Border.all(
           color: value ? const Color(0xFF3B82F6).withOpacity(0.3) : const Color(0xFF1E1E38).withOpacity(0.5),
           width: 1,
         ),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
-          Icon(icon, color: value ? const Color(0xFF3B82F6) : const Color(0xFF94A3B8), size: 20),
-          const SizedBox(width: 12),
+          Icon(icon, color: value ? const Color(0xFF3B82F6) : const Color(0xFF94A3B8), size: 16),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               title,
               style: GoogleFonts.outfit(
-                fontSize: 13,
+                fontSize: 12,
                 color: value ? Colors.white : const Color(0xFF94A3B8),
                 fontWeight: value ? FontWeight.w600 : FontWeight.normal,
               ),
@@ -2666,6 +2679,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
   Widget _featureMetric(String label, String value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           label.toUpperCase(),
@@ -2674,7 +2688,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
         const SizedBox(height: 2),
         Text(
           value,
-          style: GoogleFonts.shareTechMono(fontSize: 11, color: Colors.white),
+          style: GoogleFonts.shareTechMono(fontSize: 10, color: Colors.white),
         ),
       ],
     );
@@ -2694,430 +2708,273 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
     final isNewVault = widget.state.backupRecoveryPhrases != null;
 
     return Center(
-      child: SingleChildScrollView(
+      child: GlassmorphicCard(
+        width: 800,
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          padding: const EdgeInsets.all(20.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Vault Header Card
-              GlassmorphicCard(
-                width: 700,
-                child: Padding(
-                  padding: const EdgeInsets.all(32.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              // Left Column: Vault Details & Mounting Info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Title/Header Row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981).withOpacity(0.1),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
+                              ),
+                              child: const Icon(Icons.lock_open_outlined, color: Color(0xFF10B981), size: 20),
+                            ),
+                            const SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Primary Vault Unlocked',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                Text(
+                                  'Zero-Trust Local Encryption Active',
+                                  style: GoogleFonts.outfit(fontSize: 10, color: const Color(0xFF10B981)),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF334155),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                          icon: const Icon(Icons.lock_outlined, size: 12),
+                          label: Text('LOCK', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 11)),
+                          onPressed: () {
+                            context.read<VaultBloc>().add(LockVaultEvent());
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Virtual Drive Info
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            const Color(0xFF10B981).withOpacity(0.06),
+                            const Color(0xFF0F172A).withOpacity(0.6),
+                          ],
+                        ),
+                        border: Border.all(color: const Color(0xFF10B981).withOpacity(0.2)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF10B981).withOpacity(0.1),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
-                                ),
-                                child: const Icon(Icons.lock_open_outlined, color: Color(0xFF10B981), size: 28),
-                              ),
-                              const SizedBox(width: 16),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              Row(
                                 children: [
-                                  Text(
-                                    'AMPCrypt Vault Decrypted',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  Text(
-                                    'Zero-Trust Local-First Encryption Active',
-                                    style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF10B981)),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  // Security level badge
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF8B5CF6).withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.4)),
+                                    width: 6,
+                                    height: 6,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF10B981),
+                                      shape: BoxShape.circle,
                                     ),
-                                    child: Text(
-                                      '${widget.state.authLevel}FA — ${const ['', 'Password Only', 'Password + Fingerprint', 'Password + Fingerprint + Face', 'All Factors (Max)'][widget.state.authLevel]}',
-                                      style: GoogleFonts.outfit(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        color: const Color(0xFF8B5CF6),
-                                      ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Mounted on Z:',
+                                    style: GoogleFonts.outfit(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                 ],
                               ),
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF10B981),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.folder_open, size: 12),
+                                label: Text(
+                                  'EXPLORE',
+                                  style: GoogleFonts.outfit(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                                onPressed: () {
+                                  Process.run('explorer.exe', ['Z:']);
+                                },
+                              ),
                             ],
                           ),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF334155),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Files in Z:\\ are encrypted on D:\\Data and synced in real-time.',
+                            style: GoogleFonts.outfit(
+                              color: const Color(0xFF94A3B8),
+                              fontSize: 11,
                             ),
-                            icon: const Icon(Icons.lock_outlined, size: 16),
-                            label: Text('LOCK', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-                            onPressed: () {
-                              context.read<VaultBloc>().add(LockVaultEvent());
-                            },
                           ),
                         ],
                       ),
-                      const SizedBox(height: 32),
-
-                      // Reconstructed Master Key disclosure
-                      Text(
-                        'RECONSTRUCTED MASTER KEY (256-BIT)',
-                        style: GoogleFonts.outfit(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.5,
-                          color: const Color(0xFF8B5CF6),
-                        ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Master Key Hex Display
+                    Text(
+                      'RECONSTRUCTED MASTER KEY (256-BIT)',
+                      style: GoogleFonts.outfit(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.0,
+                        color: const Color(0xFF8B5CF6),
                       ),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0F172A).withOpacity(0.7),
-                          border: Border.all(color: const Color(0xFF1E293B)),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.key, color: Color(0xFF8B5CF6), size: 18),
-                            const SizedBox(width: 12),
-                            Expanded(
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A).withOpacity(0.6),
+                        border: Border.all(color: const Color(0xFF1E293B)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.key, color: Color(0xFF8B5CF6), size: 14),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
                               child: Text(
                                 widget.state.masterKeyHex,
                                 style: GoogleFonts.shareTechMono(
                                   color: Colors.white,
-                                  fontSize: 14,
-                                  letterSpacing: 1.0,
+                                  fontSize: 12,
+                                  letterSpacing: 0.5,
                                 ),
                               ),
                             ),
-                            IconButton(
-                              icon: Icon(
-                                _copied ? Icons.check : Icons.copy,
-                                color: _copied ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
-                                size: 18,
-                              ),
-                              onPressed: () => _copyKey(widget.state.masterKeyHex),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 24),
-                      // WebDAV Virtual Drive Status Card
-                      if (widget.state.webDavPort != null) ...[
-                        Text(
-                          'SECURE VIRTUAL DRIVE',
-                          style: GoogleFonts.outfit(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
-                            color: const Color(0xFF10B981),
                           ),
+                          IconButton(
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            icon: Icon(
+                              _copied ? Icons.check : Icons.copy,
+                              color: _copied ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                              size: 14,
+                            ),
+                            onPressed: () => _copyKey(widget.state.masterKeyHex),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // If new vault, show SLIP-39 Backup Recovery Phrases in compact layout
+                    // Else show Device & hardware binding status
+                    if (isNewVault) ...[
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFF9E0B).withOpacity(0.05),
+                          border: Border.all(color: const Color(0xFFFF9E0B).withOpacity(0.2)),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                const Color(0xFF10B981).withOpacity(0.08),
-                                const Color(0xFF0F172A).withOpacity(0.8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'SLIP-39 BACKUP PHRASES (RECORD NOW)',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFFFF9E0B),
+                                  ),
+                                ),
+                                InkWell(
+                                  onTap: () {
+                                    final allPhrases = widget.state.backupRecoveryPhrases!.join('\n\n');
+                                    Clipboard.setData(ClipboardData(text: allPhrases));
+                                  },
+                                  child: Text(
+                                    'Copy All',
+                                    style: GoogleFonts.outfit(color: const Color(0xFFFF9E0B), fontSize: 10, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
                               ],
                             ),
-                            border: Border.all(color: const Color(0xFF10B981).withOpacity(0.25)),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFF10B981),
-                                      shape: BoxShape.circle,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Color(0xFF10B981),
-                                          blurRadius: 6,
-                                          spreadRadius: 1,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    'Mounted on drive Z:',
-                                    style: GoogleFonts.outfit(
-                                      color: Colors.white,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Your vault files are securely serving locally. Any changes made to Z:\\ are automatically encrypted with AES-256-GCM and persisted on your local disk.',
-                                style: GoogleFonts.outfit(
-                                  color: const Color(0xFF94A3B8),
-                                  fontSize: 13,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.lan_outlined, color: Color(0xFF64748B), size: 14),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'http://localhost:${widget.state.webDavPort}',
-                                        style: GoogleFonts.shareTechMono(
-                                          color: const Color(0xFF64748B),
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF10B981),
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                    ),
-                                    icon: const Icon(Icons.folder_open, size: 16),
-                                    label: Text(
-                                      'OPEN VIRTUAL DRIVE',
-                                      style: GoogleFonts.outfit(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                    onPressed: () {
-                                      Process.run('explorer.exe', ['Z:']);
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ] else ...[
-                        Text(
-                          'SECURE VIRTUAL DRIVE',
-                          style: GoogleFonts.outfit(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.5,
-                            color: const Color(0xFFEF4444),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEF4444).withOpacity(0.05),
-                            border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.2)),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.error_outline_outlined, color: Color(0xFFEF4444), size: 24),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                            const SizedBox(height: 6),
+                            ...List.generate(widget.state.backupRecoveryPhrases!.length, (index) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                child: Row(
                                   children: [
-                                    Text(
-                                      'Virtual Drive Inactive',
-                                      style: GoogleFonts.outfit(
-                                        color: Colors.white,
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                    Container(
+                                      padding: const EdgeInsets.all(3),
+                                      decoration: const BoxDecoration(color: Color(0xFF8B5CF6), shape: BoxShape.circle),
+                                      child: Text('${index + 1}', style: const TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold)),
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'The local WebDAV mounting server is not active. Drive Z: cannot be mounted.',
-                                      style: GoogleFonts.outfit(
-                                        color: const Color(0xFF94A3B8),
-                                        fontSize: 13,
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: SingleChildScrollView(
+                                        scrollDirection: Axis.horizontal,
+                                        child: Text(
+                                          widget.state.backupRecoveryPhrases![index],
+                                          style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 10.5),
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
-                            ],
-                          ),
+                              );
+                            }),
+                          ],
                         ),
-                      ],
-
-                      // Warn if newly created and show Backup Recovery mnemonics
-                      if (isNewVault) ...[
-                        const SizedBox(height: 32),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEF4444).withOpacity(0.05),
-                            border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.2)),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.warning_amber_rounded, color: Color(0xFFFF9E0B), size: 20),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'SLIP-39 BACKUP RECOVERY PHRASES (MUST RECORD)',
-                                        style: GoogleFonts.outfit(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                          color: const Color(0xFFFF9E0B),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  TextButton.icon(
-                                    icon: const Icon(Icons.copy_all, size: 14, color: Color(0xFFFF9E0B)),
-                                    label: Text(
-                                      'Copy All',
-                                      style: GoogleFonts.outfit(color: const Color(0xFFFF9E0B), fontSize: 12),
-                                    ),
-                                    onPressed: () {
-                                      final allPhrases = widget.state.backupRecoveryPhrases!.join('\n\n');
-                                      Clipboard.setData(ClipboardData(text: allPhrases));
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          backgroundColor: const Color(0xFF1E293B),
-                                          content: Text(
-                                            'All recovery phrases copied to clipboard',
-                                            style: GoogleFonts.outfit(color: Colors.white),
-                                          ),
-                                          duration: const Duration(seconds: 2),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Write down these phrases in order. Any 2 of these 3 phrases can recover your master key offline if you lose biometrics or device access.',
-                                style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF94A3B8)),
-                              ),
-                              const SizedBox(height: 16),
-                              Column(
-                                children: List.generate(widget.state.backupRecoveryPhrases!.length, (index) {
-                                  return Container(
-                                    margin: const EdgeInsets.only(bottom: 8),
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF1E1E38).withOpacity(0.5),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: const Color(0xFF334155).withOpacity(0.3)),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        CircleAvatar(
-                                          radius: 10,
-                                          backgroundColor: const Color(0xFF8B5CF6),
-                                          child: Text(
-                                            '${index + 1}',
-                                            style: GoogleFonts.outfit(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: SelectableText(
-                                            widget.state.backupRecoveryPhrases![index],
-                                            style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 13),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        IconButton(
-                                          icon: const Icon(Icons.copy, size: 16, color: Color(0xFF94A3B8)),
-                                          onPressed: () {
-                                            Clipboard.setData(ClipboardData(text: widget.state.backupRecoveryPhrases![index]));
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(
-                                                backgroundColor: const Color(0xFF1E293B),
-                                                content: Text(
-                                                  'Recovery phrase ${index + 1} copied to clipboard',
-                                                  style: GoogleFonts.outfit(color: Colors.white),
-                                                ),
-                                                duration: const Duration(seconds: 2),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // 2. Device Status Card
-              GlassmorphicCard(
-                width: 700,
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+                      ),
+                    ] else ...[
                       Text(
-                        'TRUSTED DEVICE & CRYPTO STATUS (LOCAL MOCK)',
+                        'TRUSTED DEVICE & HARDWARE STATUS',
                         style: GoogleFonts.outfit(
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          letterSpacing: 1.5,
+                          letterSpacing: 1.0,
                           color: const Color(0xFF3B82F6),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 6),
                       Row(
                         children: [
                           Expanded(
@@ -3130,338 +2987,292 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                           ),
                           Expanded(
                             child: _statusItem(
-                              label: 'Hardware Binding',
+                              label: 'TPM Binding',
                               value: 'Simulated TPM',
                               icon: Icons.developer_board,
                               color: const Color(0xFF3B82F6),
                             ),
                           ),
-                          Expanded(
-                            child: _statusItem(
-                              label: 'Fingerprint ID',
-                              value: status['device_fingerprint'] ?? 'N/A',
-                              icon: Icons.fingerprint,
-                              color: const Color(0xFF8B5CF6),
-                            ),
-                          ),
                         ],
                       ),
                     ],
-                  ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 24),
-              
-              // 3. Ransomware Protection Monitor Card
-              BlocBuilder<MonitorBloc, MonitorState>(
-                builder: (context, monitorState) {
-                  return GlassmorphicCard(
-                    width: 700,
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.shield_outlined,
-                                    color: monitorState.isMonitoring 
-                                        ? (monitorState.isCalibrating ? Colors.orange : const Color(0xFF10B981)) 
-                                        : const Color(0xFF94A3B8),
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'HEURISTIC RANSOMWARE PROTECTOR',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 1.5,
-                                      color: monitorState.isMonitoring 
-                                          ? (monitorState.isCalibrating ? Colors.orange : const Color(0xFF10B981)) 
-                                          : const Color(0xFF94A3B8),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
+              const SizedBox(width: 28),
+              // Right Column: Ransomware Monitor & Graph
+              Expanded(
+                child: BlocBuilder<MonitorBloc, MonitorState>(
+                  builder: (context, monitorState) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.shield_outlined,
                                   color: monitorState.isMonitoring 
-                                      ? (monitorState.isCalibrating ? Colors.orange.withOpacity(0.1) : const Color(0xFF10B981).withOpacity(0.1)) 
-                                      : const Color(0xFF334155).withOpacity(0.3),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: monitorState.isMonitoring 
-                                        ? (monitorState.isCalibrating ? Colors.orange.withOpacity(0.3) : const Color(0xFF10B981).withOpacity(0.3)) 
-                                        : const Color(0xFF334155).withOpacity(0.4),
-                                  ),
+                                      ? (monitorState.isCalibrating ? Colors.orange : const Color(0xFF10B981)) 
+                                      : const Color(0xFF94A3B8),
+                                  size: 16,
                                 ),
-                                child: Text(
-                                  monitorState.isMonitoring 
-                                      ? (monitorState.isCalibrating ? 'CALIBRATING' : 'PROTECTION ACTIVE') 
-                                      : 'MONITOR INACTIVE',
+                                const SizedBox(width: 6),
+                                Text(
+                                  'RANSOMWARE PROTECTOR',
                                   style: GoogleFonts.outfit(
-                                    fontSize: 9,
+                                    fontSize: 10,
                                     fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.0,
                                     color: monitorState.isMonitoring 
                                         ? (monitorState.isCalibrating ? Colors.orange : const Color(0xFF10B981)) 
                                         : const Color(0xFF94A3B8),
                                   ),
                                 ),
+                              ],
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: monitorState.isMonitoring 
+                                    ? (monitorState.isCalibrating ? Colors.orange.withOpacity(0.1) : const Color(0xFF10B981).withOpacity(0.1)) 
+                                    : const Color(0xFF334155).withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: monitorState.isMonitoring 
+                                      ? (monitorState.isCalibrating ? Colors.orange.withOpacity(0.3) : const Color(0xFF10B981).withOpacity(0.3)) 
+                                      : const Color(0xFF334155).withOpacity(0.4),
+                                ),
+                              ),
+                              child: Text(
+                                monitorState.isMonitoring 
+                                    ? (monitorState.isCalibrating ? 'CALIBRATING' : 'ACTIVE') 
+                                    : 'INACTIVE',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.bold,
+                                  color: monitorState.isMonitoring 
+                                      ? (monitorState.isCalibrating ? Colors.orange : const Color(0xFF10B981)) 
+                                      : const Color(0xFF94A3B8),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        if (!monitorState.isMonitoring) ...[
+                          Text(
+                            'Select folder to scan for rapid file changes.',
+                            style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF94A3B8)),
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF0F172A).withOpacity(0.5),
+                                    border: Border.all(color: const Color(0xFF1E293B)),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    _selectedMonitorPath ?? 'No directory selected',
+                                    style: GoogleFonts.shareTechMono(
+                                      fontSize: 11,
+                                      color: _selectedMonitorPath != null ? Colors.white : const Color(0xFF475569),
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: const Icon(Icons.folder_open, size: 20, color: Color(0xFF8B5CF6)),
+                                onPressed: () async {
+                                  final path = await FilePicker.getDirectoryPath();
+                                  if (path != null) {
+                                    setState(() => _selectedMonitorPath = path);
+                                  }
+                                },
                               ),
                             ],
                           ),
-                          const Divider(color: Color(0xFF1E293B), height: 30),
-                          
-                          if (!monitorState.isMonitoring) ...[
-                            Text(
-                              'Select a local directory to watch and analyze for ransomware-like behavior (unsupervised anomaly detection).',
-                              style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF94A3B8)),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 38,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF3B82F6),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                              ),
+                              onPressed: _selectedMonitorPath == null 
+                                  ? null 
+                                  : () {
+                                      context.read<MonitorBloc>().add(StartMonitoringEvent(_selectedMonitorPath!));
+                                    },
+                              child: Text('START MONITORING', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12)),
                             ),
-                            const SizedBox(height: 16),
+                          ),
+                        ] else ...[
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'WATCHED FOLDER:',
+                                      style: GoogleFonts.outfit(fontSize: 8, fontWeight: FontWeight.bold, color: const Color(0xFF475569)),
+                                    ),
+                                    Text(
+                                      monitorState.watchedPath ?? '',
+                                      style: GoogleFonts.shareTechMono(fontSize: 10.5, color: Colors.white),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Color(0xFFEF4444)),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                ),
+                                icon: const Icon(Icons.stop, size: 12, color: Color(0xFFEF4444)),
+                                label: Text('STOP', style: GoogleFonts.outfit(fontSize: 10, color: const Color(0xFFEF4444), fontWeight: FontWeight.bold)),
+                                onPressed: () {
+                                  context.read<MonitorBloc>().add(StopMonitoringEvent());
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          if (monitorState.isCalibrating) ...[
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'CALIBRATING DETECTOR...',
+                                  style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.orange),
+                                ),
+                                Text(
+                                  '${(monitorState.calibrationProgress * 100).toInt()}%',
+                                  style: GoogleFonts.shareTechMono(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            LinearProgressIndicator(
+                              value: monitorState.calibrationProgress,
+                              backgroundColor: const Color(0xFF1E293B),
+                              color: Colors.orange,
+                              minHeight: 3,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ] else ...[
                             Row(
                               children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF0F172A).withOpacity(0.5),
+                                    border: Border.all(color: const Color(0xFF1E293B)),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Text(
+                                        'ANOMALY',
+                                        style: GoogleFonts.outfit(fontSize: 8, fontWeight: FontWeight.bold, color: const Color(0xFF64748B)),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        monitorState.currentAnomalyScore.toStringAsFixed(3),
+                                        style: GoogleFonts.shareTechMono(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: _getScoreColor(monitorState.currentAnomalyScore),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
                                 Expanded(
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    height: 54,
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFF0F172A).withOpacity(0.5),
                                       border: Border.all(color: const Color(0xFF1E293B)),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
-                                    child: Text(
-                                      _selectedMonitorPath ?? 'No directory selected',
-                                      style: GoogleFonts.shareTechMono(
-                                        fontSize: 12,
-                                        color: _selectedMonitorPath != null ? Colors.white : const Color(0xFF475569),
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF1E293B),
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                  ),
-                                  icon: const Icon(Icons.folder_open, size: 16),
-                                  label: Text('CHOOSE', style: GoogleFonts.outfit(fontSize: 12)),
-                                  onPressed: () async {
-                                    final path = await FilePicker.getDirectoryPath();
-                                    if (path != null) {
-                                      setState(() => _selectedMonitorPath = path);
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF3B82F6),
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                ),
-                                onPressed: _selectedMonitorPath == null 
-                                    ? null 
-                                    : () {
-                                        context.read<MonitorBloc>().add(StartMonitoringEvent(_selectedMonitorPath!));
-                                      },
-                                child: Text('START ACTIVE MONITORING', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-                              ),
-                            ),
-                          ] else ...[
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'WATCHED FOLDER:',
-                                        style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.bold, color: const Color(0xFF475569)),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        monitorState.watchedPath ?? '',
-                                        style: GoogleFonts.shareTechMono(fontSize: 12, color: Colors.white),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                OutlinedButton.icon(
-                                  style: OutlinedButton.styleFrom(
-                                    side: const BorderSide(color: Color(0xFFEF4444)),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                  ),
-                                  icon: const Icon(Icons.stop, size: 16, color: Color(0xFFEF4444)),
-                                  label: Text('STOP MONITOR', style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFFEF4444))),
-                                  onPressed: () {
-                                    context.read<MonitorBloc>().add(StopMonitoringEvent());
-                                  },
-                                ),
-                              ],
-                            ),
-                            
-                            const SizedBox(height: 20),
-                            
-                            if (monitorState.isCalibrating) ...[
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'CALIBRATING DETECTOR BASELINE...',
-                                    style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.orange),
-                                  ),
-                                  Text(
-                                    '${(monitorState.calibrationProgress * 100).toInt()}%',
-                                    style: GoogleFonts.shareTechMono(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              LinearProgressIndicator(
-                                value: monitorState.calibrationProgress,
-                                backgroundColor: const Color(0xFF1E293B),
-                                color: Colors.orange,
-                                minHeight: 4,
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'Recording normal filesystem actions. Do not execute bulk renames or large edits yet.',
-                                style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFF64748B), fontStyle: FontStyle.italic),
-                              ),
-                            ] else ...[
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF0F172A).withOpacity(0.5),
-                                      border: Border.all(color: const Color(0xFF1E293B)),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
                                     child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          'ANOMALY SCORE',
-                                          style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.bold, color: const Color(0xFF64748B)),
+                                          'REAL-TIME ANOMALY TRACK',
+                                          style: GoogleFonts.outfit(fontSize: 8, fontWeight: FontWeight.bold, color: const Color(0xFF64748B)),
                                         ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          monitorState.currentAnomalyScore.toStringAsFixed(3),
-                                          style: GoogleFonts.shareTechMono(
-                                            fontSize: 24,
-                                            fontWeight: FontWeight.bold,
-                                            color: _getScoreColor(monitorState.currentAnomalyScore),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          _getRiskLevelText(monitorState.currentAnomalyScore),
-                                          style: GoogleFonts.outfit(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                            color: _getScoreColor(monitorState.currentAnomalyScore),
-                                          ),
+                                        const Spacer(),
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          crossAxisAlignment: CrossAxisAlignment.end,
+                                          children: List.generate(15, (index) {
+                                            final double val = index < monitorState.recentScores.length
+                                                ? monitorState.recentScores[index]
+                                                : 0.0;
+                                            return Container(
+                                              width: 10,
+                                              height: 25 * val + 2,
+                                              decoration: BoxDecoration(
+                                                color: _getScoreColor(val),
+                                                borderRadius: BorderRadius.circular(2),
+                                              ),
+                                            );
+                                          }),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Container(
-                                      height: 105,
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF0F172A).withOpacity(0.5),
-                                        border: Border.all(color: const Color(0xFF1E293B)),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'REAL-TIME ANOMALY TRACK (LAST 20 SECONDS)',
-                                            style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.bold, color: const Color(0xFF64748B)),
-                                          ),
-                                          const Spacer(),
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            crossAxisAlignment: CrossAxisAlignment.end,
-                                            children: List.generate(20, (index) {
-                                              final double val = index < monitorState.recentScores.length
-                                                  ? monitorState.recentScores[index]
-                                                  : 0.0;
-                                              return Container(
-                                                width: 18,
-                                                height: 55 * val + 3,
-                                                decoration: BoxDecoration(
-                                                  gradient: LinearGradient(
-                                                    begin: Alignment.bottomCenter,
-                                                    end: Alignment.topCenter,
-                                                    colors: [
-                                                      const Color(0xFF3B82F6).withOpacity(0.3),
-                                                      _getScoreColor(val),
-                                                    ],
-                                                  ),
-                                                  borderRadius: BorderRadius.circular(3),
-                                                ),
-                                              );
-                                            }),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              
-                              const SizedBox(height: 20),
-                              
-                              if (monitorState.recentFeatures.isNotEmpty) ...[
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF1E1E38).withOpacity(0.2),
-                                    border: Border.all(color: const Color(0xFF1E293B).withOpacity(0.5)),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      _featureMetric('Write rate', '${(monitorState.recentFeatures.last.writeRate * 5).toInt()} events/5s'),
-                                      _featureMetric('Delete rate', '${(monitorState.recentFeatures.last.deleteRate * 5).toInt()} events/5s'),
-                                      _featureMetric('Suspicious Ext', '${(monitorState.recentFeatures.last.extensionEntropy * 100).toInt()}%'),
-                                      _featureMetric('Avg size', '${monitorState.recentFeatures.last.sizeDifference.toStringAsFixed(1)} KB'),
-                                    ],
-                                  ),
                                 ),
                               ],
+                            ),
+                            if (monitorState.recentFeatures.isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1E1E38).withOpacity(0.2),
+                                  border: Border.all(color: const Color(0xFF1E293B).withOpacity(0.5)),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    _featureMetric('Writes', '${(monitorState.recentFeatures.last.writeRate * 5).toInt()}'),
+                                    _featureMetric('Deletes', '${(monitorState.recentFeatures.last.deleteRate * 5).toInt()}'),
+                                    _featureMetric('Entropy', '${(monitorState.recentFeatures.last.extensionEntropy * 100).toInt()}%'),
+                                    _featureMetric('Avg Size', '${monitorState.recentFeatures.last.sizeDifference.toStringAsFixed(0)}K'),
+                                  ],
+                                ),
+                              ),
                             ],
                           ],
                         ],
-                      ),
-                    ),
-                  );
-                },
+                      ],
+                    );
+                  },
+                ),
               ),
             ],
           ),
@@ -3477,31 +3288,31 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
     required Color color,
   }) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 6),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: const Color(0xFF1E1E38).withOpacity(0.3),
         border: Border.all(color: const Color(0xFF1E293B)),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, size: 14, color: color),
-              const SizedBox(width: 8),
+              Icon(icon, size: 10, color: color),
+              const SizedBox(width: 4),
               Text(
                 label,
-                style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFF94A3B8)),
+                style: GoogleFonts.outfit(fontSize: 9, color: const Color(0xFF94A3B8)),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text(
             value,
             style: GoogleFonts.outfit(
-              fontSize: 13,
+              fontSize: 11,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
