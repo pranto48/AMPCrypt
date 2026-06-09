@@ -1668,6 +1668,165 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                         ),
                       ),
 
+                      const SizedBox(height: 24),
+                      // WebDAV Virtual Drive Status Card
+                      if (widget.state.webDavPort != null) ...[
+                        Text(
+                          'SECURE VIRTUAL DRIVE',
+                          style: GoogleFonts.outfit(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.5,
+                            color: const Color(0xFF10B981),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                const Color(0xFF10B981).withOpacity(0.08),
+                                const Color(0xFF0F172A).withOpacity(0.8),
+                              ],
+                            ),
+                            border: Border.all(color: const Color(0xFF10B981).withOpacity(0.25)),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF10B981),
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Color(0xFF10B981),
+                                          blurRadius: 6,
+                                          spreadRadius: 1,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'Mounted on drive Z:',
+                                    style: GoogleFonts.outfit(
+                                      color: Colors.white,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Your vault files are securely serving locally. Any changes made to Z:\\ are automatically encrypted with AES-256-GCM and persisted on your local disk.',
+                                style: GoogleFonts.outfit(
+                                  color: const Color(0xFF94A3B8),
+                                  fontSize: 13,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.lan_outlined, color: Color(0xFF64748B), size: 14),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'http://localhost:${widget.state.webDavPort}',
+                                        style: GoogleFonts.shareTechMono(
+                                          color: const Color(0xFF64748B),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF10B981),
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    ),
+                                    icon: const Icon(Icons.folder_open, size: 16),
+                                    label: Text(
+                                      'OPEN VIRTUAL DRIVE',
+                                      style: GoogleFonts.outfit(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    onPressed: () {
+                                      Process.run('explorer.exe', ['Z:']);
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else ...[
+                        Text(
+                          'SECURE VIRTUAL DRIVE',
+                          style: GoogleFonts.outfit(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.5,
+                            color: const Color(0xFFEF4444),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEF4444).withOpacity(0.05),
+                            border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.2)),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.error_outline_outlined, color: Color(0xFFEF4444), size: 24),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Virtual Drive Inactive',
+                                      style: GoogleFonts.outfit(
+                                        color: Colors.white,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'The local WebDAV mounting server is not active. Drive Z: cannot be mounted.',
+                                      style: GoogleFonts.outfit(
+                                        color: const Color(0xFF94A3B8),
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
                       // Warn if newly created and show Backup Recovery mnemonics
                       if (isNewVault) ...[
                         const SizedBox(height: 32),

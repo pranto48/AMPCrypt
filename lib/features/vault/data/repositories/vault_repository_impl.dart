@@ -1,8 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path/path.dart' as p;
 import '../../../../core/crypto/crypto_service.dart';
+import '../../../../core/storage/webdav_server.dart';
 import '../../domain/repositories/vault_repository.dart';
 
 /// Factor names in Group 1, indexed by position.
@@ -17,6 +20,7 @@ const _kFactorKeys = [
 class VaultRepositoryImpl implements VaultRepository {
   final CryptoService _cryptoService;
   final SharedPreferences _prefs;
+  final WebDavServer _webDavServer;
 
   // In-memory cache for the unlocked master key
   Uint8List? _cachedMasterKey;
@@ -25,7 +29,11 @@ class VaultRepositoryImpl implements VaultRepository {
     required CryptoService cryptoService,
     required SharedPreferences prefs,
   })  : _cryptoService = cryptoService,
-        _prefs = prefs;
+        _prefs = prefs,
+        _webDavServer = WebDavServer(cryptoService);
+
+  @override
+  int? get webDavPort => _webDavServer.isRunning ? _webDavServer.port : null;
 
   @override
   bool get isVaultCreated => _prefs.getBool('vault_created') ?? false;
@@ -102,6 +110,9 @@ class VaultRepositoryImpl implements VaultRepository {
     // 8. Cache master key (vault is now unlocked)
     _cachedMasterKey = masterKey;
 
+    // Start WebDAV server and mount drive
+    await _startServerAndMount(masterKey);
+
     return recoveryMnemonics;
   }
 
@@ -140,6 +151,7 @@ class VaultRepositoryImpl implements VaultRepository {
       );
 
       _cachedMasterKey = recoveredMasterKey;
+      await _startServerAndMount(recoveredMasterKey);
       return true;
     } catch (e) {
       return false;
@@ -161,6 +173,7 @@ class VaultRepositoryImpl implements VaultRepository {
       );
 
       _cachedMasterKey = recoveredMasterKey;
+      await _startServerAndMount(recoveredMasterKey);
       return true;
     } catch (e) {
       return false;
@@ -172,6 +185,40 @@ class VaultRepositoryImpl implements VaultRepository {
   @override
   void lockVault() {
     _cachedMasterKey = null;
+    _stopServerAndUnmount();
+  }
+
+  // ─── MOUNT HELPERS ───────────────────────────────────────────────────────────
+
+  String _getHomeDir() {
+    if (Platform.isWindows) {
+      return Platform.environment['USERPROFILE'] ?? '';
+    }
+    return Platform.environment['HOME'] ?? '';
+  }
+
+  Future<void> _startServerAndMount(Uint8List masterKey) async {
+    final home = _getHomeDir();
+    final vaultPath = p.join(home, '.ampcrypt_vault');
+
+    // Start WebDAV server
+    await _webDavServer.start(masterKey, vaultPath);
+
+    // Mount to Z: on Windows
+    if (Platform.isWindows && _webDavServer.isRunning) {
+      final port = _webDavServer.port;
+      // First try to safely unmount any existing Z: drive to prevent conflicts
+      await Process.run('cmd.exe', ['/c', 'net use Z: /delete /y']);
+      // Mount the network drive
+      await Process.run('cmd.exe', ['/c', 'net use Z: http://localhost:$port /persistent:no']);
+    }
+  }
+
+  Future<void> _stopServerAndUnmount() async {
+    if (Platform.isWindows) {
+      await Process.run('cmd.exe', ['/c', 'net use Z: /delete /y']);
+    }
+    await _webDavServer.stop();
   }
 
   // ─── DEVICE STATUS ───────────────────────────────────────────────────────────

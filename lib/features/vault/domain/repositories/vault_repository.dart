@@ -9,6 +9,9 @@ abstract class VaultRepository {
   /// Retrieves the decrypted Master Key in hex representation, or null if locked.
   String? get masterKeyHex;
 
+  /// Exposes the active WebDAV virtual drive mount port, or null if locked/inactive.
+  int? get webDavPort;
+
   /// Creates a new vault.
   ///
   /// [authLevel] (1–4) controls how many SLIP-39 Group 1 shares are generated.

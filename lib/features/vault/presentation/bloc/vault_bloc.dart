@@ -41,6 +41,7 @@ class VaultBloc extends Bloc<VaultEvent, VaultState> {
         backupRecoveryPhrases: recoveryPhrases,
         deviceStatus: deviceStatus,
         authLevel: event.authLevel,
+        webDavPort: _vaultRepository.webDavPort,
       ));
     } catch (e) {
       emit(VaultFailureState(
@@ -62,6 +63,7 @@ class VaultBloc extends Bloc<VaultEvent, VaultState> {
           masterKeyHex: masterKey,
           deviceStatus: deviceStatus,
           authLevel: authLevel,
+          webDavPort: _vaultRepository.webDavPort,
         ));
       } else {
         emit(VaultFailureState(
@@ -88,6 +90,7 @@ class VaultBloc extends Bloc<VaultEvent, VaultState> {
         emit(VaultUnlockedState(
           masterKeyHex: masterKey,
           deviceStatus: deviceStatus,
+          webDavPort: _vaultRepository.webDavPort,
         ));
       } else {
         emit(VaultFailureState(
