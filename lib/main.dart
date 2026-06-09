@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' show Platform;
 
 import 'core/crypto/crypto_service_impl.dart';
 import 'features/vault/data/repositories/vault_repository_impl.dart';
@@ -44,6 +46,8 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+
     return MultiBlocProvider(
       providers: [
         BlocProvider<VaultBloc>(
@@ -73,7 +77,7 @@ class MyApp extends StatelessWidget {
             ),
             useMaterial3: true,
           ),
-          initialRoute: '/',
+          initialRoute: isDesktop ? '/vault' : '/',
           routes: {
             '/': (context) => const LandingPage(),
             '/vault': (context) => const VaultPage(),

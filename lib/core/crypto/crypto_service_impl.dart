@@ -1,7 +1,7 @@
+import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:cryptography/cryptography.dart';
-import 'package:dargon2_flutter/dargon2_flutter.dart';
 import 'package:slip39/slip39.dart';
 import 'crypto_service.dart';
 
@@ -17,19 +17,20 @@ class CryptoServiceImpl implements CryptoService {
   @override
   Future<Uint8List> deriveKey(String password, Uint8List salt) async {
     // We use recommended parameters for Argon2id key derivation:
-    // Memory: 64MB (65536 KB), Iterations: 3, Parallelism: 4
-    // For fast local validation or mobile/web performance, we can use slightly lower but secure ones:
     // Memory: 32MB (32768 KB), Iterations: 3, Parallelism: 2
-    final result = await argon2.hashPasswordString(
-      password,
-      salt: Salt(salt),
-      iterations: 3,
-      memory: 32768, 
+    final algorithm = Argon2id(
       parallelism: 2,
-      length: 32,
-      type: Argon2Type.id,
+      memory: 32768,
+      iterations: 3,
+      hashLength: 32,
     );
-    return Uint8List.fromList(result.rawBytes);
+    final secretKey = SecretKey(utf8.encode(password));
+    final derived = await algorithm.deriveKey(
+      secretKey: secretKey,
+      nonce: salt,
+    );
+    final bytes = await derived.extractBytes();
+    return Uint8List.fromList(bytes);
   }
 
   @override

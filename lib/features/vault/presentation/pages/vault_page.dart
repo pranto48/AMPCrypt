@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -26,17 +27,21 @@ class VaultPage extends StatefulWidget {
 }
 
 class _VaultPageState extends State<VaultPage> {
-  bool _showAbout = true;
+  late bool _showAbout;
 
   @override
   void initState() {
     super.initState();
+    final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+    _showAbout = !isDesktop;
     // Check initial vault status
     context.read<VaultBloc>().add(CheckVaultStatusEvent());
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+
     return Scaffold(
       backgroundColor: const Color(0xFF070B19),
       body: Stack(
@@ -87,6 +92,21 @@ class _VaultPageState extends State<VaultPage> {
                 }
               },
               builder: (context, state) {
+                if (isDesktop) {
+                  return Row(
+                    children: [
+                      _buildSidebar(context, state),
+                      Container(
+                        width: 1,
+                        color: Colors.white.withOpacity(0.08),
+                      ),
+                      Expanded(
+                        child: _buildDesktopMainContent(context, state),
+                      ),
+                    ],
+                  );
+                }
+
                 if (state is VaultUnlockedState) {
                   return UnlockedDashboardView(state: state);
                 }
@@ -123,6 +143,7 @@ class _VaultPageState extends State<VaultPage> {
   Widget _buildTopHeader(VaultState state) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isCompact = screenWidth < 600;
+    final isDesktop = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 
     return Container(
       padding: EdgeInsets.symmetric(horizontal: isCompact ? 16 : 32, vertical: 16),
@@ -189,12 +210,14 @@ class _VaultPageState extends State<VaultPage> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildHeaderTab(
-                label: 'About Project',
-                isActive: _showAbout,
-                onTap: () => setState(() => _showAbout = true),
-              ),
-              const SizedBox(width: 16),
+              if (!isDesktop) ...[
+                _buildHeaderTab(
+                  label: 'About Project',
+                  isActive: _showAbout,
+                  onTap: () => setState(() => _showAbout = true),
+                ),
+                const SizedBox(width: 16),
+              ],
               _buildHeaderTab(
                 label: state is VaultLockedState ? 'Unlock Vault' : 'Initialize Vault',
                 isActive: !_showAbout,
@@ -235,6 +258,235 @@ class _VaultPageState extends State<VaultPage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSidebar(BuildContext context, VaultState state) {
+    final isUnlocked = state is VaultUnlockedState;
+    final isCreated = state is! VaultUninitializedState && state is! VaultInitialState;
+
+    return Container(
+      width: 260,
+      color: const Color(0xFF070A16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF8B5CF6).withOpacity(0.15),
+                    border: Border.all(
+                      color: const Color(0xFF8B5CF6).withOpacity(0.4),
+                      width: 1,
+                    ),
+                  ),
+                  child: const Icon(Icons.shield, color: Color(0xFF8B5CF6), size: 20),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'AMPCrypt',
+                  style: GoogleFonts.outfit(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Divider(color: Colors.white.withOpacity(0.06), height: 1),
+          Padding(
+            padding: const EdgeInsets.only(left: 24, right: 24, top: 16, bottom: 8),
+            child: Text(
+              'VAULTS',
+              style: GoogleFonts.outfit(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5,
+                color: const Color(0xFF94A3B8).withOpacity(0.6),
+              ),
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              children: [
+                if (isCreated)
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8B5CF6).withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color(0xFF8B5CF6).withOpacity(0.2),
+                        width: 1,
+                      ),
+                    ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      leading: Icon(
+                        isUnlocked ? Icons.lock_open : Icons.lock,
+                        color: isUnlocked ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                        size: 22,
+                      ),
+                      title: Text(
+                        'Primary Vault',
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '~\\.ampcrypt_vault',
+                        style: GoogleFonts.shareTechMono(
+                          fontSize: 11,
+                          color: const Color(0xFF94A3B8),
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    child: Text(
+                      'No vaults initialized.',
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        color: const Color(0xFF94A3B8),
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Divider(color: Colors.white.withOpacity(0.06), height: 1),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.add, color: Color(0xFF94A3B8)),
+                  tooltip: 'Create/Add Vault',
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Multiple vaults is a premium feature.',
+                          style: GoogleFonts.outfit(),
+                        ),
+                        backgroundColor: const Color(0xFF1E293B),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.settings, color: Color(0xFF94A3B8)),
+                  tooltip: 'Settings',
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Desktop settings configured automatically.',
+                          style: GoogleFonts.outfit(),
+                        ),
+                        backgroundColor: const Color(0xFF1E293B),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopMainContent(BuildContext context, VaultState state) {
+    final isUnlocked = state is VaultUnlockedState;
+    final isCreated = state is! VaultUninitializedState && state is! VaultInitialState;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isCreated ? 'Primary Vault' : 'Welcome to AMPCrypt',
+                style: GoogleFonts.outfit(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(
+                    isCreated 
+                        ? (isUnlocked ? Icons.lock_open : Icons.lock)
+                        : Icons.shield,
+                    size: 14,
+                    color: isUnlocked ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    isCreated
+                        ? (isUnlocked ? 'Unlocked' : 'Locked')
+                        : 'Secure Zero-Trust System',
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      color: isUnlocked ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (isCreated) ...[
+                    const SizedBox(width: 12),
+                    Text(
+                      '•  Directory: C:\\Users\\${Platform.environment['USERNAME'] ?? 'User'}\\.ampcrypt_vault',
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        color: const Color(0xFF94A3B8),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+        Divider(color: Colors.white.withOpacity(0.06), height: 1),
+        Expanded(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(32),
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: isUnlocked ? 800 : 500,
+                ),
+                child: isUnlocked 
+                    ? UnlockedDashboardView(state: state)
+                    : _buildVaultConsoleView(context, state),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

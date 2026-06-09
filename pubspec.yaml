@@ -42,7 +42,6 @@ dependencies:
   flutter_bloc: ^9.1.1
   equatable: ^2.0.8
   cryptography: ^2.9.0
-  dargon2_flutter: ^3.3.0
   slip39: ^0.3.0
   shared_preferences: ^2.5.5
   tflite_flutter: ^0.12.1
