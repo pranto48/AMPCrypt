@@ -858,7 +858,7 @@ class _CreateVaultViewState extends State<CreateVaultView> {
                     const SizedBox(height: 8),
                     Center(
                       child: Text(
-                        'Create a secure local password to generate your SLIP-39 zero-trust mnemonics.',
+                        'Select your security level, then create a master password to generate SLIP-39 zero-trust shares.',
                         style: GoogleFonts.outfit(
                           fontSize: 13,
                           color: const Color(0xFF94A3B8),
@@ -866,7 +866,53 @@ class _CreateVaultViewState extends State<CreateVaultView> {
                         textAlign: TextAlign.center,
                       ),
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 28),
+                    // ─── N-Factor Security Level Selector ───────────────────
+                    Text(
+                      'SECURITY LEVEL',
+                      style: GoogleFonts.outfit(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                        color: const Color(0xFF8B5CF6),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    GridView.count(
+                      crossAxisCount: 2,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 10,
+                      childAspectRatio: 2.6,
+                      children: [
+                        _securityTile(
+                          level: 1,
+                          label: '1FA',
+                          subtitle: 'Password Only',
+                          icon: Icons.lock_outlined,
+                        ),
+                        _securityTile(
+                          level: 2,
+                          label: '2FA',
+                          subtitle: '+ Fingerprint',
+                          icon: Icons.fingerprint_outlined,
+                        ),
+                        _securityTile(
+                          level: 3,
+                          label: '3FA',
+                          subtitle: '+ Face',
+                          icon: Icons.face_outlined,
+                        ),
+                        _securityTile(
+                          level: 4,
+                          label: '4FA — Max',
+                          subtitle: '+ Voice',
+                          icon: Icons.security_outlined,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 28),
                     Text(
                       'VAULT PASSPHRASE',
                       style: GoogleFonts.outfit(
@@ -1251,55 +1297,91 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  // Interlocking factors
-                  Text(
-                    'INTERLOCKING SECURITY FACTORS (MOCK)',
-                    style: GoogleFonts.outfit(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
-                      color: const Color(0xFF3B82F6),
+                  // ─── Dynamic Security Factors (based on auth level) ────────
+                  if (_configuredAuthLevel > 1) ...[
+                    Text(
+                      '$_configuredAuthLevel-FACTOR AUTHENTICATION (${_configuredAuthLevel}FA)',
+                      style: GoogleFonts.outfit(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                        color: const Color(0xFF3B82F6),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  _biometricSwitch(
-                    title: 'Face Verification Share',
-                    value: _faceVerified,
-                    icon: Icons.face_outlined,
-                    onChanged: (val) {
-                      if (val) {
-                        _verifyFaceBiometric();
-                      } else {
-                        setState(() => _faceVerified = false);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  _biometricSwitch(
-                    title: 'Fingerprint Biometric Share',
-                    value: _fingerprintVerified,
-                    icon: Icons.fingerprint_outlined,
-                    onChanged: (val) {
-                      if (val) {
-                        _verifyFingerprint();
-                      } else {
-                        setState(() => _fingerprintVerified = false);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  _biometricSwitch(
-                    title: 'Voice Signature Share',
-                    value: _voiceVerified,
-                    icon: Icons.record_voice_over_outlined,
-                    onChanged: (val) {
-                      if (val) {
-                        _verifyVoiceBiometric();
-                      } else {
-                        setState(() => _voiceVerified = false);
-                      }
-                    },
-                  ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Validate each factor to reconstruct the SLIP-39 master key.',
+                      style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFF64748B)),
+                    ),
+                    const SizedBox(height: 12),
+                    // Factor 1: Fingerprint (2FA+)
+                    _biometricSwitch(
+                      title: 'Fingerprint Biometric Share',
+                      value: _fingerprintVerified,
+                      icon: Icons.fingerprint_outlined,
+                      onChanged: (val) {
+                        if (val) {
+                          _verifyFingerprint();
+                        } else {
+                          setState(() => _fingerprintVerified = false);
+                        }
+                      },
+                    ),
+                    // Factor 2: Face (3FA+)
+                    if (_configuredAuthLevel >= 3) ...[
+                      const SizedBox(height: 8),
+                      _biometricSwitch(
+                        title: 'Face Verification Share',
+                        value: _faceVerified,
+                        icon: Icons.face_outlined,
+                        onChanged: (val) {
+                          if (val) {
+                            _verifyFaceBiometric();
+                          } else {
+                            setState(() => _faceVerified = false);
+                          }
+                        },
+                      ),
+                    ],
+                    // Factor 3: Voice (4FA)
+                    if (_configuredAuthLevel >= 4) ...[
+                      const SizedBox(height: 8),
+                      _biometricSwitch(
+                        title: 'Voice Signature Share',
+                        value: _voiceVerified,
+                        icon: Icons.record_voice_over_outlined,
+                        onChanged: (val) {
+                          if (val) {
+                            _verifyVoiceBiometric();
+                          } else {
+                            setState(() => _voiceVerified = false);
+                          }
+                        },
+                      ),
+                    ],
+                  ] else ...[
+                    // 1FA: password-only notice
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withOpacity(0.05),
+                        border: Border.all(color: const Color(0xFF10B981).withOpacity(0.2)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.lock_outlined, color: Color(0xFF10B981), size: 16),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              '1FA Vault — password is the only required factor.',
+                              style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF94A3B8)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 32),
                   SizedBox(
                     width: double.infinity,
@@ -1501,6 +1583,24 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                   Text(
                                     'Zero-Trust Local-First Encryption Active',
                                     style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF10B981)),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  // Security level badge
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF8B5CF6).withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.4)),
+                                    ),
+                                    child: Text(
+                                      '${widget.state.authLevel}FA — ${const ['', 'Password Only', 'Password + Fingerprint', 'Password + Fingerprint + Face', 'All Factors (Max)'][widget.state.authLevel]}',
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF8B5CF6),
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
