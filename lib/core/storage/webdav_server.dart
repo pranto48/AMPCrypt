@@ -48,9 +48,10 @@ class WebDavServer {
   
   /// Stops the WebDAV server and clears master key from memory.
   Future<void> stop() async {
-    if (_server != null) {
-      await _server!.close(force: true);
+    final serverToClose = _server;
+    if (serverToClose != null) {
       _server = null;
+      await serverToClose.close(force: true);
     }
     if (_masterKey != null) {
       _masterKey!.fillRange(0, _masterKey!.length, 0);

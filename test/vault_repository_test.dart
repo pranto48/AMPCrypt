@@ -85,4 +85,56 @@ void main() {
     expect(fail, isFalse);
     expect(vaultRepository.isUnlocked, isFalse);
   });
+
+  test('VaultRepository - Security Questions Recovery flow', () async {
+    final password = "test-vault-password";
+    await vaultRepository.createVault(password);
+    final originalMasterKeyHex = vaultRepository.masterKeyHex;
+
+    expect(vaultRepository.isQuestionsRecoveryEnabled, isFalse);
+
+    // Try setting up when locked (should throw or fail)
+    vaultRepository.lockVault();
+    expect(
+      () => vaultRepository.enableQuestionsRecovery(
+        "test@example.com",
+        ["Q1", "Q2", "Q3"],
+        ["A1", "A2", "A3"],
+      ),
+      throwsException,
+    );
+
+    // Unlock and configure
+    await vaultRepository.unlockVault(password);
+    await vaultRepository.enableQuestionsRecovery(
+      "test@example.com",
+      ["Q1", "Q2", "Q3"],
+      ["A1", "A2", "A3"],
+    );
+
+    expect(vaultRepository.isQuestionsRecoveryEnabled, isTrue);
+    expect(vaultRepository.getQuestionsRecoveryEmail(), equals("test@example.com"));
+    expect(vaultRepository.getQuestionsRecoveryQuestions(), equals(["Q1", "Q2", "Q3"]));
+
+    // Lock and recover with correct answers
+    vaultRepository.lockVault();
+    final recoveredKeyBytes = await vaultRepository.recoverWithQuestionsAndEmail(["A1", "A2", "A3"]);
+    expect(recoveredKeyBytes, isNotNull);
+
+    // Unlock using direct master key
+    final unlockSuccess = await vaultRepository.unlockWithMasterKey(recoveredKeyBytes!);
+    expect(unlockSuccess, isTrue);
+    expect(vaultRepository.isUnlocked, isTrue);
+    expect(vaultRepository.masterKeyHex, equals(originalMasterKeyHex));
+
+    // Lock and fail recovery with incorrect answers
+    vaultRepository.lockVault();
+    final wrongRecover = await vaultRepository.recoverWithQuestionsAndEmail(["wrong", "A2", "A3"]);
+    expect(wrongRecover, isNull);
+
+    // Disable questions recovery while unlocked
+    await vaultRepository.unlockWithMasterKey(recoveredKeyBytes);
+    await vaultRepository.disableQuestionsRecovery();
+    expect(vaultRepository.isQuestionsRecoveryEnabled, isFalse);
+  });
 }
