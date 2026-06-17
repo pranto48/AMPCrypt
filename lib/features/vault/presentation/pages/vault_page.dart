@@ -25,6 +25,14 @@ import '../../../ransomware_monitor/presentation/bloc/monitor_bloc.dart';
 import '../../../ransomware_monitor/presentation/bloc/monitor_event.dart';
 import '../../../ransomware_monitor/presentation/bloc/monitor_state.dart';
 
+const Color kPrimaryColor = Color(0xFF00A29A);
+const Color kPrimaryHoverColor = Color(0xFF00B3AA);
+const Color kScaffoldBackgroundColor = Color(0xFF1E2228);
+const Color kSurfaceColor = Color(0xFF181B20);
+const Color kSidebarBackgroundColor = Color(0xFF14171A);
+const Color kSuccessColor = Color(0xFF98C379);
+const Color kErrorColor = Color(0xFFE06C75);
+
 class VaultPage extends StatefulWidget {
   const VaultPage({super.key});
 
@@ -36,14 +44,25 @@ enum ActiveView { dashboard, settings, recovery }
 
 class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener {
   ActiveView _activeView = ActiveView.dashboard;
+  bool _minimizeToTray = true;
 
   @override
   void initState() {
     super.initState();
     windowManager.addListener(this);
     _initSystemTray();
+    _loadSettings();
     // Check initial vault status
     context.read<VaultBloc>().add(CheckVaultStatusEvent());
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _minimizeToTray = prefs.getBool('minimize_to_tray') ?? true;
+      });
+    } catch (_) {}
   }
 
   @override
@@ -83,7 +102,11 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
   void onWindowClose() async {
     final isPreventClose = await windowManager.isPreventClose();
     if (isPreventClose) {
-      await windowManager.hide();
+      if (_minimizeToTray) {
+        await windowManager.hide();
+      } else {
+        _quitApp();
+      }
     }
   }
 
@@ -100,7 +123,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
       context.read<VaultBloc>().add(LockVaultEvent());
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: const Color(0xFFEF4444),
+          backgroundColor: kErrorColor,
           content: Text('All vaults locked from system tray.', style: GoogleFonts.outfit()),
         ),
       );
@@ -119,25 +142,219 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
     await windowManager.close();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF070B19),
-      body: Stack(
+  Widget _buildCustomTitleBar() {
+    return Container(
+      height: 40,
+      color: kSidebarBackgroundColor,
+      child: Row(
         children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF080D21),
-                  Color(0xFF130925),
-                  Color(0xFF05060F),
-                ],
+          Expanded(
+            child: DragToMoveArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: kPrimaryColor,
+                      ),
+                      child: const Icon(
+                        Icons.vpn_key_rounded,
+                        color: Colors.white,
+                        size: 10,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'AMPCrypt - Zero-Trust Vault',
+                      style: GoogleFonts.outfit(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white.withOpacity(0.85),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            child: BlocConsumer<VaultBloc, VaultState>(
+          ),
+          _buildWindowButton(
+            icon: Icons.minimize_rounded,
+            onPressed: () => windowManager.minimize(),
+            hoverColor: Colors.white.withOpacity(0.08),
+          ),
+          _buildWindowButton(
+            icon: Icons.crop_square_rounded,
+            onPressed: () async {
+              if (await windowManager.isMaximized()) {
+                await windowManager.unmaximize();
+              } else {
+                await windowManager.maximize();
+              }
+            },
+            hoverColor: Colors.white.withOpacity(0.08),
+          ),
+          _buildWindowButton(
+            icon: Icons.close_rounded,
+            onPressed: () => onWindowClose(),
+            hoverColor: kErrorColor.withOpacity(0.8),
+            iconColor: Colors.white,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWindowButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+    required Color hoverColor,
+    Color? iconColor,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        hoverColor: hoverColor,
+        child: Container(
+          width: 46,
+          height: 40,
+          alignment: Alignment.center,
+          child: Icon(
+            icon,
+            size: 16,
+            color: iconColor ?? Colors.white.withOpacity(0.6),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showOpenVaultDialog(BuildContext context) async {
+    final repository = context.read<VaultBloc>().repository;
+    String? selectedDirectory = await FilePicker.getDirectoryPath();
+    if (selectedDirectory != null) {
+      if (context.mounted) {
+        _showMountDialogForPath(context, selectedDirectory);
+      }
+    }
+  }
+
+  void _showMountDialogForPath(BuildContext context, String path) {
+    final repository = context.read<VaultBloc>().repository;
+    String selectedDrive = repository.getDriveLetter();
+    
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: kSurfaceColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              title: Text(
+                'Open Existing Vault',
+                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Selected folder:',
+                    style: GoogleFonts.outfit(color: Colors.white70, fontSize: 12),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    path,
+                    style: GoogleFonts.shareTechMono(color: kPrimaryColor, fontSize: 11),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: selectedDrive,
+                    dropdownColor: kSurfaceColor,
+                    decoration: InputDecoration(
+                      labelText: 'Virtual Drive Letter',
+                      labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
+                      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                    ),
+                    style: GoogleFonts.outfit(color: Colors.white),
+                    items: ['D:', 'E:', 'F:', 'G:', 'H:', 'V:', 'W:', 'X:', 'Y:', 'Z:']
+                        .map((drive) => DropdownMenuItem(
+                              value: drive,
+                              child: Text(drive, style: GoogleFonts.outfit(color: Colors.white)),
+                            ))
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() {
+                          selectedDrive = val;
+                        });
+                      }
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: Text('Cancel', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8))),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kPrimaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: () async {
+                    Navigator.of(dialogContext).pop();
+                    await repository.updateVaultSettings(path, selectedDrive);
+                    if (context.mounted) {
+                      context.read<VaultBloc>().add(CheckVaultStatusEvent());
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          backgroundColor: kSuccessColor,
+                          content: Text('Vault profile loaded. Unlock to mount.', style: GoogleFonts.outfit()),
+                        ),
+                      );
+                    }
+                  },
+                  child: Text('Open Vault', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final showCustomTitleBar = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+    return Scaffold(
+      backgroundColor: kScaffoldBackgroundColor,
+      body: Column(
+        children: [
+          if (showCustomTitleBar) _buildCustomTitleBar(),
+          Expanded(
+            child: Stack(
+              children: [
+                Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        kScaffoldBackgroundColor,
+                        kSurfaceColor,
+                        kSidebarBackgroundColor,
+                      ],
+                    ),
+                  ),
+                  child: BlocConsumer<VaultBloc, VaultState>(
               listener: (context, state) {
                 if (state is VaultFailureState) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -193,7 +410,10 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
           ),
         ],
       ),
-    );
+    ),
+  ],
+),
+);
   }
 
   Widget _buildSidebar(BuildContext context, VaultState state) {
@@ -219,12 +439,12 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: isSelected 
-                  ? const Color(0xFF8B5CF6).withOpacity(0.12)
+                  ? kPrimaryColor.withOpacity(0.12)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: isSelected 
-                    ? const Color(0xFF8B5CF6).withOpacity(0.25)
+                    ? kPrimaryColor.withOpacity(0.25)
                     : Colors.transparent,
                 width: 1,
               ),
@@ -233,7 +453,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
               children: [
                 Icon(
                   icon,
-                  color: isSelected ? const Color(0xFF8B5CF6) : const Color(0xFF64748B),
+                  color: isSelected ? kPrimaryColor : const Color(0xFF64748B),
                   size: 18,
                 ),
                 const SizedBox(width: 12),
@@ -257,7 +477,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
 
     return Container(
       width: 250,
-      color: const Color(0xFF070A16),
+      color: kSidebarBackgroundColor,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -269,13 +489,13 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: const Color(0xFF8B5CF6).withOpacity(0.15),
+                    color: kPrimaryColor.withOpacity(0.15),
                     border: Border.all(
-                      color: const Color(0xFF8B5CF6).withOpacity(0.4),
+                      color: kPrimaryColor.withOpacity(0.4),
                       width: 1,
                     ),
                   ),
-                  child: const Icon(Icons.shield, color: Color(0xFF8B5CF6), size: 18),
+                  child: const Icon(Icons.security_rounded, color: kPrimaryColor, size: 18),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -321,10 +541,10 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF8B5CF6).withOpacity(0.04),
+                      color: kSurfaceColor,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: const Color(0xFF8B5CF6).withOpacity(0.15),
+                        color: kPrimaryColor.withOpacity(0.15),
                         width: 1,
                       ),
                     ),
@@ -334,8 +554,8 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                         Row(
                           children: [
                             Icon(
-                              isUnlocked ? Icons.lock_open : Icons.lock,
-                              color: isUnlocked ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                              isUnlocked ? Icons.lock_open_outlined : Icons.lock_outline,
+                              color: isUnlocked ? kSuccessColor : kErrorColor,
                               size: 16,
                             ),
                             const SizedBox(width: 8),
@@ -366,7 +586,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                           'Drive: ${context.read<VaultBloc>().repository.getDriveLetter()}',
                           style: GoogleFonts.shareTechMono(
                             fontSize: 10,
-                            color: const Color(0xFF8B5CF6),
+                            color: kPrimaryColor,
                           ),
                         ),
                       ],
@@ -393,19 +613,67 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
             child: Row(
               children: [
                 Expanded(
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF1E293B),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      textStyle: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold),
+                  child: Theme(
+                    data: Theme.of(context).copyWith(
+                      cardColor: kSurfaceColor,
                     ),
-                    icon: const Icon(Icons.add, size: 14),
-                    label: const Text('NEW VAULT'),
-                    onPressed: () {
-                      _showCreateVaultDialog(context);
-                    },
+                    child: PopupMenuButton<String>(
+                      tooltip: 'Add or Open Vault',
+                      offset: const Offset(0, -90),
+                      onSelected: (value) {
+                        if (value == 'new') {
+                          _showCreateVaultDialog(context);
+                        } else if (value == 'open') {
+                          _showOpenVaultDialog(context);
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: 'new',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.add_circle_outline, color: kPrimaryColor, size: 16),
+                              const SizedBox(width: 8),
+                              Text('Create New Vault', style: GoogleFonts.outfit(fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'open',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.folder_open_outlined, color: kPrimaryColor, size: 16),
+                              const SizedBox(width: 8),
+                              Text('Open Existing Vault', style: GoogleFonts.outfit(fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                      ],
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E2228),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.white10),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.add, size: 16, color: Colors.white),
+                            const SizedBox(width: 8),
+                            Text(
+                              'ADD VAULT',
+                              style: GoogleFonts.outfit(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const Icon(Icons.arrow_drop_up, size: 16, color: Colors.white70),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -431,7 +699,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              backgroundColor: const Color(0xFF0F172A),
+              backgroundColor: kSurfaceColor,
               title: Text(
                 'Create New Vault',
                 style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
@@ -475,7 +743,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                         ),
                         const SizedBox(width: 8),
                         IconButton(
-                          icon: const Icon(Icons.folder_open, color: Color(0xFF8B5CF6)),
+                          icon: const Icon(Icons.folder_open, color: kPrimaryColor),
                           onPressed: () async {
                             String? selectedDirectory = await FilePicker.getDirectoryPath();
                             if (selectedDirectory != null) {
@@ -521,7 +789,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF8B5CF6),
+                    backgroundColor: kPrimaryColor,
                     foregroundColor: Colors.white,
                   ),
                   onPressed: () async {
@@ -536,7 +804,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                         context.read<VaultBloc>().add(ResetToUninitializedEvent());
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            backgroundColor: const Color(0xFF10B981),
+                            backgroundColor: kSuccessColor,
                             content: Text(
                               'Vault profile configured. Setup your security keys.',
                               style: GoogleFonts.outfit(),
@@ -569,7 +837,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
       viewTitle = 'App Settings';
       viewSubtitle = 'App Configuration & Hardware Diagnostics';
       viewIcon = Icons.settings;
-      viewColor = const Color(0xFF8B5CF6);
+      viewColor = kPrimaryColor;
     } else if (_activeView == ActiveView.recovery) {
       viewTitle = 'Master Key Recovery';
       viewSubtitle = 'Reconstruct Master Key from SLIP-39 Mnemonic Shares';
@@ -579,7 +847,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
       viewTitle = 'Primary Vault';
       viewSubtitle = isUnlocked ? 'Unlocked & Mounted' : 'Locked';
       viewIcon = isUnlocked ? Icons.lock_open : Icons.lock;
-      viewColor = isUnlocked ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+      viewColor = isUnlocked ? kSuccessColor : kErrorColor;
     }
 
     return Column(
@@ -631,7 +899,13 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                   maxWidth: 800,
                 ),
                 child: _activeView == ActiveView.settings
-                    ? SettingsView(onClose: () => setState(() => _activeView = ActiveView.dashboard))
+                    ? SettingsView(
+                        onClose: () {
+                          _loadSettings();
+                          setState(() => _activeView = ActiveView.dashboard);
+                        },
+                        onQuit: _quitApp,
+                      )
                     : (_activeView == ActiveView.recovery
                         ? const InlineRecoveryView()
                         : (isUnlocked 
@@ -677,7 +951,8 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
 
 class SettingsView extends StatefulWidget {
   final VoidCallback onClose;
-  const SettingsView({super.key, required this.onClose});
+  final VoidCallback onQuit;
+  const SettingsView({super.key, required this.onClose, required this.onQuit});
 
   @override
   State<SettingsView> createState() => _SettingsViewState();
@@ -692,6 +967,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
 
   bool isStartupEnabled = false;
   bool isCheckingUpdates = false;
+  bool minimizeToTray = true;
 
   bool isScanning = false;
   bool? hasFingerprint;
@@ -710,7 +986,27 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     selectedAutoLock = repository.autoLockMinutes;
     
     _loadStartupStatus();
+    _loadSettings();
     _runDiagnostic();
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        minimizeToTray = prefs.getBool('minimize_to_tray') ?? true;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _toggleMinimizeToTray(bool val) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('minimize_to_tray', val);
+      setState(() {
+        minimizeToTray = val;
+      });
+    } catch (_) {}
   }
 
   @override
@@ -721,7 +1017,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
   }
 
   Future<void> _loadStartupStatus() async {
-    if (kIsWeb || !Platform.isWindows) return;
+    if (kIsWeb || (!Platform.isWindows && !Platform.isMacOS)) return;
     try {
       final enabled = await launchAtStartup.isEnabled();
       setState(() {
@@ -731,7 +1027,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
   }
 
   Future<void> _toggleStartup(bool val) async {
-    if (kIsWeb || !Platform.isWindows) return;
+    if (kIsWeb || (!Platform.isWindows && !Platform.isMacOS)) return;
     try {
       if (val) {
         await launchAtStartup.enable();
@@ -743,7 +1039,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: const Color(0xFF10B981),
+          backgroundColor: kSuccessColor,
           content: Text(
             val ? 'AMPCrypt registered to launch at startup.' : 'Startup launch disabled.',
             style: GoogleFonts.outfit(),
@@ -765,7 +1061,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          backgroundColor: const Color(0xFF0F172A),
+          backgroundColor: kSurfaceColor,
           title: Text(
             'Software Update',
             style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
@@ -777,7 +1073,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('OK', style: GoogleFonts.outfit(color: const Color(0xFF8B5CF6), fontWeight: FontWeight.bold)),
+              child: Text('OK', style: GoogleFonts.outfit(color: kPrimaryColor, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -833,7 +1129,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
       statusWidget = const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(width: 8, height: 8, child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF8B5CF6))),
+          SizedBox(width: 8, height: 8, child: CircularProgressIndicator(strokeWidth: 1.5, color: kPrimaryColor)),
           SizedBox(width: 8),
           Text('Checking...', style: TextStyle(color: Color(0xFF64748B), fontSize: 11)),
         ],
@@ -842,18 +1138,18 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
       statusWidget = const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 14),
+          Icon(Icons.check_circle_rounded, color: kSuccessColor, size: 14),
           SizedBox(width: 4),
-          Text('Detected', style: TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold)),
+          Text('Detected', style: TextStyle(color: kSuccessColor, fontSize: 11, fontWeight: FontWeight.bold)),
         ],
       );
     } else {
       statusWidget = const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.info_outline, color: Color(0xFFEF4444), size: 14),
+          Icon(Icons.info_outline, color: kErrorColor, size: 14),
           SizedBox(width: 4),
-          Text('Not Detected', style: TextStyle(color: Color(0xFFEF4444), fontSize: 11)),
+          Text('Not Detected', style: TextStyle(color: kErrorColor, fontSize: 11)),
         ],
       );
     }
@@ -888,7 +1184,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
           children: [
             TabBar(
               controller: _tabController,
-              indicatorColor: const Color(0xFF8B5CF6),
+              indicatorColor: kPrimaryColor,
               labelColor: Colors.white,
               unselectedLabelColor: const Color(0xFF64748B),
               labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
@@ -914,7 +1210,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.2,
-                          color: const Color(0xFF8B5CF6),
+                          color: kPrimaryColor,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -928,12 +1224,12 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                                 labelText: 'Vault Folder Path',
                                 labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
                                 enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF8B5CF6))),
+                                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
                               ),
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.folder_open, color: Color(0xFF8B5CF6), size: 18),
+                            icon: const Icon(Icons.folder_open, color: kPrimaryColor, size: 18),
                             onPressed: () async {
                               String? selectedDirectory = await FilePicker.getDirectoryPath();
                               if (selectedDirectory != null) {
@@ -1013,24 +1309,42 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.2,
-                          color: const Color(0xFF8B5CF6),
+                          color: kPrimaryColor,
                         ),
                       ),
                       const SizedBox(height: 10),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0F172A).withOpacity(0.5),
+                          color: kSurfaceColor,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: Colors.white10),
                         ),
-                        child: SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text('Run at Windows Startup', style: GoogleFonts.outfit(color: Colors.white, fontSize: 13)),
-                          subtitle: Text('Launch AMPCrypt silently when your system boots', style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 11)),
-                          activeColor: const Color(0xFF8B5CF6),
-                          value: isStartupEnabled,
-                          onChanged: _toggleStartup,
+                        child: Column(
+                          children: [
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(
+                                Platform.isMacOS 
+                                    ? 'Run at macOS Startup' 
+                                    : (Platform.isWindows ? 'Run at Windows Startup' : 'Run at System Startup'),
+                                style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                              ),
+                              subtitle: Text('Launch AMPCrypt silently when your system boots', style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 11)),
+                              activeColor: kPrimaryColor,
+                              value: isStartupEnabled,
+                              onChanged: _toggleStartup,
+                            ),
+                            const Divider(color: Colors.white10, height: 1),
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text('Minimize to System Tray on Close', style: GoogleFonts.outfit(color: Colors.white, fontSize: 13)),
+                              subtitle: Text('Keep the app running in the background when window is closed', style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 11)),
+                              activeColor: kPrimaryColor,
+                              value: minimizeToTray,
+                              onChanged: _toggleMinimizeToTray,
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -1041,7 +1355,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                             child: Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF0F172A).withOpacity(0.5),
+                                color: kSurfaceColor,
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(color: Colors.white10),
                               ),
@@ -1050,7 +1364,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                                 children: [
                                   Text(
                                     'ABOUT AMPCRYPT',
-                                    style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.bold, color: const Color(0xFF8B5CF6)),
+                                    style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.bold, color: kPrimaryColor),
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
@@ -1074,22 +1388,39 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                           const SizedBox(width: 16),
                           Column(
                             children: [
-                              const SizedBox(height: 12),
                               SizedBox(
                                 width: 180,
-                                height: 40,
+                                height: 36,
                                 child: ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF1E293B),
+                                    backgroundColor: const Color(0xFF1E2228),
                                     foregroundColor: Colors.white,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                     textStyle: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold),
+                                    side: const BorderSide(color: Colors.white10),
                                   ),
                                   icon: isCheckingUpdates
                                       ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white))
                                       : const Icon(Icons.sync_rounded, size: 14),
                                   label: Text(isCheckingUpdates ? 'CHECKING...' : 'CHECK FOR UPDATES'),
                                   onPressed: isCheckingUpdates ? null : _checkUpdates,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                width: 180,
+                                height: 36,
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: kErrorColor.withOpacity(0.15),
+                                    foregroundColor: kErrorColor,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    textStyle: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold),
+                                    side: BorderSide(color: kErrorColor.withOpacity(0.3)),
+                                  ),
+                                  icon: const Icon(Icons.power_settings_new_rounded, size: 14),
+                                  label: const Text('QUIT APPLICATION'),
+                                  onPressed: () => widget.onQuit(),
                                 ),
                               ),
                             ],
@@ -1110,12 +1441,12 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1.2,
-                              color: const Color(0xFF8B5CF6),
+                              color: kPrimaryColor,
                             ),
                           ),
                           Text(
                             selectedSensitivity.toStringAsFixed(2),
-                            style: GoogleFonts.shareTechMono(color: const Color(0xFF8B5CF6), fontWeight: FontWeight.bold, fontSize: 12),
+                            style: GoogleFonts.shareTechMono(color: kPrimaryColor, fontWeight: FontWeight.bold, fontSize: 12),
                           ),
                         ],
                       ),
@@ -1123,7 +1454,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                         value: selectedSensitivity,
                         min: 0.3,
                         max: 0.9,
-                        activeColor: const Color(0xFF8B5CF6),
+                        activeColor: kPrimaryColor,
                         inactiveColor: const Color(0xFF1E1E38),
                         onChanged: (val) {
                           setState(() {
@@ -1141,14 +1472,14 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 1.2,
-                              color: const Color(0xFF8B5CF6),
+                              color: kPrimaryColor,
                             ),
                           ),
                           InkWell(
                             onTap: isScanning ? null : _runDiagnostic,
                             child: Text(
                               isScanning ? 'SCANNING...' : 'RE-RUN SCAN',
-                              style: GoogleFonts.outfit(color: const Color(0xFF8B5CF6), fontSize: 10, fontWeight: FontWeight.bold),
+                              style: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 10, fontWeight: FontWeight.bold),
                             ),
                           ),
                         ],
@@ -1179,7 +1510,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                 const SizedBox(width: 12),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF8B5CF6),
+                    backgroundColor: kPrimaryColor,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -1194,7 +1525,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                         context.read<VaultBloc>().add(CheckVaultStatusEvent());
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            backgroundColor: const Color(0xFF10B981),
+                            backgroundColor: kSuccessColor,
                             content: Text('Settings saved successfully.', style: GoogleFonts.outfit()),
                           ),
                         );
@@ -1236,7 +1567,7 @@ class VaultLoadingView extends StatelessWidget {
                 height: 60,
                 child: CircularProgressIndicator(
                   strokeWidth: 4,
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8B5CF6)),
+                  valueColor: AlwaysStoppedAnimation<Color>(kPrimaryColor),
                   backgroundColor: Color(0xFF1E1E38),
                 ),
               ),
@@ -1247,7 +1578,7 @@ class VaultLoadingView extends StatelessWidget {
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 2.0,
-                  color: const Color(0xFF8B5CF6),
+                  color: kPrimaryColor,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -1288,7 +1619,7 @@ class _CreateVaultViewState extends State<CreateVaultView> {
 
   double _strength = 0;
   String _strengthLabel = "Too Weak";
-  Color _strengthColor = const Color(0xFFEF4444);
+  Color _strengthColor = kErrorColor;
 
   @override
   void dispose() {
@@ -1308,16 +1639,16 @@ class _CreateVaultViewState extends State<CreateVaultView> {
       _strength = strength;
       if (strength <= 0.25) {
         _strengthLabel = "Too Weak";
-        _strengthColor = const Color(0xFFEF4444);
+        _strengthColor = kErrorColor;
       } else if (strength <= 0.5) {
         _strengthLabel = "Weak";
         _strengthColor = const Color(0xFFF59E0B);
       } else if (strength <= 0.75) {
         _strengthLabel = "Medium";
-        _strengthColor = const Color(0xFF3B82F6);
+        _strengthColor = kPrimaryHoverColor;
       } else {
         _strengthLabel = "Strong (Argon2id Optimized)";
-        _strengthColor = const Color(0xFF10B981);
+        _strengthColor = kSuccessColor;
       }
     });
   }
@@ -1338,10 +1669,10 @@ class _CreateVaultViewState extends State<CreateVaultView> {
   }) {
     final isSelected = _selectedAuthLevel == level;
     final accentColors = [
-      const Color(0xFF10B981), // 1FA
-      const Color(0xFF3B82F6), // 2FA
+      kSuccessColor, // 1FA
+      kPrimaryHoverColor, // 2FA
       const Color(0xFFF59E0B), // 3FA
-      const Color(0xFF8B5CF6), // 4FA
+      kPrimaryColor, // 4FA
     ];
     final accent = accentColors[level - 1];
     return GestureDetector(
@@ -1416,10 +1747,10 @@ class _CreateVaultViewState extends State<CreateVaultView> {
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: const Color(0xFF8B5CF6).withOpacity(0.1),
-                              border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.3), width: 1.5),
+                              color: kPrimaryColor.withOpacity(0.1),
+                              border: Border.all(color: kPrimaryColor.withOpacity(0.3), width: 1.5),
                             ),
-                            child: const Icon(Icons.shield_outlined, size: 24, color: Color(0xFF8B5CF6)),
+                            child: const Icon(Icons.shield_outlined, size: 24, color: kPrimaryColor),
                           ),
                           const SizedBox(width: 12),
                           Text(
@@ -1447,7 +1778,7 @@ class _CreateVaultViewState extends State<CreateVaultView> {
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.5,
-                          color: const Color(0xFF8B5CF6),
+                          color: kPrimaryColor,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -1491,14 +1822,14 @@ class _CreateVaultViewState extends State<CreateVaultView> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withOpacity(0.05),
-                          border: Border.all(color: const Color(0xFF10B981).withOpacity(0.2), width: 1),
+                          color: kSuccessColor.withOpacity(0.05),
+                          border: Border.all(color: kSuccessColor.withOpacity(0.2), width: 1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.info_outline, color: Color(0xFF10B981), size: 16),
+                            const Icon(Icons.info_outline, color: kSuccessColor, size: 16),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -1525,7 +1856,7 @@ class _CreateVaultViewState extends State<CreateVaultView> {
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.5,
-                          color: const Color(0xFF8B5CF6),
+                          color: kPrimaryColor,
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -1585,7 +1916,7 @@ class _CreateVaultViewState extends State<CreateVaultView> {
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.5,
-                          color: const Color(0xFF8B5CF6),
+                          color: kPrimaryColor,
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -1617,7 +1948,7 @@ class _CreateVaultViewState extends State<CreateVaultView> {
                         height: 44,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF8B5CF6),
+                            backgroundColor: kPrimaryColor,
                             foregroundColor: Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
@@ -1642,7 +1973,7 @@ class _CreateVaultViewState extends State<CreateVaultView> {
                           },
                           child: Text(
                             'Already have recovery mnemonics?',
-                            style: GoogleFonts.outfit(color: const Color(0xFF8B5CF6), fontSize: 12),
+                            style: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 12),
                           ),
                         ),
                       ),
@@ -1725,7 +2056,7 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
         setState(() => _fingerprintVerified = true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            backgroundColor: const Color(0xFF10B981),
+            backgroundColor: kSuccessColor,
             content: Text('Fingerprint factor validated!', style: GoogleFonts.outfit()),
           ),
         );
@@ -1736,7 +2067,7 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
       setState(() => _fingerprintVerified = true);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: const Color(0xFF3B82F6),
+          backgroundColor: kPrimaryHoverColor,
           content: Text('Biometric hardware unavailable. Simulating share verification...', style: GoogleFonts.outfit()),
         ),
       );
@@ -1827,10 +2158,10 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: const Color(0xFF3B82F6).withOpacity(0.1),
-                            border: Border.all(color: const Color(0xFF3B82F6).withOpacity(0.3), width: 1.5),
+                            color: kPrimaryHoverColor.withOpacity(0.1),
+                            border: Border.all(color: kPrimaryHoverColor.withOpacity(0.3), width: 1.5),
                           ),
-                          child: const Icon(Icons.lock_outline, size: 24, color: Color(0xFF3B82F6)),
+                          child: const Icon(Icons.lock_outline, size: 24, color: kPrimaryHoverColor),
                         ),
                         const SizedBox(width: 12),
                         Text(
@@ -1855,7 +2186,7 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.5,
-                        color: const Color(0xFF3B82F6),
+                        color: kPrimaryHoverColor,
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -1898,7 +2229,7 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
                           },
                           child: Text(
                             'Reset & Wipe Vault',
-                            style: GoogleFonts.outfit(color: const Color(0xFFEF4444), fontSize: 12),
+                            style: GoogleFonts.outfit(color: kErrorColor, fontSize: 12),
                           ),
                         ),
                       ],
@@ -1920,7 +2251,7 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.5,
-                          color: const Color(0xFF3B82F6),
+                          color: kPrimaryHoverColor,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -1978,20 +2309,20 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.5,
-                          color: const Color(0xFF10B981),
+                          color: kSuccessColor,
                         ),
                       ),
                       const SizedBox(height: 12),
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withOpacity(0.05),
-                          border: Border.all(color: const Color(0xFF10B981).withOpacity(0.2)),
+                          color: kSuccessColor.withOpacity(0.05),
+                          border: Border.all(color: kSuccessColor.withOpacity(0.2)),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.lock_outlined, color: Color(0xFF10B981), size: 16),
+                            const Icon(Icons.lock_outlined, color: kSuccessColor, size: 16),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
@@ -2009,7 +2340,7 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
                       height: 44,
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF3B82F6),
+                          backgroundColor: kPrimaryHoverColor,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
@@ -2042,16 +2373,16 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: value ? const Color(0xFF3B82F6).withOpacity(0.08) : const Color(0xFF1E1E38).withOpacity(0.4),
+        color: value ? kPrimaryHoverColor.withOpacity(0.08) : const Color(0xFF1E1E38).withOpacity(0.4),
         border: Border.all(
-          color: value ? const Color(0xFF3B82F6).withOpacity(0.3) : const Color(0xFF1E1E38).withOpacity(0.5),
+          color: value ? kPrimaryHoverColor.withOpacity(0.3) : const Color(0xFF1E1E38).withOpacity(0.5),
           width: 1,
         ),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
-          Icon(icon, color: value ? const Color(0xFF3B82F6) : const Color(0xFF94A3B8), size: 16),
+          Icon(icon, color: value ? kPrimaryHoverColor : const Color(0xFF94A3B8), size: 16),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -2065,7 +2396,7 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
           ),
           Switch(
             value: value,
-            activeColor: const Color(0xFF3B82F6),
+            activeColor: kPrimaryHoverColor,
             onChanged: onChanged,
           ),
         ],
@@ -2090,10 +2421,10 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
   String? _selectedMonitorPath;
 
   Color _getScoreColor(double score) {
-    if (score < 0.3) return const Color(0xFF10B981);
+    if (score < 0.3) return kSuccessColor;
     if (score < 0.5) return Colors.yellow;
     if (score < 0.65) return Colors.orange;
-    return const Color(0xFFEF4444);
+    return kErrorColor;
   }
 
 
@@ -2151,11 +2482,11 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF10B981).withOpacity(0.1),
+                                color: kSuccessColor.withOpacity(0.1),
                                 shape: BoxShape.circle,
-                                border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
+                                border: Border.all(color: kSuccessColor.withOpacity(0.3)),
                               ),
-                              child: const Icon(Icons.lock_open_outlined, color: Color(0xFF10B981), size: 20),
+                              child: const Icon(Icons.lock_open_outlined, color: kSuccessColor, size: 20),
                             ),
                             const SizedBox(width: 10),
                             Column(
@@ -2171,7 +2502,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                 ),
                                 Text(
                                   'Zero-Trust Local Encryption Active',
-                                  style: GoogleFonts.outfit(fontSize: 10, color: const Color(0xFF10B981)),
+                                  style: GoogleFonts.outfit(fontSize: 10, color: kSuccessColor),
                                 ),
                               ],
                             ),
@@ -2203,11 +2534,11 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            const Color(0xFF10B981).withOpacity(0.06),
-                            const Color(0xFF0F172A).withOpacity(0.6),
+                            kSuccessColor.withOpacity(0.06),
+                            kSurfaceColor.withOpacity(0.6),
                           ],
                         ),
-                        border: Border.all(color: const Color(0xFF10B981).withOpacity(0.2)),
+                        border: Border.all(color: kSuccessColor.withOpacity(0.2)),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Column(
@@ -2222,7 +2553,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                     width: 6,
                                     height: 6,
                                     decoration: const BoxDecoration(
-                                      color: Color(0xFF10B981),
+                                      color: kSuccessColor,
                                       shape: BoxShape.circle,
                                     ),
                                   ),
@@ -2239,7 +2570,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                               ),
                               ElevatedButton.icon(
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF10B981),
+                                  backgroundColor: kSuccessColor,
                                   foregroundColor: Colors.white,
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                                   shape: RoundedRectangleBorder(
@@ -2279,20 +2610,20 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.0,
-                        color: const Color(0xFF8B5CF6),
+                        color: kPrimaryColor,
                       ),
                     ),
                     const SizedBox(height: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0F172A).withOpacity(0.6),
+                        color: kSurfaceColor.withOpacity(0.6),
                         border: Border.all(color: const Color(0xFF1E293B)),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.key, color: Color(0xFF8B5CF6), size: 14),
+                          const Icon(Icons.key, color: kPrimaryColor, size: 14),
                           const SizedBox(width: 8),
                           Expanded(
                             child: SingleChildScrollView(
@@ -2312,7 +2643,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                             constraints: const BoxConstraints(),
                             icon: Icon(
                               _copied ? Icons.check : Icons.copy,
-                              color: _copied ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                              color: _copied ? kSuccessColor : const Color(0xFF94A3B8),
                               size: 14,
                             ),
                             onPressed: () => _copyKey(widget.state.masterKeyHex),
@@ -2365,7 +2696,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                   children: [
                                     Container(
                                       padding: const EdgeInsets.all(3),
-                                      decoration: const BoxDecoration(color: Color(0xFF8B5CF6), shape: BoxShape.circle),
+                                      decoration: const BoxDecoration(color: kPrimaryColor, shape: BoxShape.circle),
                                       child: Text('${index + 1}', style: const TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold)),
                                     ),
                                     const SizedBox(width: 6),
@@ -2392,7 +2723,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.0,
-                          color: const Color(0xFF3B82F6),
+                          color: kPrimaryHoverColor,
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -2403,7 +2734,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                               label: 'Device Status',
                               value: (status['is_trusted'] ?? false) ? 'Trusted' : 'Untrusted',
                               icon: Icons.devices,
-                              color: (status['is_trusted'] ?? false) ? const Color(0xFF10B981) : Colors.orange,
+                              color: (status['is_trusted'] ?? false) ? kSuccessColor : Colors.orange,
                             ),
                           ),
                           Expanded(
@@ -2411,7 +2742,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                               label: 'TPM Binding',
                               value: 'Simulated TPM',
                               icon: Icons.developer_board,
-                              color: const Color(0xFF3B82F6),
+                              color: kPrimaryHoverColor,
                             ),
                           ),
                         ],
@@ -2437,7 +2768,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                 Icon(
                                   Icons.shield_outlined,
                                   color: monitorState.isMonitoring 
-                                      ? (monitorState.isCalibrating ? Colors.orange : const Color(0xFF10B981)) 
+                                      ? (monitorState.isCalibrating ? Colors.orange : kSuccessColor) 
                                       : const Color(0xFF94A3B8),
                                   size: 16,
                                 ),
@@ -2449,7 +2780,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 1.0,
                                     color: monitorState.isMonitoring 
-                                        ? (monitorState.isCalibrating ? Colors.orange : const Color(0xFF10B981)) 
+                                        ? (monitorState.isCalibrating ? Colors.orange : kSuccessColor) 
                                         : const Color(0xFF94A3B8),
                                   ),
                                 ),
@@ -2459,12 +2790,12 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
                                 color: monitorState.isMonitoring 
-                                    ? (monitorState.isCalibrating ? Colors.orange.withOpacity(0.1) : const Color(0xFF10B981).withOpacity(0.1)) 
+                                    ? (monitorState.isCalibrating ? Colors.orange.withOpacity(0.1) : kSuccessColor.withOpacity(0.1)) 
                                     : const Color(0xFF334155).withOpacity(0.3),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
                                   color: monitorState.isMonitoring 
-                                      ? (monitorState.isCalibrating ? Colors.orange.withOpacity(0.3) : const Color(0xFF10B981).withOpacity(0.3)) 
+                                      ? (monitorState.isCalibrating ? Colors.orange.withOpacity(0.3) : kSuccessColor.withOpacity(0.3)) 
                                       : const Color(0xFF334155).withOpacity(0.4),
                                 ),
                               ),
@@ -2476,7 +2807,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                   fontSize: 8,
                                   fontWeight: FontWeight.bold,
                                   color: monitorState.isMonitoring 
-                                      ? (monitorState.isCalibrating ? Colors.orange : const Color(0xFF10B981)) 
+                                      ? (monitorState.isCalibrating ? Colors.orange : kSuccessColor) 
                                       : const Color(0xFF94A3B8),
                                 ),
                               ),
@@ -2496,7 +2827,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF0F172A).withOpacity(0.5),
+                                    color: kSurfaceColor.withOpacity(0.5),
                                     border: Border.all(color: const Color(0xFF1E293B)),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
@@ -2512,7 +2843,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                               ),
                               const SizedBox(width: 8),
                               IconButton(
-                                icon: const Icon(Icons.folder_open, size: 20, color: Color(0xFF8B5CF6)),
+                                icon: const Icon(Icons.folder_open, size: 20, color: kPrimaryColor),
                                 onPressed: () async {
                                   final path = await FilePicker.getDirectoryPath();
                                   if (path != null) {
@@ -2528,7 +2859,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                             height: 38,
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF3B82F6),
+                                backgroundColor: kPrimaryHoverColor,
                                 foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 padding: const EdgeInsets.symmetric(vertical: 8),
@@ -2564,12 +2895,12 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                               const SizedBox(width: 8),
                               OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(color: Color(0xFFEF4444)),
+                                  side: const BorderSide(color: kErrorColor),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                                 ),
-                                icon: const Icon(Icons.stop, size: 12, color: Color(0xFFEF4444)),
-                                label: Text('STOP', style: GoogleFonts.outfit(fontSize: 10, color: const Color(0xFFEF4444), fontWeight: FontWeight.bold)),
+                                icon: const Icon(Icons.stop, size: 12, color: kErrorColor),
+                                label: Text('STOP', style: GoogleFonts.outfit(fontSize: 10, color: kErrorColor, fontWeight: FontWeight.bold)),
                                 onPressed: () {
                                   context.read<MonitorBloc>().add(StopMonitoringEvent());
                                 },
@@ -2605,7 +2936,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                 Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF0F172A).withOpacity(0.5),
+                                    color: kSurfaceColor.withOpacity(0.5),
                                     border: Border.all(color: const Color(0xFF1E293B)),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
@@ -2633,7 +2964,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                     height: 54,
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF0F172A).withOpacity(0.5),
+                                      color: kSurfaceColor.withOpacity(0.5),
                                       border: Border.all(color: const Color(0xFF1E293B)),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
@@ -2810,7 +3141,7 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
               if (state is VaultUnlockedState) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    backgroundColor: Color(0xFF10B981),
+                    backgroundColor: kSuccessColor,
                     content: Text('Vault successfully recovered & unlocked!'),
                   ),
                 );
@@ -2860,13 +3191,13 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                       padding: const EdgeInsets.all(10),
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEF4444).withOpacity(0.1),
-                        border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.3)),
+                        color: kErrorColor.withOpacity(0.1),
+                        border: Border.all(color: kErrorColor.withOpacity(0.3)),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         errorMsg,
-                        style: GoogleFonts.outfit(color: const Color(0xFFEF4444), fontSize: 12),
+                        style: GoogleFonts.outfit(color: kErrorColor, fontSize: 12),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -3033,7 +3364,7 @@ class _RecoveryPageState extends State<RecoveryPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF070B19),
+      backgroundColor: kScaffoldBackgroundColor,
       appBar: AppBar(
         title: Text('Recovery Mode', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
@@ -3120,13 +3451,13 @@ class _RecoveryPageState extends State<RecoveryPage> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFEF4444).withOpacity(0.08),
-                                border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.3)),
+                                color: kErrorColor.withOpacity(0.08),
+                                border: Border.all(color: kErrorColor.withOpacity(0.3)),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.error_outline, color: Color(0xFFEF4444), size: 18),
+                                  const Icon(Icons.error_outline, color: kErrorColor, size: 18),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
@@ -3282,7 +3613,7 @@ class GlassmorphicCard extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             const Color(0xFF1E293B).withOpacity(0.4),
-            const Color(0xFF0F172A).withOpacity(0.6),
+            kSurfaceColor.withOpacity(0.6),
           ],
         ),
       ),
@@ -3314,15 +3645,15 @@ InputDecoration _inputDecoration({
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: Color(0xFF8B5CF6), width: 1.5),
+      borderSide: const BorderSide(color: kPrimaryColor, width: 1.5),
     ),
     errorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: Color(0xFFEF4444)),
+      borderSide: const BorderSide(color: kErrorColor),
     ),
     focusedErrorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
+      borderSide: const BorderSide(color: kErrorColor, width: 1.5),
     ),
   );
 }
@@ -3381,7 +3712,7 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
           context.read<MonitorBloc>().add(ResetMonitorAlarmEvent());
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              backgroundColor: const Color(0xFF10B981),
+              backgroundColor: kSuccessColor,
               content: Text('Security alarm cleared. Vault unlocked.', style: GoogleFonts.outfit()),
             ),
           );
@@ -3400,7 +3731,7 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
                 child: Container(
-                  color: const Color(0xFFEF4444).withOpacity(0.08),
+                  color: kErrorColor.withOpacity(0.08),
                 ),
               ),
             ),
@@ -3412,11 +3743,11 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
                   padding: const EdgeInsets.all(32),
                   decoration: BoxDecoration(
                     color: const Color(0xFF1E1111).withOpacity(0.8),
-                    border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.4), width: 1.5),
+                    border: Border.all(color: kErrorColor.withOpacity(0.4), width: 1.5),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFEF4444).withOpacity(0.2),
+                        color: kErrorColor.withOpacity(0.2),
                         blurRadius: 30,
                         spreadRadius: 5,
                       ),
@@ -3431,16 +3762,16 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
                           return Container(
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEF4444).withOpacity(0.1 + (_pulseController.value * 0.15)),
+                              color: kErrorColor.withOpacity(0.1 + (_pulseController.value * 0.15)),
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: const Color(0xFFEF4444).withOpacity(0.3 + (_pulseController.value * 0.4)),
+                                color: kErrorColor.withOpacity(0.3 + (_pulseController.value * 0.4)),
                                 width: 2,
                               ),
                             ),
                             child: const Icon(
                               Icons.security_update_warning_outlined,
-                              color: Color(0xFFEF4444),
+                              color: kErrorColor,
                               size: 48,
                             ),
                           );
@@ -3452,7 +3783,7 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
                         style: GoogleFonts.outfit(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFFEF4444),
+                          color: kErrorColor,
                           letterSpacing: 1.5,
                         ),
                         textAlign: TextAlign.center,
@@ -3473,7 +3804,7 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
                         decoration: BoxDecoration(
                           color: Colors.black.withOpacity(0.4),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.15)),
+                          border: Border.all(color: kErrorColor.withOpacity(0.15)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -3483,7 +3814,7 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
                               style: GoogleFonts.outfit(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: const Color(0xFFEF4444),
+                                color: kErrorColor,
                                 letterSpacing: 1.0,
                               ),
                             ),
@@ -3524,17 +3855,17 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
                           hintText: 'Enter vault password',
                           hintStyle: GoogleFonts.outfit(color: const Color(0xFF475569)),
                           filled: true,
-                          fillColor: const Color(0xFF0F172A).withOpacity(0.5),
+                          fillColor: kSurfaceColor.withOpacity(0.5),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: const BorderSide(color: Color(0xFF334155)),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFFEF4444)),
+                            borderSide: const BorderSide(color: kErrorColor),
                           ),
                           errorText: _error,
-                          errorStyle: GoogleFonts.outfit(color: const Color(0xFFEF4444)),
+                          errorStyle: GoogleFonts.outfit(color: kErrorColor),
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -3543,7 +3874,7 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
                         height: 50,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFEF4444),
+                            backgroundColor: kErrorColor,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -3746,7 +4077,7 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
         width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width - 32,
         padding: const EdgeInsets.all(28),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F172A).withOpacity(0.95),
+          color: kSurfaceColor.withOpacity(0.95),
           border: Border.all(color: const Color(0xFF334155).withOpacity(0.5)),
           borderRadius: BorderRadius.circular(16),
         ),
@@ -3762,7 +4093,7 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.0,
-                    color: const Color(0xFF3B82F6),
+                    color: kPrimaryHoverColor,
                   ),
                 ),
                 IconButton(
@@ -3782,8 +4113,8 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: _errorMessage != null 
-                      ? const Color(0xFFEF4444).withOpacity(0.5) 
-                      : const Color(0xFF3B82F6).withOpacity(0.3),
+                      ? kErrorColor.withOpacity(0.5) 
+                      : kPrimaryHoverColor.withOpacity(0.3),
                   width: 2,
                 ),
               ),
@@ -3793,7 +4124,7 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
                     : Icon(
                         widget.isEnrolled ? Icons.face : Icons.add_a_photo_outlined,
                         size: 64,
-                        color: _errorMessage != null ? const Color(0xFFEF4444) : const Color(0xFF3B82F6),
+                        color: _errorMessage != null ? kErrorColor : kPrimaryHoverColor,
                       ),
               ),
             ),
@@ -3815,7 +4146,7 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
                 _errorMessage!,
                 style: GoogleFonts.outfit(
                   fontSize: 11,
-                  color: const Color(0xFFEF4444),
+                  color: kErrorColor,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -3824,7 +4155,7 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
             const SizedBox(height: 28),
             
             if (_isLoading)
-              const CircularProgressIndicator(color: Color(0xFF3B82F6))
+              const CircularProgressIndicator(color: kPrimaryHoverColor)
             else
               Row(
                 children: [
@@ -3843,7 +4174,7 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
                   Expanded(
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF3B82F6),
+                        backgroundColor: kPrimaryHoverColor,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -3993,7 +4324,7 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
         width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width - 32,
         padding: const EdgeInsets.all(28),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F172A).withOpacity(0.95),
+          color: kSurfaceColor.withOpacity(0.95),
           border: Border.all(color: const Color(0xFF334155).withOpacity(0.5)),
           borderRadius: BorderRadius.circular(16),
         ),
@@ -4009,7 +4340,7 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.0,
-                    color: const Color(0xFF3B82F6),
+                    color: kPrimaryHoverColor,
                   ),
                 ),
                 IconButton(
@@ -4029,8 +4360,8 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: _errorMessage != null 
-                      ? const Color(0xFFEF4444).withOpacity(0.5) 
-                      : const Color(0xFF3B82F6).withOpacity(0.3),
+                      ? kErrorColor.withOpacity(0.5) 
+                      : kPrimaryHoverColor.withOpacity(0.3),
                   width: 2,
                 ),
               ),
@@ -4041,13 +4372,13 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
                         child: const Icon(
                           Icons.audiotrack,
                           size: 64,
-                          color: Color(0xFF10B981),
+                          color: kSuccessColor,
                         ),
                       )
                     : Icon(
                         widget.isEnrolled ? Icons.mic : Icons.mic_none_outlined,
                         size: 64,
-                        color: _errorMessage != null ? const Color(0xFFEF4444) : const Color(0xFF3B82F6),
+                        color: _errorMessage != null ? kErrorColor : kPrimaryHoverColor,
                       ),
               ),
             ),
@@ -4069,7 +4400,7 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
                 _errorMessage!,
                 style: GoogleFonts.outfit(
                   fontSize: 11,
-                  color: const Color(0xFFEF4444),
+                  color: kErrorColor,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -4078,7 +4409,7 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
             const SizedBox(height: 28),
             
             if (_isLoading)
-              const CircularProgressIndicator(color: Color(0xFF3B82F6))
+              const CircularProgressIndicator(color: kPrimaryHoverColor)
             else
               Row(
                 children: [
@@ -4097,7 +4428,7 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
                   Expanded(
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF3B82F6),
+                        backgroundColor: kPrimaryHoverColor,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         padding: const EdgeInsets.symmetric(vertical: 14),

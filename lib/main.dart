@@ -27,7 +27,7 @@ void main() async {
       center: true,
       backgroundColor: Colors.transparent,
       skipTaskbar: false,
-      titleBarStyle: TitleBarStyle.normal,
+      titleBarStyle: TitleBarStyle.hidden,
     );
     await windowManager.waitUntilReadyToShow(windowOptions, () async {
       await windowManager.show();
@@ -92,13 +92,13 @@ class MyApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
             brightness: Brightness.dark,
-            primaryColor: const Color(0xFF8B5CF6),
-            scaffoldBackgroundColor: const Color(0xFF070B19),
+            primaryColor: const Color(0xFF00A29A),
+            scaffoldBackgroundColor: const Color(0xFF1E2228),
             colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF8B5CF6),
-              secondary: Color(0xFF3B82F6),
-              surface: Color(0xFF0F172A),
-              error: Color(0xFFEF4444),
+              primary: Color(0xFF00A29A),
+              secondary: Color(0xFF008D86),
+              surface: Color(0xFF181B20),
+              error: Color(0xFFE06C75),
             ),
             textTheme: GoogleFonts.outfitTextTheme(
               ThemeData.dark().textTheme,
