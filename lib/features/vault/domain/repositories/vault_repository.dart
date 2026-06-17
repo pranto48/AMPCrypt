@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 abstract class VaultRepository {
   /// Check if the vault has already been set up/created on this device.
   bool get isVaultCreated;
@@ -62,4 +64,28 @@ abstract class VaultRepository {
 
   /// Deletes the local vault config (vault.json) and encrypted data files.
   Future<void> clearVaultData();
+
+  /// Checks if security questions recovery option is active.
+  bool get isQuestionsRecoveryEnabled;
+
+  /// Gets the recovery email address.
+  String? getQuestionsRecoveryEmail();
+
+  /// Gets the recovery questions configured.
+  List<String>? getQuestionsRecoveryQuestions();
+
+  /// Enables recovery via questions and email.
+  Future<void> enableQuestionsRecovery(String email, List<String> questions, List<String> answers);
+
+  /// Disables recovery via questions and email.
+  Future<void> disableQuestionsRecovery();
+
+  /// Sends the recovery code via Resend API.
+  Future<bool> sendRecoveryEmail(String email, String code);
+
+  /// Attempts recovery via questions, returning decrypted master key if successful.
+  Future<Uint8List?> recoverWithQuestionsAndEmail(List<String> answers);
+
+  /// Unlocks the vault directly using the master key.
+  Future<bool> unlockWithMasterKey(Uint8List masterKey);
 }

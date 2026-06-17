@@ -40,3 +40,12 @@ class RecoverVaultEvent extends VaultEvent {
 class LockVaultEvent extends VaultEvent {}
 
 class ResetToUninitializedEvent extends VaultEvent {}
+
+class UnlockWithMasterKeyEvent extends VaultEvent {
+  final List<int> masterKey;
+
+  const UnlockWithMasterKeyEvent(this.masterKey);
+
+  @override
+  List<Object?> get props => [masterKey];
+}

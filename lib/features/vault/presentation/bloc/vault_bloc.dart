@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/repositories/vault_repository.dart';
@@ -20,6 +21,7 @@ class VaultBloc extends Bloc<VaultEvent, VaultState> {
     on<RecoverVaultEvent>(_onRecoverVault);
     on<LockVaultEvent>(_onLockVault);
     on<ResetToUninitializedEvent>(_onResetToUninitialized);
+    on<UnlockWithMasterKeyEvent>(_onUnlockWithMasterKey);
   }
 
   void _onCheckVaultStatus(CheckVaultStatusEvent event, Emitter<VaultState> emit) {
@@ -160,6 +162,36 @@ class VaultBloc extends Bloc<VaultEvent, VaultState> {
     await prefs.remove('registered_face_embedding');
     await prefs.remove('registered_voice_embedding');
     emit(VaultUninitializedState());
+  }
+
+  Future<void> _onUnlockWithMasterKey(UnlockWithMasterKeyEvent event, Emitter<VaultState> emit) async {
+    emit(const VaultLoadingState(message: 'Unlocking vault with recovered master key...'));
+    try {
+      final key = Uint8List.fromList(event.masterKey);
+      final success = await _vaultRepository.unlockWithMasterKey(key);
+      if (success) {
+        final masterKeyHex = _vaultRepository.masterKeyHex ?? '';
+        final deviceStatus = await _vaultRepository.getDeviceStatus();
+        
+        _startAutoLockTimer();
+
+        emit(VaultUnlockedState(
+          masterKeyHex: masterKeyHex,
+          deviceStatus: deviceStatus,
+          webDavPort: _vaultRepository.webDavPort,
+        ));
+      } else {
+        emit(VaultFailureState(
+          errorMessage: 'Failed to mount virtual drive with master key.',
+          previousState: VaultLockedState(),
+        ));
+      }
+    } catch (e) {
+      emit(VaultFailureState(
+        errorMessage: 'An unexpected error occurred during direct unlock: ${e.toString()}',
+        previousState: VaultLockedState(),
+      ));
+    }
   }
 
   @override

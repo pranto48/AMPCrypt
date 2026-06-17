@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:ui';
+import '../../domain/repositories/vault_repository.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1488,6 +1490,10 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                       _deviceRow('Fingerprint Reader', Icons.fingerprint, hasFingerprint),
                       _deviceRow('Webcam / Camera', Icons.camera_alt_outlined, hasCamera),
                       _deviceRow('Microphone (Mic)', Icons.mic_none_outlined, hasMic),
+                      const SizedBox(height: 16),
+                      const Divider(color: Colors.white10, height: 1),
+                      const SizedBox(height: 16),
+                      _buildQuestionsRecoverySetting(repository),
                     ],
                   ),
                 ],
@@ -1540,6 +1546,322 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildQuestionsRecoverySetting(VaultRepository repository) {
+    final isEnabled = repository.isQuestionsRecoveryEnabled;
+    final email = repository.getQuestionsRecoveryEmail();
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: kSurfaceColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.contact_mail_outlined,
+                    color: isEnabled ? kSuccessColor : const Color(0xFF94A3B8),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Questions & Email OTP Recovery',
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isEnabled ? kSuccessColor.withOpacity(0.1) : Colors.white10,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isEnabled ? kSuccessColor.withOpacity(0.3) : Colors.white24,
+                  ),
+                ),
+                child: Text(
+                  isEnabled ? 'ACTIVE' : 'INACTIVE',
+                  style: GoogleFonts.outfit(
+                    color: isEnabled ? kSuccessColor : const Color(0xFF94A3B8),
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isEnabled
+                ? 'Master Password recovery is active. Linked to email: $email.'
+                : 'Configure 3 security questions and an email verification code to recover your Master Password if forgotten.',
+            style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 11),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 36,
+            child: isEnabled
+                ? OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: kErrorColor,
+                      side: BorderSide(color: kErrorColor.withOpacity(0.3)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: const Icon(Icons.delete_outline, size: 14),
+                    label: const Text('DEACTIVATE RECOVERY'),
+                    onPressed: () async {
+                      await repository.disableQuestionsRecovery();
+                      setState(() {});
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: kErrorColor,
+                            content: Text(
+                              'Security questions recovery deactivated.',
+                              style: GoogleFonts.outfit(),
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                  )
+                : ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: kPrimaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: const Icon(Icons.settings_outlined, size: 14),
+                    label: const Text('CONFIGURE RECOVERY'),
+                    onPressed: () {
+                      _showConfigureQuestionsDialog(context, repository);
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showConfigureQuestionsDialog(BuildContext context, VaultRepository repository) {
+    final emailController = TextEditingController();
+    final q1Controller = TextEditingController(text: 'What was the name of your first pet?');
+    final q2Controller = TextEditingController(text: 'In what city were you born?');
+    final q3Controller = TextEditingController(text: 'What is your mother\'s maiden name?');
+    final a1Controller = TextEditingController();
+    final a2Controller = TextEditingController();
+    final a3Controller = TextEditingController();
+
+    final predefinedQuestions = [
+      'What was the name of your first pet?',
+      'In what city were you born?',
+      'What is your mother\'s maiden name?',
+      'What was the name of your first school?',
+      'What is the name of the street you grew up on?',
+      'What is your favorite book or movie?',
+    ];
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: kSurfaceColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              title: Text(
+                'Configure Recovery Questions & Email',
+                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+              content: SizedBox(
+                width: 500,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'This will encrypt your Master Key with answers to your security questions. If you forget your password, you can recover it by completing this verification and matching the email OTP code.',
+                        style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: emailController,
+                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        decoration: InputDecoration(
+                          labelText: 'Recovery Email Address',
+                          labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                          focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Question 1
+                      DropdownButtonFormField<String>(
+                        value: predefinedQuestions.contains(q1Controller.text) ? q1Controller.text : predefinedQuestions[0],
+                        dropdownColor: kSurfaceColor,
+                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                        decoration: InputDecoration(
+                          labelText: 'Security Question 1',
+                          labelStyle: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                        items: predefinedQuestions
+                            .map((q) => DropdownMenuItem(value: q, child: Text(q, overflow: TextOverflow.ellipsis)))
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            q1Controller.text = val;
+                          }
+                        },
+                      ),
+                      TextField(
+                        controller: a1Controller,
+                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        decoration: InputDecoration(
+                          labelText: 'Answer 1',
+                          labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                          focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Question 2
+                      DropdownButtonFormField<String>(
+                        value: predefinedQuestions.contains(q2Controller.text) ? q2Controller.text : predefinedQuestions[1],
+                        dropdownColor: kSurfaceColor,
+                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                        decoration: InputDecoration(
+                          labelText: 'Security Question 2',
+                          labelStyle: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                        items: predefinedQuestions
+                            .map((q) => DropdownMenuItem(value: q, child: Text(q, overflow: TextOverflow.ellipsis)))
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            q2Controller.text = val;
+                          }
+                        },
+                      ),
+                      TextField(
+                        controller: a2Controller,
+                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        decoration: InputDecoration(
+                          labelText: 'Answer 2',
+                          labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                          focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Question 3
+                      DropdownButtonFormField<String>(
+                        value: predefinedQuestions.contains(q3Controller.text) ? q3Controller.text : predefinedQuestions[2],
+                        dropdownColor: kSurfaceColor,
+                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                        decoration: InputDecoration(
+                          labelText: 'Security Question 3',
+                          labelStyle: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                        items: predefinedQuestions
+                            .map((q) => DropdownMenuItem(value: q, child: Text(q, overflow: TextOverflow.ellipsis)))
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            q3Controller.text = val;
+                          }
+                        },
+                      ),
+                      TextField(
+                        controller: a3Controller,
+                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        decoration: InputDecoration(
+                          labelText: 'Answer 3',
+                          labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                          focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: Text('Cancel', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8))),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kPrimaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: () async {
+                    final email = emailController.text.trim();
+                    final a1 = a1Controller.text.trim();
+                    final a2 = a2Controller.text.trim();
+                    final a3 = a3Controller.text.trim();
+
+                    if (email.isEmpty || a1.isEmpty || a2.isEmpty || a3.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          backgroundColor: kErrorColor,
+                          content: Text('Please fill in email and all 3 answers.', style: GoogleFonts.outfit()),
+                        ),
+                      );
+                      return;
+                    }
+
+                    try {
+                      Navigator.of(dialogContext).pop();
+                      await repository.enableQuestionsRecovery(
+                        email,
+                        [q1Controller.text, q2Controller.text, q3Controller.text],
+                        [a1, a2, a3],
+                      );
+                      setState(() {});
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: kSuccessColor,
+                            content: Text('Security questions recovery enabled successfully!', style: GoogleFonts.outfit()),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: kErrorColor,
+                            content: Text('Failed to set up recovery: ${e.toString()}', style: GoogleFonts.outfit()),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  child: Text('Save Setup', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -3084,14 +3406,45 @@ class InlineRecoveryView extends StatefulWidget {
 }
 
 class _InlineRecoveryViewState extends State<InlineRecoveryView> {
+  // Common states
+  bool _useQuestionsRecovery = false;
+  String? _localError;
+  String? _localSuccess;
+
+  // SLIP-39 controllers
   final _phrase1Controller = TextEditingController();
   final _phrase2Controller = TextEditingController();
-  String? _localError;
+
+  // Questions recovery controllers/states
+  final _pathController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _codeController = TextEditingController();
+  final _a1Controller = TextEditingController();
+  final _a2Controller = TextEditingController();
+  final _a3Controller = TextEditingController();
+
+  int _recoveryStep = 1; // 1: Email verify/send, 2: Code verify, 3: Answer questions
+  String _generatedCode = '';
+  List<String> _recoveryQuestions = [];
+  bool _sendingCode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final repository = context.read<VaultBloc>().repository;
+    _pathController.text = repository.getVaultPath();
+  }
 
   @override
   void dispose() {
     _phrase1Controller.dispose();
     _phrase2Controller.dispose();
+    _pathController.dispose();
+    _emailController.dispose();
+    _codeController.dispose();
+    _a1Controller.dispose();
+    _a2Controller.dispose();
+    _a3Controller.dispose();
     super.dispose();
   }
 
@@ -3129,6 +3482,143 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
     }
   }
 
+  Future<void> _sendCode() async {
+    final path = _pathController.text.trim();
+    final email = _emailController.text.trim();
+    final repository = context.read<VaultBloc>().repository;
+
+    if (path.isEmpty || email.isEmpty) {
+      setState(() {
+        _localError = 'Please fill in both vault path and email.';
+      });
+      return;
+    }
+
+    setState(() {
+      _sendingCode = true;
+      _localError = null;
+      _localSuccess = null;
+    });
+
+    await repository.updateVaultSettings(path, repository.getDriveLetter());
+
+    if (!repository.isQuestionsRecoveryEnabled) {
+      setState(() {
+        _localError = 'Security questions recovery is not configured for this vault.';
+        _sendingCode = false;
+      });
+      return;
+    }
+
+    final configuredEmail = repository.getQuestionsRecoveryEmail();
+    if (configuredEmail?.trim().toLowerCase() != email.toLowerCase()) {
+      setState(() {
+        _localError = 'Incorrect recovery email address.';
+        _sendingCode = false;
+      });
+      return;
+    }
+
+    // Generate random code
+    final code = (Random().nextInt(900000) + 100000).toString();
+    _generatedCode = code;
+
+    // Send email using Resend API
+    final success = await repository.sendRecoveryEmail(email, code);
+
+    setState(() {
+      _sendingCode = false;
+      if (success) {
+        _recoveryStep = 2;
+        _localSuccess = 'Verification code sent to $email!';
+      } else {
+        _localError = 'Failed to send recovery email. Please check internet connection.';
+      }
+    });
+  }
+
+  void _verifyCode() {
+    final inputCode = _codeController.text.trim();
+    if (inputCode.isEmpty) {
+      setState(() {
+        _localError = 'Please enter the 6-digit code.';
+      });
+      return;
+    }
+
+    if (inputCode == _generatedCode) {
+      final repository = context.read<VaultBloc>().repository;
+      final questions = repository.getQuestionsRecoveryQuestions() ?? [];
+      setState(() {
+        _recoveryStep = 3;
+        _recoveryQuestions = questions;
+        _localError = null;
+        _localSuccess = 'Email code verified. Answer your security questions.';
+      });
+    } else {
+      setState(() {
+        _localError = 'Invalid verification code.';
+      });
+    }
+  }
+
+  Future<void> _submitQuestionsRecovery() async {
+    final a1 = _a1Controller.text.trim();
+    final a2 = _a2Controller.text.trim();
+    final a3 = _a3Controller.text.trim();
+
+    if (a1.isEmpty || a2.isEmpty || a3.isEmpty) {
+      setState(() {
+        _localError = 'Please answer all 3 questions.';
+      });
+      return;
+    }
+
+    setState(() {
+      _localError = null;
+      _localSuccess = null;
+    });
+
+    final repository = context.read<VaultBloc>().repository;
+    final masterKey = await repository.recoverWithQuestionsAndEmail([a1, a2, a3]);
+
+    if (masterKey != null) {
+      if (mounted) {
+        context.read<VaultBloc>().add(UnlockWithMasterKeyEvent(masterKey));
+      }
+    } else {
+      setState(() {
+        _localError = 'Decryption failed. Please verify your security question answers.';
+      });
+    }
+  }
+
+  Widget _tabButton(String text, bool active, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? kPrimaryColor.withOpacity(0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: active ? kPrimaryColor : Colors.transparent,
+            width: 1,
+          ),
+        ),
+        child: Text(
+          text,
+          style: GoogleFonts.outfit(
+            color: active ? Colors.white : const Color(0xFF94A3B8),
+            fontSize: 12,
+            fontWeight: active ? FontWeight.bold : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -3159,30 +3649,57 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: const Color(0xFFFF9E0B).withOpacity(0.1),
-                          border: Border.all(color: const Color(0xFFFF9E0B).withOpacity(0.3), width: 1.5),
-                        ),
-                        child: const Icon(Icons.vpn_key_outlined, size: 24, color: Color(0xFFFF9E0B)),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: const Color(0xFFFF9E0B).withOpacity(0.1),
+                              border: Border.all(color: const Color(0xFFFF9E0B).withOpacity(0.3), width: 1.5),
+                            ),
+                            child: const Icon(Icons.vpn_key_outlined, size: 24, color: Color(0xFFFF9E0B)),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Master Key Recovery',
+                            style: GoogleFonts.outfit(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Master Key Recovery (SLIP-39)',
-                        style: GoogleFonts.outfit(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+                      // Mode Selector
+                      Row(
+                        children: [
+                          _tabButton('SLIP-39 Phrases', !_useQuestionsRecovery, () {
+                            setState(() {
+                              _useQuestionsRecovery = false;
+                              _localError = null;
+                              _localSuccess = null;
+                            });
+                          }),
+                          const SizedBox(width: 8),
+                          _tabButton('Questions & Email OTP', _useQuestionsRecovery, () {
+                            setState(() {
+                              _useQuestionsRecovery = true;
+                              _localError = null;
+                              _localSuccess = null;
+                            });
+                          }),
+                        ],
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Input at least 2 of your 24-word backup mnemonics to recover your primary vault master key.',
+                    _useQuestionsRecovery
+                        ? 'Recover your primary vault using your pre-configured 3 security questions and an email verification code.'
+                        : 'Input at least 2 of your 24-word backup mnemonics to recover your primary vault master key.',
                     style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF94A3B8)),
                   ),
                   const SizedBox(height: 16),
@@ -3202,97 +3719,263 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                     ),
                     const SizedBox(height: 12),
                   ],
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'RECOVERY MNEMONIC SHARE 1',
-                              style: GoogleFonts.outfit(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.0,
-                                color: const Color(0xFFFF9E0B),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            TextFormField(
-                              controller: _phrase1Controller,
-                              maxLines: 2,
-                              style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 12),
-                              decoration: _inputDecoration(
-                                hint: 'Paste or type recovery mnemonic 1',
-                                prefix: Icons.password,
-                                suffix: IconButton(
-                                  icon: const Icon(Icons.paste, color: Color(0xFFFF9E0B), size: 18),
-                                  onPressed: () => _pastePhrase(_phrase1Controller),
+                  if (_localSuccess != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: kSuccessColor.withOpacity(0.1),
+                        border: Border.all(color: kSuccessColor.withOpacity(0.3)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _localSuccess!,
+                        style: GoogleFonts.outfit(color: kSuccessColor, fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (!_useQuestionsRecovery) ...[
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'RECOVERY MNEMONIC SHARE 1',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.0,
+                                  color: const Color(0xFFFF9E0B),
                                 ),
                               ),
+                              const SizedBox(height: 6),
+                              TextFormField(
+                                controller: _phrase1Controller,
+                                maxLines: 2,
+                                style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 12),
+                                decoration: _inputDecoration(
+                                  hint: 'Paste or type recovery mnemonic 1',
+                                  prefix: Icons.password,
+                                  suffix: IconButton(
+                                    icon: const Icon(Icons.paste, color: Color(0xFFFF9E0B), size: 18),
+                                    onPressed: () => _pastePhrase(_phrase1Controller),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 20),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'RECOVERY MNEMONIC SHARE 2',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.0,
+                                  color: const Color(0xFFFF9E0B),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              TextFormField(
+                                controller: _phrase2Controller,
+                                maxLines: 2,
+                                style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 12),
+                                decoration: _inputDecoration(
+                                  hint: 'Paste or type recovery mnemonic 2',
+                                  prefix: Icons.password,
+                                  suffix: IconButton(
+                                    icon: const Icon(Icons.paste, color: Color(0xFFFF9E0B), size: 18),
+                                    onPressed: () => _pastePhrase(_phrase2Controller),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 44,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFF9E0B),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onPressed: isLoading ? null : _submitRecovery,
+                        child: isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : Text(
+                                'RECONSTRUCT & UNLOCK VAULT',
+                                style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 13),
+                              ),
+                      ),
+                    ),
+                  ] else ...[
+                    // Security Questions Recovery steps
+                    if (_recoveryStep == 1) ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _pathController,
+                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                              decoration: InputDecoration(
+                                labelText: 'Vault Folder Path',
+                                labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                              ),
                             ),
-                          ],
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.folder_open, color: kPrimaryColor, size: 18),
+                            onPressed: () async {
+                              final path = await FilePicker.getDirectoryPath();
+                              if (path != null) {
+                                setState(() => _pathController.text = path);
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: _emailController,
+                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        decoration: InputDecoration(
+                          labelText: 'Recovery Email Address',
+                          labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                          focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
                         ),
                       ),
-                      const SizedBox(width: 20),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'RECOVERY MNEMONIC SHARE 2',
-                              style: GoogleFonts.outfit(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.0,
-                                color: const Color(0xFFFF9E0B),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            TextFormField(
-                              controller: _phrase2Controller,
-                              maxLines: 2,
-                              style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 12),
-                              decoration: _inputDecoration(
-                                hint: 'Paste or type recovery mnemonic 2',
-                                prefix: Icons.password,
-                                suffix: IconButton(
-                                  icon: const Icon(Icons.paste, color: Color(0xFFFF9E0B), size: 18),
-                                  onPressed: () => _pastePhrase(_phrase2Controller),
-                                ),
-                              ),
-                            ),
-                          ],
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 44,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: kPrimaryColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onPressed: _sendingCode ? null : _sendCode,
+                          child: _sendingCode
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : Text('SEND VERIFICATION CODE', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12)),
+                        ),
+                      ),
+                    ] else if (_recoveryStep == 2) ...[
+                      TextField(
+                        controller: _codeController,
+                        keyboardType: TextInputType.number,
+                        style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 16, letterSpacing: 4),
+                        decoration: InputDecoration(
+                          labelText: '6-Digit Verification Code',
+                          labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                          focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 44,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: kPrimaryColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onPressed: _verifyCode,
+                          child: Text('VERIFY CODE', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12)),
+                        ),
+                      ),
+                    ] else if (_recoveryStep == 3) ...[
+                      Text(
+                        '1. ${_recoveryQuestions.isNotEmpty ? _recoveryQuestions[0] : 'Security Question 1'}',
+                        style: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                      TextField(
+                        controller: _a1Controller,
+                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        decoration: const InputDecoration(
+                          hintText: 'Answer 1',
+                          enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        '2. ${_recoveryQuestions.length > 1 ? _recoveryQuestions[1] : 'Security Question 2'}',
+                        style: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                      TextField(
+                        controller: _a2Controller,
+                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        decoration: const InputDecoration(
+                          hintText: 'Answer 2',
+                          enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        '3. ${_recoveryQuestions.length > 2 ? _recoveryQuestions[2] : 'Security Question 3'}',
+                        style: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                      TextField(
+                        controller: _a3Controller,
+                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        decoration: const InputDecoration(
+                          hintText: 'Answer 3',
+                          enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 44,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: kPrimaryColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onPressed: isLoading ? null : _submitQuestionsRecovery,
+                          child: isLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : Text('RECOVER & UNLOCK VAULT', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12)),
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 44,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFF9E0B),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      onPressed: isLoading ? null : _submitRecovery,
-                      child: isLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : Text(
-                              'RECONSTRUCT & UNLOCK VAULT',
-                              style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 13),
-                            ),
-                    ),
-                  ),
+                  ],
                 ],
               );
             },

@@ -245,6 +245,23 @@ class VaultRepositoryImpl implements VaultRepository {
       await Process.run('cmd.exe', ['/c', 'net use $driveLetter /delete /y']);
       // Mount the network drive
       await Process.run('cmd.exe', ['/c', 'net use $driveLetter http://localhost:$port /persistent:no']);
+
+      // Rename and set drive icon in Windows Explorer
+      try {
+        final letterOnly = driveLetter.replaceAll(':', '');
+        // Rename using PowerShell (via COM object Namespace)
+        await Process.run('powershell.exe', [
+          '-Command',
+          '(New-Object -ComObject Shell.Application).NameSpace(\'$driveLetter\').Self.Name = \'AMPCrypt\''
+        ]);
+
+        // Set drive icon in Registry (HKCU so it is writeable without admin privileges)
+        final exePath = Platform.resolvedExecutable;
+        await Process.run('powershell.exe', [
+          '-Command',
+          'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Force; Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Name "(Default)" -Value "$exePath"'
+        ]);
+      } catch (_) {}
     }
   }
 
@@ -252,6 +269,15 @@ class VaultRepositoryImpl implements VaultRepository {
     if (Platform.isWindows) {
       final driveLetter = getDriveLetter();
       await Process.run('cmd.exe', ['/c', 'net use $driveLetter /delete /y']);
+
+      try {
+        final letterOnly = driveLetter.replaceAll(':', '');
+        // Clean up registry key on unmount
+        await Process.run('powershell.exe', [
+          '-Command',
+          'Remove-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly" -Recurse -ErrorAction SilentlyContinue'
+        ]);
+      } catch (_) {}
     }
     await _webDavServer.stop();
   }
@@ -362,6 +388,120 @@ class VaultRepositoryImpl implements VaultRepository {
       }
     } catch (_) {}
     return null;
+  }
+
+  @override
+  bool get isQuestionsRecoveryEnabled {
+    final config = _loadVaultConfig();
+    return config != null && config['questions_recovery_enabled'] == true;
+  }
+
+  @override
+  String? getQuestionsRecoveryEmail() {
+    final config = _loadVaultConfig();
+    return config?['questions_recovery_email'] as String?;
+  }
+
+  @override
+  List<String>? getQuestionsRecoveryQuestions() {
+    final config = _loadVaultConfig();
+    final list = config?['questions_recovery_questions'];
+    if (list != null) {
+      return List<String>.from(list);
+    }
+    return null;
+  }
+
+  @override
+  Future<void> enableQuestionsRecovery(String email, List<String> questions, List<String> answers) async {
+    final masterKey = _cachedMasterKey;
+    if (masterKey == null) throw Exception("Vault must be unlocked to configure recovery options.");
+
+    // Derive combined answers key
+    final combinedAnswers = answers.map((a) => a.trim().toLowerCase()).join('_');
+    final salt = _cryptoService.generateSecureRandom(16);
+    final derivedKey = await _cryptoService.deriveKey(combinedAnswers, salt);
+
+    // Encrypt cached master key
+    final encryptedMasterKey = await _cryptoService.encryptData(masterKey, derivedKey);
+
+    // Load, update and save config
+    final config = _loadVaultConfig() ?? <String, dynamic>{};
+    config['questions_recovery_enabled'] = true;
+    config['questions_recovery_email'] = email;
+    config['questions_recovery_questions'] = questions;
+    config['questions_recovery_salt'] = base64Encode(salt);
+    config['questions_recovery_encrypted_master_key'] = base64Encode(encryptedMasterKey);
+
+    await _saveVaultConfig(config);
+  }
+
+  @override
+  Future<void> disableQuestionsRecovery() async {
+    final config = _loadVaultConfig();
+    if (config != null) {
+      config.remove('questions_recovery_enabled');
+      config.remove('questions_recovery_email');
+      config.remove('questions_recovery_questions');
+      config.remove('questions_recovery_salt');
+      config.remove('questions_recovery_encrypted_master_key');
+      await _saveVaultConfig(config);
+    }
+  }
+
+  @override
+  Future<bool> sendRecoveryEmail(String email, String code) async {
+    try {
+      final client = HttpClient();
+      final request = await client.postUrl(Uri.parse('https://api.resend.com/emails'));
+      
+      request.headers.set('Authorization', 'Bearer re_JRnu4jFo_JRjAbMeMnqraKM3yKAJPFNdf');
+      request.headers.set('Content-Type', 'application/json');
+      
+      final body = {
+        'from': 'AMPCrypt <onboarding@resend.dev>',
+        'to': [email],
+        'subject': 'AMPCrypt Recovery Verification Code',
+        'html': '<p>Your AMPCrypt security recovery code is: <strong>$code</strong></p><p>Please enter this code in the application along with your security question answers to recover your vault.</p>'
+      };
+      
+      request.write(json.encode(body));
+      final response = await request.close();
+      
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<Uint8List?> recoverWithQuestionsAndEmail(List<String> answers) async {
+    try {
+      final config = _loadVaultConfig();
+      if (config == null || config['questions_recovery_enabled'] != true) return null;
+
+      final saltBase64 = config['questions_recovery_salt'] as String?;
+      final encryptedMasterKeyBase64 = config['questions_recovery_encrypted_master_key'] as String?;
+      if (saltBase64 == null || encryptedMasterKeyBase64 == null) return null;
+
+      final salt = base64Decode(saltBase64);
+      final encryptedMasterKey = base64Decode(encryptedMasterKeyBase64);
+
+      final combinedAnswers = answers.map((a) => a.trim().toLowerCase()).join('_');
+      final derivedKey = await _cryptoService.deriveKey(combinedAnswers, salt);
+
+      final decryptedBytes = await _cryptoService.decryptData(encryptedMasterKey, derivedKey);
+      return decryptedBytes;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<bool> unlockWithMasterKey(Uint8List masterKey) async {
+    _cachedMasterKey = masterKey;
+    await _startServerAndMount(masterKey);
+    return true;
   }
 
   String _generateMockDeviceFingerprint() {
