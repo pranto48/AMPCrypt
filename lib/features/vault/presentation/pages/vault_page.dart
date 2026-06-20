@@ -16,6 +16,7 @@ import 'package:camera/camera.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../bloc/vault_bloc.dart';
 import '../bloc/vault_event.dart';
@@ -80,7 +81,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
     try {
       await trayManager.setIcon(
         Platform.isWindows 
-            ? 'windows/runner/resources/app_icon.ico' 
+            ? 'assets/app_icon.ico' 
             : 'macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png'
       );
       
@@ -109,6 +110,13 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
       } else {
         _quitApp();
       }
+    }
+  }
+
+  @override
+  void onWindowMinimize() async {
+    if (_minimizeToTray) {
+      await windowManager.hide();
     }
   }
 
@@ -1355,33 +1363,161 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                         children: [
                           Expanded(
                             child: Container(
-                              padding: const EdgeInsets.all(12),
+                              padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
                                 color: kSurfaceColor,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: Colors.white10),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.white.withOpacity(0.08)),
+                                gradient: LinearGradient(
+                                  colors: [
+                                    kSurfaceColor,
+                                    kSidebarBackgroundColor.withOpacity(0.4),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    'ABOUT AMPCRYPT',
-                                    style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.bold, color: kPrimaryColor),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        width: 44,
+                                        height: 44,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          gradient: const LinearGradient(
+                                            colors: [kPrimaryColor, Color(0xFF005E5A)],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: kPrimaryColor.withOpacity(0.3),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: const Icon(
+                                          Icons.verified_user_rounded,
+                                          color: Colors.white,
+                                          size: 22,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'AMPCrypt Security Suite',
+                                              style: GoogleFonts.outfit(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  'Builder: ',
+                                                  style: GoogleFonts.outfit(
+                                                    fontSize: 11,
+                                                    color: const Color(0xFF64748B),
+                                                  ),
+                                                ),
+                                                Text(
+                                                  'IT Support BD',
+                                                  style: GoogleFonts.outfit(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: kPrimaryColor,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'AMPCrypt Security Suite',
-                                    style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                                  const SizedBox(height: 12),
+                                  Divider(color: Colors.white.withOpacity(0.08), height: 1),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: kSuccessColor.withOpacity(0.15),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          'OPEN SOURCE',
+                                          style: GoogleFonts.outfit(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                            color: kSuccessColor,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Version 1.0.0+1 (Stable)',
+                                        style: GoogleFonts.shareTechMono(
+                                          fontSize: 11,
+                                          color: const Color(0xFF94A3B8),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 2),
+                                  const SizedBox(height: 8),
                                   Text(
-                                    'Version: 1.0.0+1 (Stable Release)',
-                                    style: GoogleFonts.shareTechMono(fontSize: 11, color: const Color(0xFF94A3B8)),
+                                    'An enterprise-grade, zero-trust offline cryptographic vault protecting your files with 4-Factor Biometric interlocking (Password, Face, Fingerprint, Voice), SLIP-39 secret splitting, and Unsupervised ML ransomware behavior shielding.',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 11,
+                                      color: const Color(0xFF94A3B8),
+                                      height: 1.4,
+                                    ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Offline AES-256-GCM Virtual Vault protected with multi-factor SLIP-39 secret sharing and real-time heuristics monitor.',
-                                    style: GoogleFonts.outfit(fontSize: 10, color: const Color(0xFF64748B)),
+                                  const SizedBox(height: 12),
+                                  InkWell(
+                                    onTap: () async {
+                                      try {
+                                        await launchUrl(
+                                          Uri.parse('https://ampcrypt.itsupport.bd/'),
+                                          mode: LaunchMode.externalApplication,
+                                        );
+                                      } catch (_) {}
+                                    },
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.language_rounded,
+                                            color: kPrimaryColor,
+                                            size: 14,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'https://ampcrypt.itsupport.bd/',
+                                            style: GoogleFonts.outfit(
+                                              fontSize: 12,
+                                              color: kPrimaryColor,
+                                              fontWeight: FontWeight.bold,
+                                              decoration: TextDecoration.underline,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
