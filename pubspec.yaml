@@ -119,6 +119,7 @@ msix_config:
   msix_version: 1.0.0.0
   logo_path: macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png
   capabilities: internetClient
+  install_certificate: false
 
 inno_bundle:
   id: 4e8dd1a0-63ba-11f1-83ab-d7eb17d52ca0
