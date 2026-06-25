@@ -353,6 +353,9 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
 
   @override
   Widget build(BuildContext context) {
+    if (kIsWeb) {
+      return const WebLandingPage();
+    }
     final showCustomTitleBar = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
     return Scaffold(
       backgroundColor: kScaffoldBackgroundColor,
@@ -1087,7 +1090,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
             style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           content: Text(
-            'You are running the latest version of AMPCrypt (v1.0.0).',
+            'You are running the latest version of AMPCrypt ($kAppVersion).',
             style: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
           ),
           actions: [
@@ -5639,6 +5642,475 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Web Landing Page & Contact Us (Resend API Integration)
+// =============================================================================
+class WebLandingPage extends StatefulWidget {
+  const WebLandingPage({super.key});
+
+  @override
+  State<WebLandingPage> createState() => _WebLandingPageState();
+}
+
+class _WebLandingPageState extends State<WebLandingPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _subjectController = TextEditingController();
+  final _messageController = TextEditingController();
+
+  bool _isSending = false;
+  String? _statusMessage;
+  bool _isSuccess = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _subjectController.dispose();
+    _messageController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitForm() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isSending = true;
+      _statusMessage = null;
+    });
+
+    try {
+      final response = await http_pkg.post(
+        Uri.parse('https://api.resend.com/emails'),
+        headers: {
+          'Authorization': 'Bearer re_JRnu4jFo_JRjAbMeMnqraKM3yKAJPFNdf',
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'from': 'AMPCrypt Web <onboarding@resend.dev>',
+          'to': ['pranto48@gmail.com'],
+          'subject': '[AMPCrypt Web Contact] ${_subjectController.text.trim()}',
+          'html': '''
+            <h3>New Contact Form Message</h3>
+            <p><strong>Name:</strong> ${_nameController.text.trim()}</p>
+            <p><strong>Email:</strong> ${_emailController.text.trim()}</p>
+            <p><strong>Subject:</strong> ${_subjectController.text.trim()}</p>
+            <p><strong>Message:</strong></p>
+            <p>\${_messageController.text.trim().replaceAll('\\n', '<br>')}</p>
+          '''
+        }),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        setState(() {
+          _isSuccess = true;
+          _statusMessage = 'Your message has been sent successfully!';
+          _nameController.clear();
+          _emailController.clear();
+          _subjectController.clear();
+          _messageController.clear();
+        });
+      } else {
+        setState(() {
+          _isSuccess = false;
+          _statusMessage = 'Failed to send message. Server returned code: \${response.statusCode}';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isSuccess = false;
+        _statusMessage = 'An error occurred while sending: \$e';
+      });
+    } finally {
+      setState(() {
+        _isSending = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F172A),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            // ─── HERO HEADER ────────────────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 24),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF080D21),
+                    Color(0xFF130925),
+                    Color(0xFF05060F),
+                  ],
+                ),
+              ),
+              child: Center(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 900),
+                  child: Column(
+                    children: [
+                      // Logo
+                      Image.asset(
+                        'assets/app_icon.ico',
+                        width: 96,
+                        height: 96,
+                        errorBuilder: (context, error, stackTrace) => const Icon(
+                          Icons.verified_user_rounded,
+                          size: 96,
+                          color: kPrimaryColor,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'AMPCrypt Security Suite',
+                        style: GoogleFonts.outfit(
+                          fontSize: 42,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: -1,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Enterprise-grade, zero-trust offline cryptographic vault protecting your files with 4-Factor Biometric interlocking, SLIP-39 secret splitting, and Unsupervised ML ransomware behavior shielding.',
+                        style: GoogleFonts.outfit(
+                          fontSize: 16,
+                          color: const Color(0xFF94A3B8),
+                          height: 1.5,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 40),
+                      // Download Buttons
+                      Wrap(
+                        spacing: 20,
+                        runSpacing: 20,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: kPrimaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 0,
+                            ),
+                            icon: const Icon(Icons.download_rounded, size: 20),
+                            label: Text(
+                              'DOWNLOAD EXE INSTALLER',
+                              style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                            ),
+                            onPressed: () => launchUrl(
+                              Uri.parse('https://ampcrypt.itsupport.bd/installers/Ampcrypt-Installer.exe'),
+                              mode: LaunchMode.externalApplication,
+                            ),
+                          ),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              side: const BorderSide(color: Colors.white24),
+                              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            icon: const Icon(Icons.inventory_2_outlined, size: 20),
+                            label: Text(
+                              'DOWNLOAD MSIX PACKAGE',
+                              style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                            ),
+                            onPressed: () => launchUrl(
+                              Uri.parse('https://ampcrypt.itsupport.bd/installers/ampcrypt.msix'),
+                              mode: LaunchMode.externalApplication,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // ─── FEATURES SECTION ───────────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 24),
+              color: const Color(0xFF0B0F19),
+              child: Center(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 1000),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Cutting-Edge Security Features',
+                        style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      const SizedBox(height: 48),
+                      GridView.count(
+                        crossAxisCount: MediaQuery.of(context).size.width > 700 ? 2 : 1,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisSpacing: 30,
+                        mainAxisSpacing: 30,
+                        childAspectRatio: 1.5,
+                        children: [
+                          _buildWebFeatureCard(
+                            Icons.fingerprint_rounded,
+                            '4-Factor Biometric Interlocking',
+                            'Unlock your vault combining password credentials, local face verification, fingerprint scan, and vocal analysis.',
+                          ),
+                          _buildWebFeatureCard(
+                            Icons.schema_outlined,
+                            'SLIP-39 Secret Splitting',
+                            'Split your master key into 3 shards. You only need 2 of them to completely reconstruct it, eliminating single points of failure.',
+                          ),
+                          _buildWebFeatureCard(
+                            Icons.security_rounded,
+                            'Ransomware Shielding',
+                            'An active, unsupervised machine learning watcher monitors folder behaviors, instantly unmounting the drive if attack models trigger.',
+                          ),
+                          _buildWebFeatureCard(
+                            Icons.folder_shared_rounded,
+                            'Zero-Trust WebDAV Mounting',
+                            'Safely mounts your vault as a local disk (Z:) on Windows via secure localhost WebDAV loops with zero cloud exposure.',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // ─── CONTACT US SECTION ──────────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 24),
+              color: const Color(0xFF0F172A),
+              child: Center(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: Card(
+                    color: const Color(0xFF1E293B).withOpacity(0.6),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: const BorderSide(color: Colors.white10),
+                    ),
+                    elevation: 0,
+                    child: Padding(
+                      padding: const EdgeInsets.all(32.0),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Contact Us',
+                              style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Send a message to our security support team.',
+                              style: GoogleFonts.outfit(fontSize: 13, color: const Color(0xFF94A3B8)),
+                            ),
+                            const SizedBox(height: 24),
+                            // Name
+                            TextFormField(
+                              controller: _nameController,
+                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+                              decoration: _webInputDecoration('Full Name', Icons.person_outline),
+                              validator: (v) => v == null || v.trim().isEmpty ? 'Please enter your name' : null,
+                            ),
+                            const SizedBox(height: 16),
+                            // Email
+                            TextFormField(
+                              controller: _emailController,
+                              keyboardType: TextInputType.emailAddress,
+                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+                              decoration: _webInputDecoration('Email Address', Icons.email_outlined),
+                              validator: (v) => v == null || v.trim().isEmpty ? 'Please enter your email' : null,
+                            ),
+                            const SizedBox(height: 16),
+                            // Subject
+                            TextFormField(
+                              controller: _subjectController,
+                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+                              decoration: _webInputDecoration('Subject', Icons.subject_rounded),
+                              validator: (v) => v == null || v.trim().isEmpty ? 'Please enter subject' : null,
+                            ),
+                            const SizedBox(height: 16),
+                            // Message
+                            TextFormField(
+                              controller: _messageController,
+                              maxLines: 5,
+                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+                              decoration: _webInputDecoration('Message Content', Icons.chat_bubble_outline_rounded),
+                              validator: (v) => v == null || v.trim().isEmpty ? 'Please enter message content' : null,
+                            ),
+                            const SizedBox(height: 24),
+                            if (_statusMessage != null) ...[
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: _isSuccess ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: _isSuccess ? Colors.green.withOpacity(0.3) : Colors.red.withOpacity(0.3)),
+                                ),
+                                child: Text(
+                                  _statusMessage!,
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 13,
+                                    color: _isSuccess ? const Color(0xFFA7F3D0) : const Color(0xFFFDA4AF),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                            SizedBox(
+                              width: double.infinity,
+                              height: 48,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: kPrimaryColor,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                                onPressed: _isSending ? null : _submitForm,
+                                child: _isSending
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      )
+                                    : Text(
+                                        'SEND MESSAGE',
+                                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // ─── FOOTER ─────────────────────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+              color: const Color(0xFF080C16),
+              child: Center(
+                child: Column(
+                  children: [
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          'Made by ',
+                          style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B)),
+                        ),
+                        InkWell(
+                          onTap: () => launchUrl(Uri.parse('https://itsupport.com.bd/'), mode: LaunchMode.externalApplication),
+                          child: Text(
+                            'IT Support BD',
+                            style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: kPrimaryColor, decoration: TextDecoration.underline),
+                          ),
+                        ),
+                        Text(
+                          ' | Main Contribution: ',
+                          style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B)),
+                        ),
+                        InkWell(
+                          onTap: () => launchUrl(Uri.parse('https://arifmahmud.com/'), mode: LaunchMode.externalApplication),
+                          child: Text(
+                            'Arif Mahmud Pranto',
+                            style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: kPrimaryColor, decoration: TextDecoration.underline),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'AMPCrypt Web Portal • Version $kAppVersion',
+                      style: GoogleFonts.shareTechMono(color: const Color(0xFF475569), fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWebFeatureCard(IconData icon, String title, String desc) {
+    return Card(
+      color: const Color(0xFF1E293B).withOpacity(0.3),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Colors.white10),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 28, color: kPrimaryColor),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              desc,
+              style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF94A3B8), height: 1.4),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _webInputDecoration(String labelText, IconData icon) {
+    return InputDecoration(
+      labelText: labelText,
+      labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+      prefixIcon: Icon(icon, color: const Color(0xFF64748B), size: 16),
+      filled: true,
+      fillColor: const Color(0xFF0F172A).withOpacity(0.6),
+      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: Colors.white10),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: kPrimaryColor, width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: kErrorColor),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: kErrorColor, width: 1.5),
       ),
     );
   }
