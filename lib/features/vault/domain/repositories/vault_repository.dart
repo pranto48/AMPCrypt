@@ -88,4 +88,19 @@ abstract class VaultRepository {
 
   /// Unlocks the vault directly using the master key.
   Future<bool> unlockWithMasterKey(Uint8List masterKey);
+
+  /// Checks if TPM hardware-backed storage is supported on the system.
+  Future<bool> isTpmSupported();
+
+  /// Checks if TPM passwordless unlock is enabled.
+  bool get isTpmUnlockEnabled;
+
+  /// Enables TPM passwordless unlock by wrapping the current master key.
+  Future<bool> enableTpmUnlock();
+
+  /// Disables TPM passwordless unlock.
+  Future<void> disableTpmUnlock();
+
+  /// Performs TPM/Windows Hello biometric verification to recover the master key.
+  Future<Uint8List?> unlockWithTpm();
 }

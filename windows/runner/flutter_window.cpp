@@ -3,6 +3,7 @@
 #include <optional>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "flutter/generated_plugin_registrant.h"
 
@@ -10,6 +11,28 @@
 #include <flutter/standard_method_codec.h>
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Security.Credentials.UI.h>
+
+#include "winfsp_tpm_helper.h"
+#include <wincrypt.h>
+
+// Helper to base64 encode
+static std::string Base64Encode(const std::vector<uint8_t>& data) {
+  DWORD dwSize = 0;
+  CryptBinaryToStringA(data.data(), (DWORD)data.size(), CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, nullptr, &dwSize);
+  std::string str(dwSize, '\0');
+  CryptBinaryToStringA(data.data(), (DWORD)data.size(), CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, &str[0], &dwSize);
+  if (!str.empty() && str.back() == '\0') str.pop_back();
+  return str;
+}
+
+// Helper to base64 decode
+static std::vector<uint8_t> Base64Decode(const std::string& str) {
+  DWORD dwSize = 0;
+  CryptStringToBinaryA(str.c_str(), (DWORD)str.size(), CRYPT_STRING_BASE64, nullptr, &dwSize, nullptr, nullptr);
+  std::vector<uint8_t> data(dwSize);
+  CryptStringToBinaryA(str.c_str(), (DWORD)str.size(), CRYPT_STRING_BASE64, data.data(), &dwSize, nullptr, nullptr);
+  return data;
+}
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -33,15 +56,17 @@ bool FlutterWindow::OnCreate() {
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
-  // Setup method channel for Windows Hello native UserConsentVerifier
+  // Setup method channel for Windows Hello native UserConsentVerifier and TPM KEK
   auto messenger = flutter_controller_->engine()->messenger();
   auto hello_channel = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
       messenger, "ampcrypt/windows_hello",
       &flutter::StandardMethodCodec::GetInstance());
 
+  HWND hwnd = flutter_controller_->view()->GetNativeWindow();
+
   hello_channel->SetMethodCallHandler(
-      [](const flutter::MethodCall<flutter::EncodableValue>& call,
-         std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+      [hwnd](const flutter::MethodCall<flutter::EncodableValue>& call,
+             std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
         if (call.method_name() == "authenticate") {
           std::thread([result]() {
             try {
@@ -67,6 +92,80 @@ bool FlutterWindow::OnCreate() {
             } catch (...) {
               result->Error("ERROR", "An unknown error occurred during Windows Hello verification.");
             }
+          }).detach();
+        } else if (call.method_name() == "isTpmSupported") {
+          result->Success(flutter::EncodableValue(IsTpmSupported()));
+        } else if (call.method_name() == "encryptKek") {
+          const auto* args = std::get_if<std::vector<uint8_t>>(call.arguments());
+          if (!args) {
+            result->Error("INVALID_ARGUMENTS", "Expected raw KEK bytes.");
+            return;
+          }
+          std::thread([result, rawKek = *args]() {
+            auto cipher = EncryptKekWithTpm(rawKek);
+            if (cipher.empty()) {
+              result->Error("ENCRYPTION_FAILED", "Failed to encrypt KEK with TPM.");
+            } else {
+              result->Success(flutter::EncodableValue(Base64Encode(cipher)));
+            }
+          }).detach();
+        } else if (call.method_name() == "decryptKek") {
+          const auto* cipher_str = std::get_if<std::string>(call.arguments());
+          if (!cipher_str) {
+            result->Error("INVALID_ARGUMENTS", "Expected base64 cipher string.");
+            return;
+          }
+          std::thread([result, cipher = *cipher_str, hwnd]() {
+            auto rawKek = DecryptKekWithTpm(Base64Decode(cipher), hwnd);
+            if (rawKek.empty()) {
+              result->Error("DECRYPTION_FAILED", "Failed to decrypt KEK or Windows Hello verification canceled.");
+            } else {
+              result->Success(flutter::EncodableValue(rawKek));
+            }
+          }).detach();
+        } else {
+          result->NotImplemented();
+        }
+      });
+
+  // Setup method channel for WinFsp Mounting
+  auto winfsp_channel = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+      messenger, "ampcrypt/winfsp",
+      &flutter::StandardMethodCodec::GetInstance());
+
+  winfsp_channel->SetMethodCallHandler(
+      [](const flutter::MethodCall<flutter::EncodableValue>& call,
+         std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+        if (call.method_name() == "mount") {
+          const auto* args_map = std::get_if<flutter::EncodableMap>(call.arguments());
+          if (!args_map) {
+            result->Error("INVALID_ARGUMENTS", "Expected map arguments.");
+            return;
+          }
+          auto drive_it = args_map->find(flutter::EncodableValue("driveLetter"));
+          auto port_it = args_map->find(flutter::EncodableValue("port"));
+          if (drive_it == args_map->end() || port_it == args_map->end()) {
+            result->Error("INVALID_ARGUMENTS", "Missing driveLetter or port.");
+            return;
+          }
+          std::string drive = std::get<std::string>(drive_it->second);
+          int port = std::get<int>(port_it->second);
+          
+          std::wstring wdrive(drive.begin(), drive.end());
+          std::thread([result, wdrive, port]() {
+            bool success = MountWinFspDrive(wdrive, port);
+            result->Success(flutter::EncodableValue(success));
+          }).detach();
+        } else if (call.method_name() == "unmount") {
+          const auto* drive_str = std::get_if<std::string>(call.arguments());
+          if (!drive_str) {
+            result->Error("INVALID_ARGUMENTS", "Expected drive letter string.");
+            return;
+          }
+          std::wstring wdrive(drive_str->begin(), drive_str->end());
+          std::thread([result, wdrive]() {
+            bool success = UnmountWinFspDrive(wdrive);
+            result->Success(flutter::EncodableValue(success));
           }).detach();
         } else {
           result->NotImplemented();

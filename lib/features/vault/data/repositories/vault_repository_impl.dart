@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as p;
 import '../../../../core/crypto/crypto_service.dart';
@@ -230,6 +231,9 @@ class VaultRepositoryImpl implements VaultRepository {
     return Platform.environment['HOME'] ?? '';
   }
 
+  static const _winFspChannel = MethodChannel('ampcrypt/winfsp');
+  static const _helloChannel = MethodChannel('ampcrypt/windows_hello');
+
   Future<void> _startServerAndMount(Uint8List masterKey) async {
     final vaultPath = getVaultPath();
     final driveLetter = getDriveLetter();
@@ -240,10 +244,22 @@ class VaultRepositoryImpl implements VaultRepository {
     // Mount to driveLetter on Windows
     if (Platform.isWindows && _webDavServer.isRunning) {
       final port = _webDavServer.port;
-      // First try to safely unmount any existing drive to prevent conflicts
-      await Process.run('cmd.exe', ['/c', 'net use $driveLetter /delete /y']);
-      // Mount the network drive (using UNC format with DavWWWRoot to ensure Windows Explorer queries quota sizes correctly)
-      await Process.run('cmd.exe', ['/c', 'net use $driveLetter \\\\localhost@$port\\DavWWWRoot /persistent:no']);
+      bool winFspMounted = false;
+      try {
+        winFspMounted = await _winFspChannel.invokeMethod<bool>('mount', {
+          'driveLetter': driveLetter,
+          'port': port,
+        }) ?? false;
+      } catch (e) {
+        print('WinFsp mount failed, falling back: $e');
+      }
+
+      if (!winFspMounted) {
+        // First try to safely unmount any existing drive to prevent conflicts
+        await Process.run('cmd.exe', ['/c', 'net use $driveLetter /delete /y']);
+        // Mount the network drive (using UNC format with DavWWWRoot to ensure Windows Explorer queries quota sizes correctly)
+        await Process.run('cmd.exe', ['/c', 'net use $driveLetter \\\\localhost@$port\\DavWWWRoot /persistent:no']);
+      }
 
       // Rename and set drive icon in Windows Explorer
       try {
@@ -274,7 +290,14 @@ class VaultRepositoryImpl implements VaultRepository {
   Future<void> _stopServerAndUnmount() async {
     if (Platform.isWindows) {
       final driveLetter = getDriveLetter();
-      await Process.run('cmd.exe', ['/c', 'net use $driveLetter /delete /y']);
+      bool winFspUnmounted = false;
+      try {
+        winFspUnmounted = await _winFspChannel.invokeMethod<bool>('unmount', driveLetter) ?? false;
+      } catch (_) {}
+
+      if (!winFspUnmounted) {
+        await Process.run('cmd.exe', ['/c', 'net use $driveLetter /delete /y']);
+      }
 
       try {
         final letterOnly = driveLetter.replaceAll(':', '');
@@ -523,5 +546,63 @@ class VaultRepositoryImpl implements VaultRepository {
       if (i == 4 || i == 8 || i == 12) return '-';
       return chars[random.nextInt(16)];
     }).join();
+  }
+
+  @override
+  Future<bool> isTpmSupported() async {
+    if (!Platform.isWindows) return false;
+    try {
+      final supported = await _helloChannel.invokeMethod<bool>('isTpmSupported');
+      return supported ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  bool get isTpmUnlockEnabled {
+    final enabled = _prefs.getBool('is_tpm_enabled') ?? false;
+    final cipher = _prefs.getString('tpm_encrypted_master_key');
+    return enabled && cipher != null;
+  }
+
+  @override
+  Future<bool> enableTpmUnlock() async {
+    if (!Platform.isWindows || _cachedMasterKey == null) return false;
+    try {
+      final String? cipher = await _helloChannel.invokeMethod<String>('encryptKek', _cachedMasterKey);
+      if (cipher != null) {
+        await _prefs.setBool('is_tpm_enabled', true);
+        await _prefs.setString('tpm_encrypted_master_key', cipher);
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<void> disableTpmUnlock() async {
+    await _prefs.remove('is_tpm_enabled');
+    await _prefs.remove('tpm_encrypted_master_key');
+  }
+
+  @override
+  Future<Uint8List?> unlockWithTpm() async {
+    if (!Platform.isWindows) return null;
+    final cipher = _prefs.getString('tpm_encrypted_master_key');
+    if (cipher == null) return null;
+    try {
+      final rawKek = await _helloChannel.invokeMethod<dynamic>('decryptKek', cipher);
+      if (rawKek is Uint8List) {
+        return rawKek;
+      } else if (rawKek is List) {
+        return Uint8List.fromList(List<int>.from(rawKek));
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
   }
 }
