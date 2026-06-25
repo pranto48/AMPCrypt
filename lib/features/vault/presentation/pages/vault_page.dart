@@ -253,7 +253,6 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
   }
 
   void _showOpenVaultDialog(BuildContext context) async {
-    final repository = context.read<VaultBloc>().repository;
     String? selectedDirectory = await FilePicker.getDirectoryPath();
     if (selectedDirectory != null) {
       if (context.mounted) {
@@ -972,6 +971,15 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
   }
 }
 
+enum SettingsSection {
+  general,
+  system,
+  ransomware,
+  diagnostics,
+  recovery,
+  about,
+}
+
 class SettingsView extends StatefulWidget {
   final VoidCallback onClose;
   final VoidCallback onQuit;
@@ -981,8 +989,8 @@ class SettingsView extends StatefulWidget {
   State<SettingsView> createState() => _SettingsViewState();
 }
 
-class _SettingsViewState extends State<SettingsView> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _SettingsViewState extends State<SettingsView> {
+  SettingsSection _selectedSection = SettingsSection.general;
   late TextEditingController pathController;
   late String selectedDrive;
   late double selectedSensitivity;
@@ -1000,7 +1008,6 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
     
     final repository = context.read<VaultBloc>().repository;
     pathController = TextEditingController(text: repository.getVaultPath());
@@ -1034,7 +1041,6 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
 
   @override
   void dispose() {
-    _tabController.dispose();
     pathController.dispose();
     super.dispose();
   }
@@ -1057,6 +1063,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
       } else {
         await launchAtStartup.disable();
       }
+      if (!mounted) return;
       setState(() {
         isStartupEnabled = val;
       });
@@ -1153,8 +1160,8 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(width: 8, height: 8, child: CircularProgressIndicator(strokeWidth: 1.5, color: kPrimaryColor)),
-          SizedBox(width: 8),
-          Text('Checking...', style: TextStyle(color: Color(0xFF64748B), fontSize: 11)),
+          const SizedBox(width: 8),
+          const Text('Checking...', style: TextStyle(color: Color(0xFF64748B), fontSize: 11)),
         ],
       );
     } else if (detected) {
@@ -1162,7 +1169,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.check_circle_rounded, color: kSuccessColor, size: 14),
-          SizedBox(width: 4),
+          const SizedBox(width: 4),
           Text('Detected', style: TextStyle(color: kSuccessColor, fontSize: 11, fontWeight: FontWeight.bold)),
         ],
       );
@@ -1171,7 +1178,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.info_outline, color: kErrorColor, size: 14),
-          SizedBox(width: 4),
+          const SizedBox(width: 4),
           Text('Not Detected', style: TextStyle(color: kErrorColor, fontSize: 11)),
         ],
       );
@@ -1196,487 +1203,571 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
     );
   }
 
+  Widget _buildSidebarItem(SettingsSection section, String title, IconData icon) {
+    final isSelected = _selectedSection == section;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedSection = section),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.symmetric(vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? kPrimaryColor.withValues(alpha: 0.15) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected ? kPrimaryColor.withValues(alpha: 0.3) : Colors.transparent,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                size: 15,
+                color: isSelected ? kPrimaryColor : const Color(0xFF94A3B8),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: GoogleFonts.outfit(
+                    color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                    fontSize: 11,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSelectedPane(VaultRepository repository) {
+    switch (_selectedSection) {
+      case SettingsSection.general:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'DIRECTORY & DRIVE CONFIGURATION',
+              style: GoogleFonts.outfit(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+                color: kPrimaryColor,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: pathController,
+                    style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 12),
+                    decoration: InputDecoration(
+                      labelText: 'Vault Folder Path',
+                      labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                      focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.folder_open, color: kPrimaryColor, size: 18),
+                  onPressed: () async {
+                    String? selectedDirectory = await FilePicker.getDirectoryPath();
+                    if (selectedDirectory != null) {
+                      setState(() {
+                        pathController.text = selectedDirectory;
+                      });
+                    }
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: selectedDrive,
+                    dropdownColor: const Color(0xFF1E293B),
+                    decoration: InputDecoration(
+                      labelText: 'Virtual Drive Letter',
+                      labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                    ),
+                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                    items: ['D:', 'E:', 'F:', 'G:', 'H:', 'V:', 'W:', 'X:', 'Y:', 'Z:']
+                        .map((drive) => DropdownMenuItem(
+                              value: drive,
+                              child: Text(drive, style: GoogleFonts.outfit(color: Colors.white)),
+                            ))
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          selectedDrive = val;
+                        });
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: DropdownButtonFormField<int>(
+                    initialValue: selectedAutoLock,
+                    dropdownColor: const Color(0xFF1E293B),
+                    decoration: InputDecoration(
+                      labelText: 'Auto-Lock Timeout',
+                      labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                    ),
+                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                    items: const [
+                      DropdownMenuItem(value: 0, child: Text('Never')),
+                      DropdownMenuItem(value: 5, child: Text('5 Minutes')),
+                      DropdownMenuItem(value: 15, child: Text('15 Minutes')),
+                      DropdownMenuItem(value: 30, child: Text('30 Minutes')),
+                      DropdownMenuItem(value: 60, child: Text('60 Minutes')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          selectedAutoLock = val;
+                        });
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      case SettingsSection.system:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'STARTUP & SYSTEM INTEGRATION',
+              style: GoogleFonts.outfit(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+                color: kPrimaryColor,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+              decoration: BoxDecoration(
+                color: kSurfaceColor,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.white10),
+              ),
+              child: Column(
+                children: [
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      Platform.isMacOS 
+                          ? 'Run at macOS Startup' 
+                          : (Platform.isWindows ? 'Run at Windows Startup' : 'Run at System Startup'),
+                      style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                    ),
+                    subtitle: Text('Launch AMPCrypt silently when your system boots', style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 11)),
+                    activeThumbColor: kPrimaryColor,
+                    value: isStartupEnabled,
+                    onChanged: _toggleStartup,
+                  ),
+                  const Divider(color: Colors.white10, height: 1),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('Minimize to System Tray on Close', style: GoogleFonts.outfit(color: Colors.white, fontSize: 13)),
+                    subtitle: Text('Keep the app running in the background when window is closed', style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 11)),
+                    activeThumbColor: kPrimaryColor,
+                    value: minimizeToTray,
+                    onChanged: _toggleMinimizeToTray,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      case SettingsSection.ransomware:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'RANSOMWARE HEURISTICS MONITOR',
+                  style: GoogleFonts.outfit(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                    color: kPrimaryColor,
+                  ),
+                ),
+                Text(
+                  selectedSensitivity.toStringAsFixed(2),
+                  style: GoogleFonts.shareTechMono(color: kPrimaryColor, fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Slider(
+              value: selectedSensitivity,
+              min: 0.3,
+              max: 0.9,
+              activeColor: kPrimaryColor,
+              inactiveColor: const Color(0xFF1E1E38),
+              onChanged: (val) {
+                setState(() {
+                  selectedSensitivity = val;
+                });
+              },
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Higher sensitivity monitors folder changes and entropy variation more aggressively. If a sudden file mass modification or encryption operation is detected, a lock alarm will trigger automatically.',
+              style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 11, height: 1.4),
+            ),
+          ],
+        );
+      case SettingsSection.diagnostics:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'HARDWARE VERIFICATION DIAGNOSTICS',
+                  style: GoogleFonts.outfit(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                    color: kPrimaryColor,
+                  ),
+                ),
+                InkWell(
+                  onTap: isScanning ? null : _runDiagnostic,
+                  child: Text(
+                    isScanning ? 'SCANNING...' : 'RE-RUN SCAN',
+                    style: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _deviceRow('Fingerprint Reader', Icons.fingerprint, hasFingerprint),
+            _deviceRow('Webcam / Camera', Icons.camera_alt_outlined, hasCamera),
+            _deviceRow('Microphone (Mic)', Icons.mic_none_outlined, hasMic),
+          ],
+        );
+      case SettingsSection.recovery:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'VAULT RECOVERY MECHANISMS',
+              style: GoogleFonts.outfit(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+                color: kPrimaryColor,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildQuestionsRecoverySetting(repository),
+          ],
+        );
+      case SettingsSection.about:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: kSurfaceColor,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                gradient: LinearGradient(
+                  colors: [
+                    kSurfaceColor,
+                    kSidebarBackgroundColor.withValues(alpha: 0.4),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            colors: [kPrimaryColor, Color(0xFF005E5A)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.verified_user_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'AMPCrypt Security Suite',
+                              style: GoogleFonts.outfit(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Wrap(
+                              children: [
+                                Text(
+                                  'Made by ',
+                                  style: GoogleFonts.outfit(fontSize: 10, color: const Color(0xFF64748B)),
+                                ),
+                                InkWell(
+                                  onTap: () => launchUrl(Uri.parse('https://itsupport.com.bd/'), mode: LaunchMode.externalApplication),
+                                  child: Text(
+                                    'IT Support BD',
+                                    style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: kPrimaryColor, decoration: TextDecoration.underline),
+                                  ),
+                                ),
+                                Text(
+                                  ' | Contributor: ',
+                                  style: GoogleFonts.outfit(fontSize: 10, color: const Color(0xFF64748B)),
+                                ),
+                                InkWell(
+                                  onTap: () => launchUrl(Uri.parse('https://arifmahmud.com/'), mode: LaunchMode.externalApplication),
+                                  child: Text(
+                                    'Arif Mahmud Pranto',
+                                    style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: kPrimaryColor, decoration: TextDecoration.underline),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: kSuccessColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'OPEN SOURCE',
+                          style: GoogleFonts.outfit(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: kSuccessColor,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Version $kAppVersion',
+                        style: GoogleFonts.shareTechMono(
+                          fontSize: 11,
+                          color: const Color(0xFF94A3B8),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'An enterprise-grade, zero-trust offline cryptographic vault protecting your files with 4-Factor Biometric interlocking (Password, Face, Fingerprint, Voice), SLIP-39 secret splitting, and Unsupervised ML ransomware behavior shielding.',
+                    style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      color: const Color(0xFF94A3B8),
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  InkWell(
+                    onTap: () async {
+                      try {
+                        await launchUrl(
+                          Uri.parse('https://ampcrypt.itsupport.bd/'),
+                          mode: LaunchMode.externalApplication,
+                        );
+                      } catch (_) {}
+                    },
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.language_rounded,
+                            color: kPrimaryColor,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'https://ampcrypt.itsupport.bd/',
+                            style: GoogleFonts.outfit(
+                              fontSize: 11,
+                              color: kPrimaryColor,
+                              fontWeight: FontWeight.bold,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 36,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E2228),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        textStyle: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold),
+                        side: const BorderSide(color: Colors.white10),
+                      ),
+                      icon: isCheckingUpdates
+                          ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white))
+                          : const Icon(Icons.sync_rounded, size: 14),
+                      label: Text(isCheckingUpdates ? 'CHECKING...' : 'CHECK FOR UPDATES'),
+                      onPressed: isCheckingUpdates ? null : _checkUpdates,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: SizedBox(
+                    height: 36,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: kErrorColor.withValues(alpha: 0.15),
+                        foregroundColor: kErrorColor,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        textStyle: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold),
+                        side: BorderSide(color: kErrorColor.withValues(alpha: 0.3)),
+                      ),
+                      icon: const Icon(Icons.power_settings_new_rounded, size: 14),
+                      label: const Text('QUIT APP'),
+                      onPressed: () => widget.onQuit(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final repository = context.read<VaultBloc>().repository;
 
     return GlassmorphicCard(
       child: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            TabBar(
-              controller: _tabController,
-              indicatorColor: kPrimaryColor,
-              labelColor: Colors.white,
-              unselectedLabelColor: const Color(0xFF64748B),
-              labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
-              unselectedLabelStyle: GoogleFonts.outfit(fontSize: 13),
-              tabs: const [
-                Tab(text: 'General Settings'),
-                Tab(text: 'System & Startup'),
-                Tab(text: 'Security & Hardware'),
-              ],
-            ),
-            const SizedBox(height: 16),
             Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                physics: const NeverScrollableScrollPhysics(),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'DIRECTORY CONFIGURATION',
-                        style: GoogleFonts.outfit(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2,
-                          color: kPrimaryColor,
+                  Container(
+                    width: 180,
+                    decoration: const BoxDecoration(
+                      border: Border(right: BorderSide(color: Colors.white10, width: 1)),
+                    ),
+                    padding: const EdgeInsets.only(right: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'SETTINGS',
+                          style: GoogleFonts.outfit(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.0,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: pathController,
-                              style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 12),
-                              decoration: InputDecoration(
-                                labelText: 'Vault Folder Path',
-                                labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.folder_open, color: kPrimaryColor, size: 18),
-                            onPressed: () async {
-                              String? selectedDirectory = await FilePicker.getDirectoryPath();
-                              if (selectedDirectory != null) {
-                                setState(() {
-                                  pathController.text = selectedDirectory;
-                                });
-                              }
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              initialValue: selectedDrive,
-                              dropdownColor: const Color(0xFF1E293B),
-                              decoration: InputDecoration(
-                                labelText: 'Virtual Drive Letter',
-                                labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                              ),
-                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
-                              items: ['D:', 'E:', 'F:', 'G:', 'H:', 'V:', 'W:', 'X:', 'Y:', 'Z:']
-                                  .map((drive) => DropdownMenuItem(
-                                        value: drive,
-                                        child: Text(drive, style: GoogleFonts.outfit(color: Colors.white)),
-                                      ))
-                                  .toList(),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setState(() {
-                                    selectedDrive = val;
-                                  });
-                                }
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 24),
-                          Expanded(
-                            child: DropdownButtonFormField<int>(
-                              initialValue: selectedAutoLock,
-                              dropdownColor: const Color(0xFF1E293B),
-                              decoration: InputDecoration(
-                                labelText: 'Auto-Lock Inactivity Timeout',
-                                labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                              ),
-                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
-                              items: const [
-                                DropdownMenuItem(value: 0, child: Text('Never')),
-                                DropdownMenuItem(value: 5, child: Text('5 Minutes')),
-                                DropdownMenuItem(value: 15, child: Text('15 Minutes')),
-                                DropdownMenuItem(value: 30, child: Text('30 Minutes')),
-                                DropdownMenuItem(value: 60, child: Text('60 Minutes')),
-                              ],
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setState(() {
-                                    selectedAutoLock = val;
-                                  });
-                                }
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                        const SizedBox(height: 16),
+                        _buildSidebarItem(SettingsSection.general, 'General Settings', Icons.settings_outlined),
+                        _buildSidebarItem(SettingsSection.system, 'System Integration', Icons.power_outlined),
+                        _buildSidebarItem(SettingsSection.ransomware, 'Ransomware Shield', Icons.security_outlined),
+                        _buildSidebarItem(SettingsSection.diagnostics, 'Hardware Scan', Icons.analytics_outlined),
+                        _buildSidebarItem(SettingsSection.recovery, 'Recovery Mechanisms', Icons.contact_mail_outlined),
+                        _buildSidebarItem(SettingsSection.about, 'About & Updates', Icons.info_outline),
+                      ],
+                    ),
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'STARTUP & SYSTEM INTEGRATION',
-                        style: GoogleFonts.outfit(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2,
-                          color: kPrimaryColor,
-                        ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 4.0),
+                        child: _buildSelectedPane(repository),
                       ),
-                      const SizedBox(height: 10),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: kSurfaceColor,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.white10),
-                        ),
-                        child: Column(
-                          children: [
-                            SwitchListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(
-                                Platform.isMacOS 
-                                    ? 'Run at macOS Startup' 
-                                    : (Platform.isWindows ? 'Run at Windows Startup' : 'Run at System Startup'),
-                                style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
-                              ),
-                              subtitle: Text('Launch AMPCrypt silently when your system boots', style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 11)),
-                              activeThumbColor: kPrimaryColor,
-                              value: isStartupEnabled,
-                              onChanged: _toggleStartup,
-                            ),
-                            const Divider(color: Colors.white10, height: 1),
-                            SwitchListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text('Minimize to System Tray on Close', style: GoogleFonts.outfit(color: Colors.white, fontSize: 13)),
-                              subtitle: Text('Keep the app running in the background when window is closed', style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 11)),
-                              activeThumbColor: kPrimaryColor,
-                              value: minimizeToTray,
-                              onChanged: _toggleMinimizeToTray,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: kSurfaceColor,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                                gradient: LinearGradient(
-                                  colors: [
-                                    kSurfaceColor,
-                                    kSidebarBackgroundColor.withValues(alpha: 0.4),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Container(
-                                        width: 44,
-                                        height: 44,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          gradient: LinearGradient(
-                                            colors: [kPrimaryColor, Color(0xFF005E5A)],
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: kPrimaryColor.withValues(alpha: 0.3),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: const Icon(
-                                          Icons.verified_user_rounded,
-                                          color: Colors.white,
-                                          size: 22,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'AMPCrypt Security Suite',
-                                              style: GoogleFonts.outfit(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 2),
-                                            Wrap(
-                                              children: [
-                                                Text(
-                                                  'Made by ',
-                                                  style: GoogleFonts.outfit(fontSize: 10, color: const Color(0xFF64748B)),
-                                                ),
-                                                InkWell(
-                                                  onTap: () => launchUrl(Uri.parse('https://itsupport.com.bd/'), mode: LaunchMode.externalApplication),
-                                                  child: Text(
-                                                    'IT Support BD',
-                                                    style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: kPrimaryColor, decoration: TextDecoration.underline),
-                                                  ),
-                                                ),
-                                                Text(
-                                                  ' | Contributor: ',
-                                                  style: GoogleFonts.outfit(fontSize: 10, color: const Color(0xFF64748B)),
-                                                ),
-                                                InkWell(
-                                                  onTap: () => launchUrl(Uri.parse('https://arifmahmud.com/'), mode: LaunchMode.externalApplication),
-                                                  child: Text(
-                                                    'Arif Mahmud Pranto',
-                                                    style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: kPrimaryColor, decoration: TextDecoration.underline),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: kSuccessColor.withValues(alpha: 0.15),
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          'OPEN SOURCE',
-                                          style: GoogleFonts.outfit(
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.bold,
-                                            color: kSuccessColor,
-                                            letterSpacing: 0.5,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'Version $kAppVersion (Stable)',
-                                        style: GoogleFonts.shareTechMono(
-                                          fontSize: 11,
-                                          color: const Color(0xFF94A3B8),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'An enterprise-grade, zero-trust offline cryptographic vault protecting your files with 4-Factor Biometric interlocking (Password, Face, Fingerprint, Voice), SLIP-39 secret splitting, and Unsupervised ML ransomware behavior shielding.',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 11,
-                                      color: const Color(0xFF94A3B8),
-                                      height: 1.4,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  InkWell(
-                                    onTap: () async {
-                                      try {
-                                        await launchUrl(
-                                          Uri.parse('https://ampcrypt.itsupport.bd/'),
-                                          mode: LaunchMode.externalApplication,
-                                        );
-                                      } catch (_) {}
-                                    },
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.language_rounded,
-                                            color: kPrimaryColor,
-                                            size: 14,
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            'https://ampcrypt.itsupport.bd/',
-                                            style: GoogleFonts.outfit(
-                                              fontSize: 12,
-                                              color: kPrimaryColor,
-                                              fontWeight: FontWeight.bold,
-                                              decoration: TextDecoration.underline,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Column(
-                            children: [
-                              SizedBox(
-                                width: 180,
-                                height: 36,
-                                child: ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF1E2228),
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                    textStyle: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold),
-                                    side: const BorderSide(color: Colors.white10),
-                                  ),
-                                  icon: isCheckingUpdates
-                                      ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white))
-                                      : const Icon(Icons.sync_rounded, size: 14),
-                                  label: Text(isCheckingUpdates ? 'CHECKING...' : 'CHECK FOR UPDATES'),
-                                  onPressed: isCheckingUpdates ? null : _checkUpdates,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              SizedBox(
-                                width: 180,
-                                height: 36,
-                                child: ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: kErrorColor.withValues(alpha: 0.15),
-                                    foregroundColor: kErrorColor,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                    textStyle: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold),
-                                    side: BorderSide(color: kErrorColor.withValues(alpha: 0.3)),
-                                  ),
-                                  icon: const Icon(Icons.power_settings_new_rounded, size: 14),
-                                  label: const Text('QUIT APPLICATION'),
-                                  onPressed: () => widget.onQuit(),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'RANSOMWARE HEURISTICS MONITOR',
-                            style: GoogleFonts.outfit(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.2,
-                              color: kPrimaryColor,
-                            ),
-                          ),
-                          Text(
-                            selectedSensitivity.toStringAsFixed(2),
-                            style: GoogleFonts.shareTechMono(color: kPrimaryColor, fontWeight: FontWeight.bold, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                      Slider(
-                        value: selectedSensitivity,
-                        min: 0.3,
-                        max: 0.9,
-                        activeColor: kPrimaryColor,
-                        inactiveColor: const Color(0xFF1E1E38),
-                        onChanged: (val) {
-                          setState(() {
-                            selectedSensitivity = val;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'HARDWARE VERIFICATION DIAGNOSTICS',
-                            style: GoogleFonts.outfit(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.2,
-                              color: kPrimaryColor,
-                            ),
-                          ),
-                          InkWell(
-                            onTap: isScanning ? null : _runDiagnostic,
-                            child: Text(
-                              isScanning ? 'SCANNING...' : 'RE-RUN SCAN',
-                              style: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 10, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      _deviceRow('Fingerprint Reader', Icons.fingerprint, hasFingerprint),
-                      _deviceRow('Webcam / Camera', Icons.camera_alt_outlined, hasCamera),
-                      _deviceRow('Microphone (Mic)', Icons.mic_none_outlined, hasMic),
-                      const SizedBox(height: 16),
-                      const Divider(color: Colors.white10, height: 1),
-                      const SizedBox(height: 16),
-                      _buildQuestionsRecoverySetting(repository),
-                    ],
+                    ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 12),
             const Divider(color: Colors.white12, height: 1),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFF334155)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  ),
+                AnimatedGlassButton(
+                  label: 'CANCEL',
+                  isPrimary: false,
                   onPressed: widget.onClose,
-                  child: Text('CANCEL', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontWeight: FontWeight.bold, fontSize: 12)),
+                  height: 38,
                 ),
                 const SizedBox(width: 12),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: kPrimaryColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                  ),
+                AnimatedGlassButton(
+                  label: 'SAVE SETTINGS',
+                  isPrimary: true,
                   onPressed: () async {
                     if (pathController.text.isNotEmpty) {
                       await repository.updateVaultSettings(pathController.text, selectedDrive);
@@ -1695,7 +1786,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                       }
                     }
                   },
-                  child: Text('SAVE SETTINGS', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12)),
+                  height: 38,
                 ),
               ],
             ),
@@ -2528,8 +2619,10 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
 
   void _verifyFingerprint() async {
     final available = await _fingerprintService.isBiometricAvailable();
+    if (!mounted) return;
     if (available) {
       final success = await _fingerprintService.authenticateFingerprint();
+      if (!mounted) return;
       if (success) {
         setState(() => _fingerprintVerified = true);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -5664,6 +5757,13 @@ class _WebLandingPageState extends State<WebLandingPage> {
   final _subjectController = TextEditingController();
   final _messageController = TextEditingController();
 
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _heroKey = GlobalKey();
+  final GlobalKey _featuresKey = GlobalKey();
+  final GlobalKey _downloadsKey = GlobalKey();
+  final GlobalKey _contactKey = GlobalKey();
+  final GlobalKey _aboutKey = GlobalKey();
+
   bool _isSending = false;
   String? _statusMessage;
   bool _isSuccess = false;
@@ -5674,7 +5774,19 @@ class _WebLandingPageState extends State<WebLandingPage> {
     _emailController.dispose();
     _subjectController.dispose();
     _messageController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _scrollToKey(GlobalKey key) {
+    final context = key.currentContext;
+    if (context != null) {
+      Scrollable.ensureVisible(
+        context,
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   Future<void> _submitForm() async {
@@ -5702,7 +5814,7 @@ class _WebLandingPageState extends State<WebLandingPage> {
             <p><strong>Email:</strong> ${_emailController.text.trim()}</p>
             <p><strong>Subject:</strong> ${_subjectController.text.trim()}</p>
             <p><strong>Message:</strong></p>
-            <p>\${_messageController.text.trim().replaceAll('\\n', '<br>')}</p>
+            <p>${_messageController.text.trim().replaceAll('\n', '<br>')}</p>
           '''
         }),
       );
@@ -5719,13 +5831,13 @@ class _WebLandingPageState extends State<WebLandingPage> {
       } else {
         setState(() {
           _isSuccess = false;
-          _statusMessage = 'Failed to send message. Server returned code: \${response.statusCode}';
+          _statusMessage = 'Failed to send message. Server returned code: ${response.statusCode}';
         });
       }
     } catch (e) {
       setState(() {
         _isSuccess = false;
-        _statusMessage = 'An error occurred while sending: \$e';
+        _statusMessage = 'An error occurred while sending: $e';
       });
     } finally {
       setState(() {
@@ -5734,325 +5846,457 @@ class _WebLandingPageState extends State<WebLandingPage> {
     }
   }
 
+  Widget _buildHeaderMenuItem(String title, VoidCallback onTap) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Text(
+            title,
+            style: GoogleFonts.outfit(
+              color: const Color(0xFFE2E8F0),
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // ─── HERO HEADER ────────────────────────────────────────────────
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 24),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF080D21),
-                    Color(0xFF130925),
-                    Color(0xFF05060F),
-                  ],
-                ),
-              ),
-              child: Center(
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 900),
-                  child: Column(
-                    children: [
-                      // Logo
-                      Image.asset(
-                        'assets/app_icon.ico',
-                        width: 96,
-                        height: 96,
-                        errorBuilder: (context, error, stackTrace) => Icon(
-                          Icons.verified_user_rounded,
-                          size: 96,
-                          color: kPrimaryColor,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        'AMPCrypt Security Suite',
-                        style: GoogleFonts.outfit(
-                          fontSize: 42,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                          letterSpacing: -1,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Enterprise-grade, zero-trust offline cryptographic vault protecting your files with 4-Factor Biometric interlocking, SLIP-39 secret splitting, and Unsupervised ML ransomware behavior shielding.',
-                        style: GoogleFonts.outfit(
-                          fontSize: 16,
-                          color: const Color(0xFF94A3B8),
-                          height: 1.5,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 40),
-                      // Download Buttons
-                      Wrap(
-                        spacing: 20,
-                        runSpacing: 20,
-                        alignment: WrapAlignment.center,
-                        children: [
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: kPrimaryColor,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              elevation: 0,
-                            ),
-                            icon: const Icon(Icons.download_rounded, size: 20),
-                            label: Text(
-                              'DOWNLOAD EXE INSTALLER',
-                              style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 0.5),
-                            ),
-                            onPressed: () => launchUrl(
-                              Uri.parse('https://ampcrypt.itsupport.bd/installers/Ampcrypt-Installer.exe'),
-                              mode: LaunchMode.externalApplication,
-                            ),
-                          ),
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              side: const BorderSide(color: Colors.white24),
-                              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                            icon: const Icon(Icons.inventory_2_outlined, size: 20),
-                            label: Text(
-                              'DOWNLOAD MSIX PACKAGE',
-                              style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 0.5),
-                            ),
-                            onPressed: () => launchUrl(
-                              Uri.parse('https://ampcrypt.itsupport.bd/installers/ampcrypt.msix'),
-                              mode: LaunchMode.externalApplication,
-                            ),
-                          ),
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              child: Column(
+                children: [
+                  const SizedBox(height: 70), 
+                  
+                  Container(
+                    key: _heroKey,
+                    padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 24),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF080D21),
+                          Color(0xFF130925),
+                          Color(0xFF05060F),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // ─── FEATURES SECTION ───────────────────────────────────────────
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 24),
-              color: const Color(0xFF0B0F19),
-              child: Center(
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 1000),
-                  child: Column(
-                    children: [
-                      Text(
-                        'Cutting-Edge Security Features',
-                        style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                      const SizedBox(height: 48),
-                      GridView.count(
-                        crossAxisCount: MediaQuery.of(context).size.width > 700 ? 2 : 1,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisSpacing: 30,
-                        mainAxisSpacing: 30,
-                        childAspectRatio: 1.5,
-                        children: [
-                          _buildWebFeatureCard(
-                            Icons.fingerprint_rounded,
-                            '4-Factor Biometric Interlocking',
-                            'Unlock your vault combining password credentials, local face verification, fingerprint scan, and vocal analysis.',
-                          ),
-                          _buildWebFeatureCard(
-                            Icons.schema_outlined,
-                            'SLIP-39 Secret Splitting',
-                            'Split your master key into 3 shards. You only need 2 of them to completely reconstruct it, eliminating single points of failure.',
-                          ),
-                          _buildWebFeatureCard(
-                            Icons.security_rounded,
-                            'Ransomware Shielding',
-                            'An active, unsupervised machine learning watcher monitors folder behaviors, instantly unmounting the drive if attack models trigger.',
-                          ),
-                          _buildWebFeatureCard(
-                            Icons.folder_shared_rounded,
-                            'Zero-Trust WebDAV Mounting',
-                            'Safely mounts your vault as a local disk (Z:) on Windows via secure localhost WebDAV loops with zero cloud exposure.',
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // ─── CONTACT US SECTION ──────────────────────────────────────────
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 24),
-              color: const Color(0xFF0F172A),
-              child: Center(
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 600),
-                  child: Card(
-                    color: const Color(0xFF1E293B).withValues(alpha: 0.6),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      side: const BorderSide(color: Colors.white10),
                     ),
-                    elevation: 0,
-                    child: Padding(
-                      padding: const EdgeInsets.all(32.0),
-                      child: Form(
-                        key: _formKey,
+                    child: Center(
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 900),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Contact Us',
-                              style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Send a message to our security support team.',
-                              style: GoogleFonts.outfit(fontSize: 13, color: const Color(0xFF94A3B8)),
-                            ),
-                            const SizedBox(height: 24),
-                            // Name
-                            TextFormField(
-                              controller: _nameController,
-                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
-                              decoration: _webInputDecoration('Full Name', Icons.person_outline),
-                              validator: (v) => v == null || v.trim().isEmpty ? 'Please enter your name' : null,
-                            ),
-                            const SizedBox(height: 16),
-                            // Email
-                            TextFormField(
-                              controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
-                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
-                              decoration: _webInputDecoration('Email Address', Icons.email_outlined),
-                              validator: (v) => v == null || v.trim().isEmpty ? 'Please enter your email' : null,
-                            ),
-                            const SizedBox(height: 16),
-                            // Subject
-                            TextFormField(
-                              controller: _subjectController,
-                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
-                              decoration: _webInputDecoration('Subject', Icons.subject_rounded),
-                              validator: (v) => v == null || v.trim().isEmpty ? 'Please enter subject' : null,
-                            ),
-                            const SizedBox(height: 16),
-                            // Message
-                            TextFormField(
-                              controller: _messageController,
-                              maxLines: 5,
-                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
-                              decoration: _webInputDecoration('Message Content', Icons.chat_bubble_outline_rounded),
-                              validator: (v) => v == null || v.trim().isEmpty ? 'Please enter message content' : null,
+                            Image.asset(
+                              'assets/app_icon.ico',
+                              width: 96,
+                              height: 96,
+                              errorBuilder: (context, error, stackTrace) => Icon(
+                                Icons.verified_user_rounded,
+                                size: 96,
+                                color: kPrimaryColor,
+                              ),
                             ),
                             const SizedBox(height: 24),
-                            if (_statusMessage != null) ...[
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: _isSuccess ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: _isSuccess ? Colors.green.withValues(alpha: 0.3) : Colors.red.withValues(alpha: 0.3)),
-                                ),
-                                child: Text(
-                                  _statusMessage!,
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 13,
-                                    color: _isSuccess ? const Color(0xFFA7F3D0) : const Color(0xFFFDA4AF),
+                            Text(
+                              'AMPCrypt Security Suite',
+                              style: GoogleFonts.outfit(
+                                fontSize: 42,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                letterSpacing: -1,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Enterprise-grade, zero-trust offline cryptographic vault protecting your files with 4-Factor Biometric interlocking, SLIP-39 secret splitting, and Unsupervised ML ransomware behavior shielding.',
+                              style: GoogleFonts.outfit(
+                                fontSize: 16,
+                                color: const Color(0xFF94A3B8),
+                                height: 1.5,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 40),
+                            Wrap(
+                              spacing: 20,
+                              runSpacing: 20,
+                              alignment: WrapAlignment.center,
+                              children: [
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: kPrimaryColor,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    elevation: 0,
+                                  ),
+                                  icon: const Icon(Icons.download_rounded, size: 20),
+                                  label: Text(
+                                    'DOWNLOAD EXE INSTALLER',
+                                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                                  ),
+                                  onPressed: () => launchUrl(
+                                    Uri.parse('https://ampcrypt.itsupport.bd/installers/Ampcrypt-Installer.exe'),
+                                    mode: LaunchMode.externalApplication,
                                   ),
                                 ),
-                              ),
-                              const SizedBox(height: 16),
-                            ],
-                            SizedBox(
-                              width: double.infinity,
-                              height: 48,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: kPrimaryColor,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.white,
+                                    side: const BorderSide(color: Colors.white24),
+                                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  icon: const Icon(Icons.inventory_2_outlined, size: 20),
+                                  label: Text(
+                                    'DOWNLOAD MSIX PACKAGE',
+                                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                                  ),
+                                  onPressed: () => launchUrl(
+                                    Uri.parse('https://ampcrypt.itsupport.bd/installers/ampcrypt.msix'),
+                                    mode: LaunchMode.externalApplication,
+                                  ),
                                 ),
-                                onPressed: _isSending ? null : _submitForm,
-                                child: _isSending
-                                    ? const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                      )
-                                    : Text(
-                                        'SEND MESSAGE',
-                                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 0.5),
-                                      ),
-                              ),
+                              ],
                             ),
                           ],
                         ),
                       ),
                     ),
                   ),
-                ),
-              ),
-            ),
 
-            // ─── FOOTER ─────────────────────────────────────────────────────
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
-              color: const Color(0xFF080C16),
-              child: Center(
-                child: Column(
-                  children: [
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Text(
-                          'Made by ',
-                          style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B)),
+                  Container(
+                    key: _featuresKey,
+                    padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 24),
+                    color: const Color(0xFF0B0F19),
+                    child: Center(
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 1000),
+                        child: Column(
+                          children: [
+                            Text(
+                              'Cutting-Edge Security Features',
+                              style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                            const SizedBox(height: 48),
+                            GridView.count(
+                              crossAxisCount: MediaQuery.of(context).size.width > 700 ? 2 : 1,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              crossAxisSpacing: 30,
+                              mainAxisSpacing: 30,
+                              childAspectRatio: 1.5,
+                              children: [
+                                _buildWebFeatureCard(
+                                  Icons.fingerprint_rounded,
+                                  '4-Factor Biometric Interlocking',
+                                  'Unlock your vault combining password credentials, local face verification, fingerprint scan, and vocal analysis.',
+                                ),
+                                _buildWebFeatureCard(
+                                  Icons.schema_outlined,
+                                  'SLIP-39 Secret Splitting',
+                                  'Split your master key into 3 shards. You only need 2 of them to reconstruct it, eliminating single points of failure.',
+                                ),
+                                _buildWebFeatureCard(
+                                  Icons.security_rounded,
+                                  'Ransomware Shielding',
+                                  'An active, unsupervised machine learning watcher monitors folder behaviors, instantly unmounting the drive if attack models trigger.',
+                                ),
+                                _buildWebFeatureCard(
+                                  Icons.folder_shared_rounded,
+                                  'Zero-Trust WebDAV Mounting',
+                                  'Safely mounts your vault as a local disk (Z:) on Windows via secure localhost WebDAV loops with zero cloud exposure.',
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                        InkWell(
-                          onTap: () => launchUrl(Uri.parse('https://itsupport.com.bd/'), mode: LaunchMode.externalApplication),
-                          child: Text(
-                            'IT Support BD',
-                            style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: kPrimaryColor, decoration: TextDecoration.underline),
+                      ),
+                    ),
+                  ),
+
+                  Container(
+                    key: _downloadsKey,
+                    height: 1, 
+                  ),
+
+                  Container(
+                    key: _contactKey,
+                    padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 24),
+                    color: const Color(0xFF0F172A),
+                    child: Center(
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 600),
+                        child: Card(
+                          color: const Color(0xFF1E293B).withValues(alpha: 0.6),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            side: const BorderSide(color: Colors.white10),
+                          ),
+                          elevation: 0,
+                          child: Padding(
+                            padding: const EdgeInsets.all(32.0),
+                            child: Form(
+                              key: _formKey,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Contact Us',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Have questions or need enterprise deployment options? Send us a message.',
+                                    style: GoogleFonts.outfit(
+                                      color: const Color(0xFF94A3B8),
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  TextFormField(
+                                    controller: _nameController,
+                                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                                    decoration: _webInputDecoration('Your Name', Icons.person_outline),
+                                    validator: (val) => val == null || val.trim().isEmpty ? 'Please enter your name' : null,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  TextFormField(
+                                    controller: _emailController,
+                                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                                    decoration: _webInputDecoration('Email Address', Icons.email_outlined),
+                                    validator: (val) => val == null || !val.contains('@') ? 'Please enter a valid email address' : null,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  TextFormField(
+                                    controller: _subjectController,
+                                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                                    decoration: _webInputDecoration('Subject', Icons.title_outlined),
+                                    validator: (val) => val == null || val.trim().isEmpty ? 'Please enter a subject' : null,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  TextFormField(
+                                    controller: _messageController,
+                                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                                    maxLines: 5,
+                                    decoration: _webInputDecoration('Your Message', Icons.message_outlined),
+                                    validator: (val) => val == null || val.trim().isEmpty ? 'Please enter your message' : null,
+                                  ),
+                                  const SizedBox(height: 24),
+                                  if (_statusMessage != null) ...[
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: _isSuccess
+                                            ? kSuccessColor.withValues(alpha: 0.15)
+                                            : kErrorColor.withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: _isSuccess ? kSuccessColor : kErrorColor,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            _isSuccess ? Icons.check_circle_outline : Icons.error_outline,
+                                            color: _isSuccess ? kSuccessColor : kErrorColor,
+                                            size: 16,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              _statusMessage!,
+                                              style: GoogleFonts.outfit(
+                                                color: _isSuccess ? kSuccessColor : kErrorColor,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                  ],
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 46,
+                                    child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: kPrimaryColor,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                      onPressed: _isSending ? null : _submitForm,
+                                      child: _isSending
+                                          ? const SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
+                                            )
+                                          : Text(
+                                              'SEND MESSAGE',
+                                              style: GoogleFonts.outfit(
+                                                fontWeight: FontWeight.bold,
+                                                letterSpacing: 0.5,
+                                              ),
+                                            ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
-                        Text(
-                          ' | Main Contribution: ',
-                          style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B)),
-                        ),
-                        InkWell(
-                          onTap: () => launchUrl(Uri.parse('https://arifmahmud.com/'), mode: LaunchMode.externalApplication),
-                          child: Text(
-                            'Arif Mahmud Pranto',
-                            style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: kPrimaryColor, decoration: TextDecoration.underline),
+                      ),
+                    ),
+                  ),
+
+                  Container(
+                    key: _aboutKey,
+                    height: 1, 
+                  ),
+
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+                    color: const Color(0xFF080C16),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                'Made by ',
+                                style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B)),
+                              ),
+                              InkWell(
+                                onTap: () => launchUrl(Uri.parse('https://itsupport.com.bd/'), mode: LaunchMode.externalApplication),
+                                child: Text(
+                                  'IT Support BD',
+                                  style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: kPrimaryColor, decoration: TextDecoration.underline),
+                                ),
+                              ),
+                              Text(
+                                ' | Main Contribution: ',
+                                style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B)),
+                              ),
+                              InkWell(
+                                onTap: () => launchUrl(Uri.parse('https://arifmahmud.com/'), mode: LaunchMode.externalApplication),
+                                child: Text(
+                                  'Arif Mahmud Pranto',
+                                  style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: kPrimaryColor, decoration: TextDecoration.underline),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'AMPCrypt Web Portal • Version $kAppVersion',
+                            style: GoogleFonts.shareTechMono(color: const Color(0xFF475569), fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 12.0, sigmaY: 12.0),
+                child: Container(
+                  height: 70,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F172A).withValues(alpha: 0.7),
+                    border: const Border(
+                      bottom: BorderSide(color: Colors.white10, width: 1),
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      GestureDetector(
+                        onTap: () => _scrollToKey(_heroKey),
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: Row(
+                            children: [
+                              Image.asset(
+                                'assets/app_icon.ico',
+                                width: 32,
+                                height: 32,
+                                errorBuilder: (context, error, stackTrace) => Icon(
+                                  Icons.verified_user_rounded,
+                                  size: 28,
+                                  color: kPrimaryColor,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                'AMPCrypt',
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'AMPCrypt Web Portal • Version $kAppVersion',
-                      style: GoogleFonts.shareTechMono(color: const Color(0xFF475569), fontSize: 12),
-                    ),
-                  ],
+                      ),
+                      
+                      if (MediaQuery.of(context).size.width > 700)
+                        Row(
+                          children: [
+                            _buildHeaderMenuItem('Features', () => _scrollToKey(_featuresKey)),
+                            _buildHeaderMenuItem('Downloads', () => _scrollToKey(_heroKey)),
+                            _buildHeaderMenuItem('Contact Us', () => _scrollToKey(_contactKey)),
+                            _buildHeaderMenuItem('About', () => _scrollToKey(_aboutKey)),
+                          ],
+                        ),
+
+                      AnimatedGlassButton(
+                        label: 'GET VAULT',
+                        isPrimary: true,
+                        onPressed: () => _scrollToKey(_heroKey),
+                        height: 36,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -6115,3 +6359,102 @@ class _WebLandingPageState extends State<WebLandingPage> {
     );
   }
 }
+
+class AnimatedGlassButton extends StatefulWidget {
+  final String label;
+  final IconData? icon;
+  final VoidCallback? onPressed;
+  final Color? color;
+  final bool isPrimary;
+  final double? width;
+  final double height;
+
+  const AnimatedGlassButton({
+    super.key,
+    required this.label,
+    this.icon,
+    this.onPressed,
+    this.color,
+    this.isPrimary = true,
+    this.width,
+    this.height = 42,
+  });
+
+  @override
+  State<AnimatedGlassButton> createState() => _AnimatedGlassButtonState();
+}
+
+class _AnimatedGlassButtonState extends State<AnimatedGlassButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final baseColor = widget.color ?? kPrimaryColor;
+    final displayColor = widget.isPrimary 
+        ? (_isHovered ? baseColor.withValues(alpha: 0.85) : baseColor)
+        : (_isHovered ? Colors.white.withValues(alpha: 0.08) : Colors.transparent);
+    
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
+        width: widget.width,
+        height: widget.height,
+        transform: Matrix4.diagonal3Values(_isHovered ? 1.03 : 1.0, _isHovered ? 1.03 : 1.0, 1.0),
+        decoration: BoxDecoration(
+          color: displayColor,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: widget.isPrimary 
+                ? Colors.transparent 
+                : (_isHovered ? baseColor : Colors.white24),
+            width: 1.5,
+          ),
+          boxShadow: _isHovered && widget.isPrimary
+              ? [
+                  BoxShadow(
+                    color: baseColor.withValues(alpha: 0.35),
+                    blurRadius: 10,
+                    spreadRadius: 0.5,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : [],
+        ),
+        child: InkWell(
+          onTap: widget.onPressed,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (widget.icon != null) ...[
+                  Icon(
+                    widget.icon,
+                    size: 14,
+                    color: widget.isPrimary ? Colors.white : baseColor,
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Text(
+                  widget.label.toUpperCase(),
+                  style: GoogleFonts.outfit(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+

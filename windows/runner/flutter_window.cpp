@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <string>
+#include <thread>
 
 #include "flutter/generated_plugin_registrant.h"
 
@@ -23,10 +24,9 @@ bool FlutterWindow::OnCreate() {
   RECT frame = GetClientArea();
 
   // The size here must match the window dimensions to avoid unnecessary surface
-  // creation / destruction in the startup path.
+  // creation during painting.
   flutter_controller_ = std::make_unique<flutter::FlutterViewController>(
       frame.right - frame.left, frame.bottom - frame.top, project_);
-  // Ensure that basic setup of the controller was successful.
   if (!flutter_controller_->engine() || !flutter_controller_->view()) {
     return false;
   }
@@ -43,29 +43,31 @@ bool FlutterWindow::OnCreate() {
       [](const flutter::MethodCall<flutter::EncodableValue>& call,
          std::shared_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
         if (call.method_name() == "authenticate") {
-          try {
-            auto availability = winrt::Windows::Security::Credentials::UI::UserConsentVerifier::CheckAvailabilityAsync().get();
-            if (availability == winrt::Windows::Security::Credentials::UI::UserConsentVerifierAvailability::Available) {
-              auto verification_result = winrt::Windows::Security::Credentials::UI::UserConsentVerifier::RequestVerificationAsync(
-                  L"Scan your face (Windows Hello) to validate your security factor share.")
-                  .get();
-              if (verification_result == winrt::Windows::Security::Credentials::UI::UserConsentVerificationResult::Verified) {
-                result->Success(flutter::EncodableValue(true));
+          std::thread([result]() {
+            try {
+              auto availability = winrt::Windows::Security::Credentials::UI::UserConsentVerifier::CheckAvailabilityAsync().get();
+              if (availability == winrt::Windows::Security::Credentials::UI::UserConsentVerifierAvailability::Available) {
+                auto verification_result = winrt::Windows::Security::Credentials::UI::UserConsentVerifier::RequestVerificationAsync(
+                    L"Scan your face (Windows Hello) to validate your security factor share.")
+                    .get();
+                if (verification_result == winrt::Windows::Security::Credentials::UI::UserConsentVerificationResult::Verified) {
+                  result->Success(flutter::EncodableValue(true));
+                } else {
+                  result->Success(flutter::EncodableValue(false));
+                }
               } else {
-                result->Success(flutter::EncodableValue(false));
+                result->Error("UNAVAILABLE", "Windows Hello biometric verification is not available on this device.");
               }
-            } else {
-              result->Error("UNAVAILABLE", "Windows Hello biometric verification is not available on this device.");
+            } catch (const winrt::hresult_error& ex) {
+              std::wstring msg = ex.message().c_str();
+              int size_needed = WideCharToMultiByte(CP_UTF8, 0, msg.data(), static_cast<int>(msg.size()), NULL, 0, NULL, NULL);
+              std::string err_msg(size_needed, 0);
+              WideCharToMultiByte(CP_UTF8, 0, msg.data(), static_cast<int>(msg.size()), &err_msg[0], size_needed, NULL, NULL);
+              result->Error("WINRT_ERROR", err_msg);
+            } catch (...) {
+              result->Error("ERROR", "An unknown error occurred during Windows Hello verification.");
             }
-          } catch (const winrt::hresult_error& ex) {
-            std::wstring msg = ex.message().c_str();
-            int size_needed = WideCharToMultiByte(CP_UTF8, 0, msg.data(), static_cast<int>(msg.size()), NULL, 0, NULL, NULL);
-            std::string err_msg(size_needed, 0);
-            WideCharToMultiByte(CP_UTF8, 0, msg.data(), static_cast<int>(msg.size()), &err_msg[0], size_needed, NULL, NULL);
-            result->Error("WINRT_ERROR", err_msg);
-          } catch (...) {
-            result->Error("ERROR", "An unknown error occurred during Windows Hello verification.");
-          }
+          }).detach();
         } else {
           result->NotImplemented();
         }
