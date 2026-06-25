@@ -27,9 +27,8 @@ class VaultRepositoryImpl implements VaultRepository {
 
   VaultRepositoryImpl({
     required CryptoService cryptoService,
-    required SharedPreferences prefs,
+    required this._prefs,
   })  : _cryptoService = cryptoService,
-        _prefs = prefs,
         _webDavServer = WebDavServer(cryptoService);
 
   @override

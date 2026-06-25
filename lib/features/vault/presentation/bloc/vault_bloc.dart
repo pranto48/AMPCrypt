@@ -12,9 +12,8 @@ class VaultBloc extends Bloc<VaultEvent, VaultState> {
 
   VaultRepository get repository => _vaultRepository;
 
-  VaultBloc({required VaultRepository vaultRepository})
-      : _vaultRepository = vaultRepository,
-        super(VaultInitialState()) {
+  VaultBloc({required this._vaultRepository})
+      : super(VaultInitialState()) {
     on<CheckVaultStatusEvent>(_onCheckVaultStatus);
     on<CreateVaultEvent>(_onCreateVault);
     on<UnlockVaultEvent>(_onUnlockVault);

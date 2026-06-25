@@ -306,11 +306,11 @@ class WebDavServer {
   
   bool _isImmediateChild(String parent, String child) {
     if (parent == '/') {
-      return child.startsWith('/') && child.length > 1 && child.substring(1).indexOf('/') == -1;
+      return child.startsWith('/') && child.length > 1 && !child.substring(1).contains('/');
     } else {
       if (!child.startsWith('$parent/')) return false;
       final relative = child.substring(parent.length + 1);
-      return relative.isNotEmpty && relative.indexOf('/') == -1;
+      return relative.isNotEmpty && !relative.contains('/');
     }
   }
   

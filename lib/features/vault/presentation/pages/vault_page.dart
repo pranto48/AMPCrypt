@@ -176,7 +176,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                   children: [
                     Container(
                       padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: kPrimaryColor,
                       ),
@@ -192,7 +192,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                       style: GoogleFonts.outfit(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white.withOpacity(0.85),
+                        color: Colors.white.withValues(alpha: 0.85),
                       ),
                     ),
                   ],
@@ -203,7 +203,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
           _buildWindowButton(
             icon: Icons.minimize_rounded,
             onPressed: () => windowManager.minimize(),
-            hoverColor: Colors.white.withOpacity(0.08),
+            hoverColor: Colors.white.withValues(alpha: 0.08),
           ),
           _buildWindowButton(
             icon: Icons.crop_square_rounded,
@@ -214,12 +214,12 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                 await windowManager.maximize();
               }
             },
-            hoverColor: Colors.white.withOpacity(0.08),
+            hoverColor: Colors.white.withValues(alpha: 0.08),
           ),
           _buildWindowButton(
             icon: Icons.close_rounded,
             onPressed: () => onWindowClose(),
-            hoverColor: kErrorColor.withOpacity(0.8),
+            hoverColor: kErrorColor.withValues(alpha: 0.8),
             iconColor: Colors.white,
           ),
         ],
@@ -245,7 +245,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
           child: Icon(
             icon,
             size: 16,
-            color: iconColor ?? Colors.white.withOpacity(0.6),
+            color: iconColor ?? Colors.white.withValues(alpha: 0.6),
           ),
         ),
       ),
@@ -293,7 +293,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: selectedDrive,
+                    initialValue: selectedDrive,
                     dropdownColor: kSurfaceColor,
                     decoration: InputDecoration(
                       labelText: 'Virtual Drive Letter',
@@ -366,7 +366,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
             child: Stack(
               children: [
                 Container(
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -411,7 +411,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                     _buildSidebar(context, state),
                     Container(
                       width: 1,
-                      color: Colors.white.withOpacity(0.08),
+                      color: Colors.white.withValues(alpha: 0.08),
                     ),
                     Expanded(
                       child: _buildDesktopMainContent(context, state),
@@ -462,12 +462,12 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: isSelected 
-                  ? kPrimaryColor.withOpacity(0.12)
+                  ? kPrimaryColor.withValues(alpha: 0.12)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: isSelected 
-                    ? kPrimaryColor.withOpacity(0.25)
+                    ? kPrimaryColor.withValues(alpha: 0.25)
                     : Colors.transparent,
                 width: 1,
               ),
@@ -512,13 +512,13 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: kPrimaryColor.withOpacity(0.15),
+                    color: kPrimaryColor.withValues(alpha: 0.15),
                     border: Border.all(
-                      color: kPrimaryColor.withOpacity(0.4),
+                      color: kPrimaryColor.withValues(alpha: 0.4),
                       width: 1,
                     ),
                   ),
-                  child: const Icon(Icons.security_rounded, color: kPrimaryColor, size: 18),
+                  child: Icon(Icons.security_rounded, color: kPrimaryColor, size: 18),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -536,7 +536,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
               ],
             ),
           ),
-          Divider(color: Colors.white.withOpacity(0.06), height: 1),
+          Divider(color: Colors.white.withValues(alpha: 0.06), height: 1),
           const SizedBox(height: 12),
           
           navItem(title: 'Dashboard', icon: Icons.dashboard_outlined, view: ActiveView.dashboard),
@@ -552,7 +552,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.5,
-                color: const Color(0xFF94A3B8).withOpacity(0.6),
+                color: const Color(0xFF94A3B8).withValues(alpha: 0.6),
               ),
             ),
           ),
@@ -567,7 +567,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                       color: kSurfaceColor,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: kPrimaryColor.withOpacity(0.15),
+                        color: kPrimaryColor.withValues(alpha: 0.15),
                         width: 1,
                       ),
                     ),
@@ -630,7 +630,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
               ],
             ),
           ),
-          Divider(color: Colors.white.withOpacity(0.06), height: 1),
+          Divider(color: Colors.white.withValues(alpha: 0.06), height: 1),
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: Row(
@@ -655,7 +655,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                           value: 'new',
                           child: Row(
                             children: [
-                              const Icon(Icons.add_circle_outline, color: kPrimaryColor, size: 16),
+                              Icon(Icons.add_circle_outline, color: kPrimaryColor, size: 16),
                               const SizedBox(width: 8),
                               Text('Create New Vault', style: GoogleFonts.outfit(fontSize: 12)),
                             ],
@@ -665,7 +665,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                           value: 'open',
                           child: Row(
                             children: [
-                              const Icon(Icons.folder_open_outlined, color: kPrimaryColor, size: 16),
+                              Icon(Icons.folder_open_outlined, color: kPrimaryColor, size: 16),
                               const SizedBox(width: 8),
                               Text('Open Existing Vault', style: GoogleFonts.outfit(fontSize: 12)),
                             ],
@@ -766,7 +766,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                         ),
                         const SizedBox(width: 8),
                         IconButton(
-                          icon: const Icon(Icons.folder_open, color: kPrimaryColor),
+                          icon: Icon(Icons.folder_open, color: kPrimaryColor),
                           onPressed: () async {
                             String? selectedDirectory = await FilePicker.getDirectoryPath();
                             if (selectedDirectory != null) {
@@ -780,7 +780,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
-                      value: selectedDrive,
+                      initialValue: selectedDrive,
                       dropdownColor: const Color(0xFF1E293B),
                       decoration: InputDecoration(
                         labelText: 'Virtual Drive Letter',
@@ -912,7 +912,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
             ],
           ),
         ),
-        Divider(color: Colors.white.withOpacity(0.06), height: 1),
+        Divider(color: Colors.white.withValues(alpha: 0.06), height: 1),
         Expanded(
           child: Center(
             child: Padding(
@@ -1149,7 +1149,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
   Widget _deviceRow(String name, IconData icon, bool? detected) {
     Widget statusWidget;
     if (detected == null) {
-      statusWidget = const Row(
+      statusWidget = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(width: 8, height: 8, child: CircularProgressIndicator(strokeWidth: 1.5, color: kPrimaryColor)),
@@ -1158,7 +1158,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
         ],
       );
     } else if (detected) {
-      statusWidget = const Row(
+      statusWidget = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.check_circle_rounded, color: kSuccessColor, size: 14),
@@ -1167,7 +1167,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
         ],
       );
     } else {
-      statusWidget = const Row(
+      statusWidget = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.info_outline, color: kErrorColor, size: 14),
@@ -1247,12 +1247,12 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                                 labelText: 'Vault Folder Path',
                                 labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
                                 enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
                               ),
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.folder_open, color: kPrimaryColor, size: 18),
+                            icon: Icon(Icons.folder_open, color: kPrimaryColor, size: 18),
                             onPressed: () async {
                               String? selectedDirectory = await FilePicker.getDirectoryPath();
                               if (selectedDirectory != null) {
@@ -1269,7 +1269,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                         children: [
                           Expanded(
                             child: DropdownButtonFormField<String>(
-                              value: selectedDrive,
+                              initialValue: selectedDrive,
                               dropdownColor: const Color(0xFF1E293B),
                               decoration: InputDecoration(
                                 labelText: 'Virtual Drive Letter',
@@ -1295,7 +1295,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                           const SizedBox(width: 24),
                           Expanded(
                             child: DropdownButtonFormField<int>(
-                              value: selectedAutoLock,
+                              initialValue: selectedAutoLock,
                               dropdownColor: const Color(0xFF1E293B),
                               decoration: InputDecoration(
                                 labelText: 'Auto-Lock Inactivity Timeout',
@@ -1354,7 +1354,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                                 style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
                               ),
                               subtitle: Text('Launch AMPCrypt silently when your system boots', style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 11)),
-                              activeColor: kPrimaryColor,
+                              activeThumbColor: kPrimaryColor,
                               value: isStartupEnabled,
                               onChanged: _toggleStartup,
                             ),
@@ -1363,7 +1363,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                               contentPadding: EdgeInsets.zero,
                               title: Text('Minimize to System Tray on Close', style: GoogleFonts.outfit(color: Colors.white, fontSize: 13)),
                               subtitle: Text('Keep the app running in the background when window is closed', style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 11)),
-                              activeColor: kPrimaryColor,
+                              activeThumbColor: kPrimaryColor,
                               value: minimizeToTray,
                               onChanged: _toggleMinimizeToTray,
                             ),
@@ -1380,11 +1380,11 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                               decoration: BoxDecoration(
                                 color: kSurfaceColor,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.white.withOpacity(0.08)),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                                 gradient: LinearGradient(
                                   colors: [
                                     kSurfaceColor,
-                                    kSidebarBackgroundColor.withOpacity(0.4),
+                                    kSidebarBackgroundColor.withValues(alpha: 0.4),
                                   ],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
@@ -1400,14 +1400,14 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                                         height: 44,
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
-                                          gradient: const LinearGradient(
+                                          gradient: LinearGradient(
                                             colors: [kPrimaryColor, Color(0xFF005E5A)],
                                             begin: Alignment.topLeft,
                                             end: Alignment.bottomRight,
                                           ),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: kPrimaryColor.withOpacity(0.3),
+                                              color: kPrimaryColor.withValues(alpha: 0.3),
                                               blurRadius: 8,
                                               offset: const Offset(0, 2),
                                             ),
@@ -1465,14 +1465,14 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                                     ],
                                   ),
                                   const SizedBox(height: 12),
-                                  Divider(color: Colors.white.withOpacity(0.08), height: 1),
+                                  Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
                                   const SizedBox(height: 12),
                                   Row(
                                     children: [
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: kSuccessColor.withOpacity(0.15),
+                                          color: kSuccessColor.withValues(alpha: 0.15),
                                           borderRadius: BorderRadius.circular(4),
                                         ),
                                         child: Text(
@@ -1520,7 +1520,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          const Icon(
+                                          Icon(
                                             Icons.language_rounded,
                                             color: kPrimaryColor,
                                             size: 14,
@@ -1570,11 +1570,11 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                                 height: 36,
                                 child: ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: kErrorColor.withOpacity(0.15),
+                                    backgroundColor: kErrorColor.withValues(alpha: 0.15),
                                     foregroundColor: kErrorColor,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                     textStyle: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold),
-                                    side: BorderSide(color: kErrorColor.withOpacity(0.3)),
+                                    side: BorderSide(color: kErrorColor.withValues(alpha: 0.3)),
                                   ),
                                   icon: const Icon(Icons.power_settings_new_rounded, size: 14),
                                   label: const Text('QUIT APPLICATION'),
@@ -1743,10 +1743,10 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isEnabled ? kSuccessColor.withOpacity(0.1) : Colors.white10,
+                  color: isEnabled ? kSuccessColor.withValues(alpha: 0.1) : Colors.white10,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: isEnabled ? kSuccessColor.withOpacity(0.3) : Colors.white24,
+                    color: isEnabled ? kSuccessColor.withValues(alpha: 0.3) : Colors.white24,
                   ),
                 ),
                 child: Text(
@@ -1775,7 +1775,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                 ? OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
                       foregroundColor: kErrorColor,
-                      side: BorderSide(color: kErrorColor.withOpacity(0.3)),
+                      side: BorderSide(color: kErrorColor.withValues(alpha: 0.3)),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                     icon: const Icon(Icons.delete_outline, size: 14),
@@ -1863,13 +1863,13 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                           labelText: 'Recovery Email Address',
                           labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
                           enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                          focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
                         ),
                       ),
                       const SizedBox(height: 16),
                       // Question 1
                       DropdownButtonFormField<String>(
-                        value: predefinedQuestions.contains(q1Controller.text) ? q1Controller.text : predefinedQuestions[0],
+                        initialValue: predefinedQuestions.contains(q1Controller.text) ? q1Controller.text : predefinedQuestions[0],
                         dropdownColor: kSurfaceColor,
                         style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
                         decoration: InputDecoration(
@@ -1892,13 +1892,13 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                           labelText: 'Answer 1',
                           labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
                           enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                          focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
                         ),
                       ),
                       const SizedBox(height: 16),
                       // Question 2
                       DropdownButtonFormField<String>(
-                        value: predefinedQuestions.contains(q2Controller.text) ? q2Controller.text : predefinedQuestions[1],
+                        initialValue: predefinedQuestions.contains(q2Controller.text) ? q2Controller.text : predefinedQuestions[1],
                         dropdownColor: kSurfaceColor,
                         style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
                         decoration: InputDecoration(
@@ -1921,13 +1921,13 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                           labelText: 'Answer 2',
                           labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
                           enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                          focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
                         ),
                       ),
                       const SizedBox(height: 16),
                       // Question 3
                       DropdownButtonFormField<String>(
-                        value: predefinedQuestions.contains(q3Controller.text) ? q3Controller.text : predefinedQuestions[2],
+                        initialValue: predefinedQuestions.contains(q3Controller.text) ? q3Controller.text : predefinedQuestions[2],
                         dropdownColor: kSurfaceColor,
                         style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
                         decoration: InputDecoration(
@@ -1950,7 +1950,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                           labelText: 'Answer 3',
                           labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
                           enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                          focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
                         ),
                       ),
                     ],
@@ -2040,7 +2040,7 @@ class VaultLoadingView extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const SizedBox(
+              SizedBox(
                 width: 60,
                 height: 60,
                 child: CircularProgressIndicator(
@@ -2159,10 +2159,10 @@ class _CreateVaultViewState extends State<CreateVaultView> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? accent.withOpacity(0.12) : const Color(0xFF1E1E38).withOpacity(0.4),
+          color: isSelected ? accent.withValues(alpha: 0.12) : const Color(0xFF1E1E38).withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? accent.withOpacity(0.6) : const Color(0xFF2E3556),
+            color: isSelected ? accent.withValues(alpha: 0.6) : const Color(0xFF2E3556),
             width: isSelected ? 1.5 : 1.0,
           ),
         ),
@@ -2225,10 +2225,10 @@ class _CreateVaultViewState extends State<CreateVaultView> {
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: kPrimaryColor.withOpacity(0.1),
-                              border: Border.all(color: kPrimaryColor.withOpacity(0.3), width: 1.5),
+                              color: kPrimaryColor.withValues(alpha: 0.1),
+                              border: Border.all(color: kPrimaryColor.withValues(alpha: 0.3), width: 1.5),
                             ),
-                            child: const Icon(Icons.shield_outlined, size: 24, color: kPrimaryColor),
+                            child: Icon(Icons.shield_outlined, size: 24, color: kPrimaryColor),
                           ),
                           const SizedBox(width: 12),
                           Text(
@@ -2300,14 +2300,14 @@ class _CreateVaultViewState extends State<CreateVaultView> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: kSuccessColor.withOpacity(0.05),
-                          border: Border.all(color: kSuccessColor.withOpacity(0.2), width: 1),
+                          color: kSuccessColor.withValues(alpha: 0.05),
+                          border: Border.all(color: kSuccessColor.withValues(alpha: 0.2), width: 1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.info_outline, color: kSuccessColor, size: 16),
+                            Icon(Icons.info_outline, color: kSuccessColor, size: 16),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -2636,10 +2636,10 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: kPrimaryHoverColor.withOpacity(0.1),
-                            border: Border.all(color: kPrimaryHoverColor.withOpacity(0.3), width: 1.5),
+                            color: kPrimaryHoverColor.withValues(alpha: 0.1),
+                            border: Border.all(color: kPrimaryHoverColor.withValues(alpha: 0.3), width: 1.5),
                           ),
-                          child: const Icon(Icons.lock_outline, size: 24, color: kPrimaryHoverColor),
+                          child: Icon(Icons.lock_outline, size: 24, color: kPrimaryHoverColor),
                         ),
                         const SizedBox(width: 12),
                         Text(
@@ -2794,13 +2794,13 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: kSuccessColor.withOpacity(0.05),
-                          border: Border.all(color: kSuccessColor.withOpacity(0.2)),
+                          color: kSuccessColor.withValues(alpha: 0.05),
+                          border: Border.all(color: kSuccessColor.withValues(alpha: 0.2)),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.lock_outlined, color: kSuccessColor, size: 16),
+                            Icon(Icons.lock_outlined, color: kSuccessColor, size: 16),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
@@ -2851,9 +2851,9 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: value ? kPrimaryHoverColor.withOpacity(0.08) : const Color(0xFF1E1E38).withOpacity(0.4),
+        color: value ? kPrimaryHoverColor.withValues(alpha: 0.08) : const Color(0xFF1E1E38).withValues(alpha: 0.4),
         border: Border.all(
-          color: value ? kPrimaryHoverColor.withOpacity(0.3) : const Color(0xFF1E1E38).withOpacity(0.5),
+          color: value ? kPrimaryHoverColor.withValues(alpha: 0.3) : const Color(0xFF1E1E38).withValues(alpha: 0.5),
           width: 1,
         ),
         borderRadius: BorderRadius.circular(10),
@@ -2874,7 +2874,7 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
           ),
           Switch(
             value: value,
-            activeColor: kPrimaryHoverColor,
+            activeThumbColor: kPrimaryHoverColor,
             onChanged: onChanged,
           ),
         ],
@@ -2960,11 +2960,11 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: kSuccessColor.withOpacity(0.1),
+                                color: kSuccessColor.withValues(alpha: 0.1),
                                 shape: BoxShape.circle,
-                                border: Border.all(color: kSuccessColor.withOpacity(0.3)),
+                                border: Border.all(color: kSuccessColor.withValues(alpha: 0.3)),
                               ),
-                              child: const Icon(Icons.lock_open_outlined, color: kSuccessColor, size: 20),
+                              child: Icon(Icons.lock_open_outlined, color: kSuccessColor, size: 20),
                             ),
                             const SizedBox(width: 10),
                             Column(
@@ -3012,11 +3012,11 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            kSuccessColor.withOpacity(0.06),
-                            kSurfaceColor.withOpacity(0.6),
+                            kSuccessColor.withValues(alpha: 0.06),
+                            kSurfaceColor.withValues(alpha: 0.6),
                           ],
                         ),
-                        border: Border.all(color: kSuccessColor.withOpacity(0.2)),
+                        border: Border.all(color: kSuccessColor.withValues(alpha: 0.2)),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Column(
@@ -3030,7 +3030,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                   Container(
                                     width: 6,
                                     height: 6,
-                                    decoration: const BoxDecoration(
+                                    decoration: BoxDecoration(
                                       color: kSuccessColor,
                                       shape: BoxShape.circle,
                                     ),
@@ -3095,13 +3095,13 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: kSurfaceColor.withOpacity(0.6),
+                        color: kSurfaceColor.withValues(alpha: 0.6),
                         border: Border.all(color: const Color(0xFF1E293B)),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.key, color: kPrimaryColor, size: 14),
+                          Icon(Icons.key, color: kPrimaryColor, size: 14),
                           const SizedBox(width: 8),
                           Expanded(
                             child: SingleChildScrollView(
@@ -3136,8 +3136,8 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFF9E0B).withOpacity(0.05),
-                          border: Border.all(color: const Color(0xFFFF9E0B).withOpacity(0.2)),
+                          color: const Color(0xFFFF9E0B).withValues(alpha: 0.05),
+                          border: Border.all(color: const Color(0xFFFF9E0B).withValues(alpha: 0.2)),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Column(
@@ -3174,7 +3174,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                   children: [
                                     Container(
                                       padding: const EdgeInsets.all(3),
-                                      decoration: const BoxDecoration(color: kPrimaryColor, shape: BoxShape.circle),
+                                      decoration: BoxDecoration(color: kPrimaryColor, shape: BoxShape.circle),
                                       child: Text('${index + 1}', style: const TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold)),
                                     ),
                                     const SizedBox(width: 6),
@@ -3268,13 +3268,13 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
                                 color: monitorState.isMonitoring 
-                                    ? (monitorState.isCalibrating ? Colors.orange.withOpacity(0.1) : kSuccessColor.withOpacity(0.1)) 
-                                    : const Color(0xFF334155).withOpacity(0.3),
+                                    ? (monitorState.isCalibrating ? Colors.orange.withValues(alpha: 0.1) : kSuccessColor.withValues(alpha: 0.1)) 
+                                    : const Color(0xFF334155).withValues(alpha: 0.3),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
                                   color: monitorState.isMonitoring 
-                                      ? (monitorState.isCalibrating ? Colors.orange.withOpacity(0.3) : kSuccessColor.withOpacity(0.3)) 
-                                      : const Color(0xFF334155).withOpacity(0.4),
+                                      ? (monitorState.isCalibrating ? Colors.orange.withValues(alpha: 0.3) : kSuccessColor.withValues(alpha: 0.3)) 
+                                      : const Color(0xFF334155).withValues(alpha: 0.4),
                                 ),
                               ),
                               child: Text(
@@ -3305,7 +3305,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                   decoration: BoxDecoration(
-                                    color: kSurfaceColor.withOpacity(0.5),
+                                    color: kSurfaceColor.withValues(alpha: 0.5),
                                     border: Border.all(color: const Color(0xFF1E293B)),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
@@ -3321,7 +3321,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                               ),
                               const SizedBox(width: 8),
                               IconButton(
-                                icon: const Icon(Icons.folder_open, size: 20, color: kPrimaryColor),
+                                icon: Icon(Icons.folder_open, size: 20, color: kPrimaryColor),
                                 onPressed: () async {
                                   final path = await FilePicker.getDirectoryPath();
                                   if (path != null) {
@@ -3373,11 +3373,11 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                               const SizedBox(width: 8),
                               OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(color: kErrorColor),
+                                  side: BorderSide(color: kErrorColor),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                                 ),
-                                icon: const Icon(Icons.stop, size: 12, color: kErrorColor),
+                                icon: Icon(Icons.stop, size: 12, color: kErrorColor),
                                 label: Text('STOP', style: GoogleFonts.outfit(fontSize: 10, color: kErrorColor, fontWeight: FontWeight.bold)),
                                 onPressed: () {
                                   context.read<MonitorBloc>().add(StopMonitoringEvent());
@@ -3414,7 +3414,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                 Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: kSurfaceColor.withOpacity(0.5),
+                                    color: kSurfaceColor.withValues(alpha: 0.5),
                                     border: Border.all(color: const Color(0xFF1E293B)),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
@@ -3442,7 +3442,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                     height: 54,
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: kSurfaceColor.withOpacity(0.5),
+                                      color: kSurfaceColor.withValues(alpha: 0.5),
                                       border: Border.all(color: const Color(0xFF1E293B)),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
@@ -3482,8 +3482,8 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF1E1E38).withOpacity(0.2),
-                                  border: Border.all(color: const Color(0xFF1E293B).withOpacity(0.5)),
+                                  color: const Color(0xFF1E1E38).withValues(alpha: 0.2),
+                                  border: Border.all(color: const Color(0xFF1E293B).withValues(alpha: 0.5)),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Row(
@@ -3521,7 +3521,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
       margin: const EdgeInsets.symmetric(horizontal: 4),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E38).withOpacity(0.3),
+        color: const Color(0xFF1E1E38).withValues(alpha: 0.3),
         border: Border.all(color: const Color(0xFF1E293B)),
         borderRadius: BorderRadius.circular(8),
       ),
@@ -3756,7 +3756,7 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: active ? kPrimaryColor.withOpacity(0.12) : Colors.transparent,
+          color: active ? kPrimaryColor.withValues(alpha: 0.12) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: active ? kPrimaryColor : Colors.transparent,
@@ -3786,7 +3786,7 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
             listener: (context, state) {
               if (state is VaultUnlockedState) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
+                  SnackBar(
                     backgroundColor: kSuccessColor,
                     content: Text('Vault successfully recovered & unlocked!'),
                   ),
@@ -3813,8 +3813,8 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: const Color(0xFFFF9E0B).withOpacity(0.1),
-                              border: Border.all(color: const Color(0xFFFF9E0B).withOpacity(0.3), width: 1.5),
+                              color: const Color(0xFFFF9E0B).withValues(alpha: 0.1),
+                              border: Border.all(color: const Color(0xFFFF9E0B).withValues(alpha: 0.3), width: 1.5),
                             ),
                             child: const Icon(Icons.vpn_key_outlined, size: 24, color: Color(0xFFFF9E0B)),
                           ),
@@ -3864,8 +3864,8 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                       padding: const EdgeInsets.all(10),
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: kErrorColor.withOpacity(0.1),
-                        border: Border.all(color: kErrorColor.withOpacity(0.3)),
+                        color: kErrorColor.withValues(alpha: 0.1),
+                        border: Border.all(color: kErrorColor.withValues(alpha: 0.3)),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -3880,8 +3880,8 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                       padding: const EdgeInsets.all(10),
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: kSuccessColor.withOpacity(0.1),
-                        border: Border.all(color: kSuccessColor.withOpacity(0.3)),
+                        color: kSuccessColor.withValues(alpha: 0.1),
+                        border: Border.all(color: kSuccessColor.withValues(alpha: 0.3)),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -3996,12 +3996,12 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                                 labelText: 'Vault Folder Path',
                                 labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
                                 enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                                focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
                               ),
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.folder_open, color: kPrimaryColor, size: 18),
+                            icon: Icon(Icons.folder_open, color: kPrimaryColor, size: 18),
                             onPressed: () async {
                               final path = await FilePicker.getDirectoryPath();
                               if (path != null) {
@@ -4019,7 +4019,7 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                           labelText: 'Recovery Email Address',
                           labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
                           enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                          focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -4051,7 +4051,7 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                           labelText: '6-Digit Verification Code',
                           labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
                           enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                          focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -4076,7 +4076,7 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                       TextField(
                         controller: _a1Controller,
                         style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           hintText: 'Answer 1',
                           enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
                           focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
@@ -4090,7 +4090,7 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                       TextField(
                         controller: _a2Controller,
                         style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           hintText: 'Answer 2',
                           enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
                           focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
@@ -4104,7 +4104,7 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                       TextField(
                         controller: _a3Controller,
                         style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           hintText: 'Answer 3',
                           enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
                           focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
@@ -4347,7 +4347,7 @@ class _RecoveryPageState extends State<RecoveryPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: active ? kPrimaryColor.withOpacity(0.12) : Colors.transparent,
+          color: active ? kPrimaryColor.withValues(alpha: 0.12) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: active ? kPrimaryColor : Colors.transparent,
@@ -4428,8 +4428,8 @@ class _RecoveryPageState extends State<RecoveryPage> {
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
-                                      color: const Color(0xFFFF9E0B).withOpacity(0.1),
-                                      border: Border.all(color: const Color(0xFFFF9E0B).withOpacity(0.3), width: 1.5),
+                                      color: const Color(0xFFFF9E0B).withValues(alpha: 0.1),
+                                      border: Border.all(color: const Color(0xFFFF9E0B).withValues(alpha: 0.3), width: 1.5),
                                     ),
                                     child: const Icon(Icons.restore_outlined, size: 28, color: Color(0xFFFF9E0B)),
                                   ),
@@ -4477,13 +4477,13 @@ class _RecoveryPageState extends State<RecoveryPage> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: kErrorColor.withOpacity(0.08),
-                                border: Border.all(color: kErrorColor.withOpacity(0.3)),
+                                color: kErrorColor.withValues(alpha: 0.08),
+                                border: Border.all(color: kErrorColor.withValues(alpha: 0.3)),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.error_outline, color: kErrorColor, size: 18),
+                                  Icon(Icons.error_outline, color: kErrorColor, size: 18),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
@@ -4500,13 +4500,13 @@ class _RecoveryPageState extends State<RecoveryPage> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: kSuccessColor.withOpacity(0.08),
-                                border: Border.all(color: kSuccessColor.withOpacity(0.3)),
+                                color: kSuccessColor.withValues(alpha: 0.08),
+                                border: Border.all(color: kSuccessColor.withValues(alpha: 0.3)),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.check_circle_outline, color: kSuccessColor, size: 18),
+                                  Icon(Icons.check_circle_outline, color: kSuccessColor, size: 18),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
@@ -4622,12 +4622,12 @@ class _RecoveryPageState extends State<RecoveryPage> {
                                         labelText: 'Vault Folder Path',
                                         labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
                                         enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                                        focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
                                       ),
                                     ),
                                   ),
                                   IconButton(
-                                    icon: const Icon(Icons.folder_open, color: kPrimaryColor, size: 18),
+                                    icon: Icon(Icons.folder_open, color: kPrimaryColor, size: 18),
                                     onPressed: () async {
                                       final path = await FilePicker.getDirectoryPath();
                                       if (path != null) {
@@ -4645,7 +4645,7 @@ class _RecoveryPageState extends State<RecoveryPage> {
                                   labelText: 'Recovery Email Address',
                                   labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
                                   enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                                  focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
                                 ),
                               ),
                               const SizedBox(height: 32),
@@ -4677,7 +4677,7 @@ class _RecoveryPageState extends State<RecoveryPage> {
                                   labelText: '6-Digit Verification Code',
                                   labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
                                   enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                                  focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
                                 ),
                               ),
                               const SizedBox(height: 32),
@@ -4702,7 +4702,7 @@ class _RecoveryPageState extends State<RecoveryPage> {
                               TextField(
                                 controller: _a1Controller,
                                 style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
-                                decoration: const InputDecoration(
+                                decoration: InputDecoration(
                                   hintText: 'Answer 1',
                                   enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
                                   focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
@@ -4716,7 +4716,7 @@ class _RecoveryPageState extends State<RecoveryPage> {
                               TextField(
                                 controller: _a2Controller,
                                 style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
-                                decoration: const InputDecoration(
+                                decoration: InputDecoration(
                                   hintText: 'Answer 2',
                                   enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
                                   focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
@@ -4730,7 +4730,7 @@ class _RecoveryPageState extends State<RecoveryPage> {
                               TextField(
                                 controller: _a3Controller,
                                 style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
-                                decoration: const InputDecoration(
+                                decoration: InputDecoration(
                                   hintText: 'Answer 3',
                                   enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
                                   focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
@@ -4796,12 +4796,12 @@ class GlassmorphicCard extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: Colors.white.withOpacity(0.08),
+          color: Colors.white.withValues(alpha: 0.08),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.4),
+            color: Colors.black.withValues(alpha: 0.4),
             blurRadius: 32,
             offset: const Offset(0, 16),
           ),
@@ -4810,8 +4810,8 @@ class GlassmorphicCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF1E293B).withOpacity(0.4),
-            kSurfaceColor.withOpacity(0.6),
+            const Color(0xFF1E293B).withValues(alpha: 0.4),
+            kSurfaceColor.withValues(alpha: 0.6),
           ],
         ),
       ),
@@ -4835,7 +4835,7 @@ InputDecoration _inputDecoration({
     prefixIcon: Icon(prefix, color: const Color(0xFF475569), size: 18),
     suffixIcon: suffix,
     filled: true,
-    fillColor: const Color(0xFF0A0E17).withOpacity(0.6),
+    fillColor: const Color(0xFF0A0E17).withValues(alpha: 0.6),
     contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
@@ -4922,14 +4922,14 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.black.withOpacity(0.7),
+        backgroundColor: Colors.black.withValues(alpha: 0.7),
         body: Stack(
           children: [
             Positioned.fill(
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
                 child: Container(
-                  color: kErrorColor.withOpacity(0.08),
+                  color: kErrorColor.withValues(alpha: 0.08),
                 ),
               ),
             ),
@@ -4940,12 +4940,12 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
                   margin: const EdgeInsets.all(24),
                   padding: const EdgeInsets.all(32),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E1111).withOpacity(0.8),
-                    border: Border.all(color: kErrorColor.withOpacity(0.4), width: 1.5),
+                    color: const Color(0xFF1E1111).withValues(alpha: 0.8),
+                    border: Border.all(color: kErrorColor.withValues(alpha: 0.4), width: 1.5),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: kErrorColor.withOpacity(0.2),
+                        color: kErrorColor.withValues(alpha: 0.2),
                         blurRadius: 30,
                         spreadRadius: 5,
                       ),
@@ -4960,10 +4960,10 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
                           return Container(
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: kErrorColor.withOpacity(0.1 + (_pulseController.value * 0.15)),
+                              color: kErrorColor.withValues(alpha: 0.1 + (_pulseController.value * 0.15)),
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: kErrorColor.withOpacity(0.3 + (_pulseController.value * 0.4)),
+                                color: kErrorColor.withValues(alpha: 0.3 + (_pulseController.value * 0.4)),
                                 width: 2,
                               ),
                             ),
@@ -5000,9 +5000,9 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.4),
+                          color: Colors.black.withValues(alpha: 0.4),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: kErrorColor.withOpacity(0.15)),
+                          border: Border.all(color: kErrorColor.withValues(alpha: 0.15)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -5053,7 +5053,7 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
                           hintText: 'Enter vault password',
                           hintStyle: GoogleFonts.outfit(color: const Color(0xFF475569)),
                           filled: true,
-                          fillColor: kSurfaceColor.withOpacity(0.5),
+                          fillColor: kSurfaceColor.withValues(alpha: 0.5),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: const BorderSide(color: Color(0xFF334155)),
@@ -5275,8 +5275,8 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
         width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width - 32,
         padding: const EdgeInsets.all(28),
         decoration: BoxDecoration(
-          color: kSurfaceColor.withOpacity(0.95),
-          border: Border.all(color: const Color(0xFF334155).withOpacity(0.5)),
+          color: kSurfaceColor.withValues(alpha: 0.95),
+          border: Border.all(color: const Color(0xFF334155).withValues(alpha: 0.5)),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -5307,12 +5307,12 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
               height: 150,
               width: 150,
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E38).withOpacity(0.5),
+                color: const Color(0xFF1E1E38).withValues(alpha: 0.5),
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: _errorMessage != null 
-                      ? kErrorColor.withOpacity(0.5) 
-                      : kPrimaryHoverColor.withOpacity(0.3),
+                      ? kErrorColor.withValues(alpha: 0.5) 
+                      : kPrimaryHoverColor.withValues(alpha: 0.3),
                   width: 2,
                 ),
               ),
@@ -5522,8 +5522,8 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
         width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width - 32,
         padding: const EdgeInsets.all(28),
         decoration: BoxDecoration(
-          color: kSurfaceColor.withOpacity(0.95),
-          border: Border.all(color: const Color(0xFF334155).withOpacity(0.5)),
+          color: kSurfaceColor.withValues(alpha: 0.95),
+          border: Border.all(color: const Color(0xFF334155).withValues(alpha: 0.5)),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -5554,12 +5554,12 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
               height: 150,
               width: 150,
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E38).withOpacity(0.5),
+                color: const Color(0xFF1E1E38).withValues(alpha: 0.5),
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: _errorMessage != null 
-                      ? kErrorColor.withOpacity(0.5) 
-                      : kPrimaryHoverColor.withOpacity(0.3),
+                      ? kErrorColor.withValues(alpha: 0.5) 
+                      : kPrimaryHoverColor.withValues(alpha: 0.3),
                   width: 2,
                 ),
               ),
@@ -5900,7 +5900,7 @@ class _WebLandingPageState extends State<WebLandingPage> {
                 child: Container(
                   constraints: const BoxConstraints(maxWidth: 600),
                   child: Card(
-                    color: const Color(0xFF1E293B).withOpacity(0.6),
+                    color: const Color(0xFF1E293B).withValues(alpha: 0.6),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                       side: const BorderSide(color: Colors.white10),
@@ -5962,9 +5962,9 @@ class _WebLandingPageState extends State<WebLandingPage> {
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: _isSuccess ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+                                  color: _isSuccess ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: _isSuccess ? Colors.green.withOpacity(0.3) : Colors.red.withOpacity(0.3)),
+                                  border: Border.all(color: _isSuccess ? Colors.green.withValues(alpha: 0.3) : Colors.red.withValues(alpha: 0.3)),
                                 ),
                                 child: Text(
                                   _statusMessage!,
@@ -6059,7 +6059,7 @@ class _WebLandingPageState extends State<WebLandingPage> {
 
   Widget _buildWebFeatureCard(IconData icon, String title, String desc) {
     return Card(
-      color: const Color(0xFF1E293B).withOpacity(0.3),
+      color: const Color(0xFF1E293B).withValues(alpha: 0.3),
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
@@ -6094,7 +6094,7 @@ class _WebLandingPageState extends State<WebLandingPage> {
       labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
       prefixIcon: Icon(icon, color: const Color(0xFF64748B), size: 16),
       filled: true,
-      fillColor: const Color(0xFF0F172A).withOpacity(0.6),
+      fillColor: const Color(0xFF0F172A).withValues(alpha: 0.6),
       contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),

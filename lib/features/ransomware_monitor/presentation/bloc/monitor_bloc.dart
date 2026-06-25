@@ -24,13 +24,10 @@ class MonitorBloc extends Bloc<MonitorEvent, MonitorState> {
   final List<List<double>> _calibrationData = [];
 
   MonitorBloc({
-    required DirectoryWatcherService watcherService,
-    required VaultBloc vaultBloc,
-    required VaultRepository vaultRepository,
-  })  : _watcherService = watcherService,
-        _vaultBloc = vaultBloc,
-        _vaultRepository = vaultRepository,
-        _isolationForest = IsolationForest(numTrees: 100, subsampleSize: 256),
+    required this._watcherService,
+    required this._vaultBloc,
+    required this._vaultRepository,
+  })  : _isolationForest = IsolationForest(numTrees: 100, subsampleSize: 256),
         super(const MonitorState()) {
     on<StartMonitoringEvent>(_onStartMonitoring);
     on<StopMonitoringEvent>(_onStopMonitoring);

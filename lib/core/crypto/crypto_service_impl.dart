@@ -1,9 +1,8 @@
-import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:cryptography/cryptography.dart';
 import 'package:slip39/slip39.dart';
-import 'package:argon2/argon2.dart';
+import 'argon2_helper.dart';
 import 'crypto_service.dart';
 
 class CryptoServiceImpl implements CryptoService {
@@ -17,23 +16,7 @@ class CryptoServiceImpl implements CryptoService {
 
   @override
   Future<Uint8List> deriveKey(String password, Uint8List salt) async {
-    // We use recommended parameters for Argon2id key derivation:
-    // Memory: 32MB (32768 KB = 2^15), Iterations: 3, Parallelism (lanes): 2
-    final parameters = Argon2Parameters(
-      Argon2Parameters.ARGON2_id,
-      salt,
-      version: Argon2Parameters.ARGON2_VERSION_13,
-      iterations: 3,
-      memoryPowerOf2: 15,
-      lanes: 2,
-    );
-    final generator = Argon2BytesGenerator();
-    generator.init(parameters);
-
-    final passwordBytes = Uint8List.fromList(utf8.encode(password));
-    final hash = Uint8List(32);
-    generator.generateBytes(passwordBytes, hash, 0, hash.length);
-    return hash;
+    return deriveArgon2Key(password, salt);
   }
 
   @override
