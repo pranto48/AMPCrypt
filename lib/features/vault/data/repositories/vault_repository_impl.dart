@@ -262,6 +262,12 @@ class VaultRepositoryImpl implements VaultRepository {
           '-Command',
           'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Value "$exePath"'
         ]);
+
+        // Notify Windows shell to refresh icon cache immediately
+        await Process.run('powershell.exe', [
+          '-Command',
+          '\$code = \'[DllImport("shell32.dll")] public static extern void SHChangeNotify(int wEventId, int uFlags, IntPtr dwItem1, IntPtr dwItem2);\'; \$type = Add-Type -MemberDefinition \$code -Name Shell32 -Namespace Win32 -PassThru; \$type::SHChangeNotify(0x08000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)'
+        ]);
       } catch (_) {}
     }
   }
@@ -277,6 +283,12 @@ class VaultRepositoryImpl implements VaultRepository {
         await Process.run('powershell.exe', [
           '-Command',
           'Remove-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly" -Recurse -ErrorAction SilentlyContinue'
+        ]);
+
+        // Notify Windows shell of the registry change
+        await Process.run('powershell.exe', [
+          '-Command',
+          '\$code = \'[DllImport("shell32.dll")] public static extern void SHChangeNotify(int wEventId, int uFlags, IntPtr dwItem1, IntPtr dwItem2);\'; \$type = Add-Type -MemberDefinition \$code -Name Shell32 -Namespace Win32 -PassThru; \$type::SHChangeNotify(0x08000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)'
         ]);
       } catch (_) {}
     }

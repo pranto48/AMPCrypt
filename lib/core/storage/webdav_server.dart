@@ -110,6 +110,13 @@ class WebDavServer {
   // ─── REQUEST HANDLER ─────────────────────────────────────────────────────────
   
   Future<void> _handleRequest(HttpRequest request) async {
+    // DRAIN/READ the request stream completely into memory to prevent TCP socket resets
+    final bytesBuilder = BytesBuilder();
+    await for (final chunk in request) {
+      bytesBuilder.add(chunk);
+    }
+    final rawBytes = bytesBuilder.takeBytes();
+
     final rawPath = request.uri.path;
     var path = Uri.decodeComponent(rawPath);
     
@@ -121,7 +128,7 @@ class WebDavServer {
     final method = request.method;
 
     final isRead = (method == 'GET' || method == 'HEAD' || method == 'PROPFIND');
-    final isWrite = (method == 'PUT' || method == 'DELETE' || method == 'MKCOL' || method == 'MOVE' || method == 'PROPPATCH');
+    final isWrite = (method == 'PUT' || method == 'DELETE' || method == 'MKCOL' || method == 'MOVE' || method == 'PROPPATCH' || method == 'COPY');
 
     if (isRead || isWrite) {
       lastActivityTime = DateTime.now();
@@ -148,19 +155,21 @@ class WebDavServer {
       } else if (method == 'GET' || method == 'HEAD') {
         await _handleGet(request, normPath, method == 'HEAD');
       } else if (method == 'PUT') {
-        await _handlePut(request, normPath);
+        await _handlePut(request, normPath, rawBytes);
       } else if (method == 'DELETE') {
         await _handleDelete(request, normPath);
       } else if (method == 'MKCOL') {
         await _handleMkcol(request, normPath);
       } else if (method == 'MOVE') {
         await _handleMove(request, normPath);
+      } else if (method == 'COPY') {
+        await _handleCopy(request, normPath);
       } else if (method == 'LOCK') {
         await _handleLock(request, normPath);
       } else if (method == 'UNLOCK') {
         await _handleUnlock(request, normPath);
       } else if (method == 'PROPPATCH') {
-        await _handleProppatch(request, normPath);
+        await _handleProppatch(request, normPath, rawBytes);
       } else {
         request.response.statusCode = HttpStatus.methodNotAllowed;
         await request.response.close();
@@ -355,22 +364,15 @@ class WebDavServer {
   
   // ─── PUT (FILE UPLOADING / OVERWRITING) ──────────────────────────────────────
   
-  Future<void> _handlePut(HttpRequest request, String normPath) async {
+  Future<void> _handlePut(HttpRequest request, String normPath, Uint8List rawBytes) async {
     if (_masterKey == null) {
       request.response.statusCode = HttpStatus.forbidden;
       await request.response.close();
       return;
     }
     
-    // Read the incoming file content
-    final bytesBuilder = BytesBuilder();
-    await for (final chunk in request) {
-      bytesBuilder.add(chunk);
-    }
-    final rawBytes = bytesBuilder.takeBytes();
-    
     try {
-      final encryptedBytes = await _cryptoService.encryptData(Uint8List.fromList(rawBytes), _masterKey!);
+      final encryptedBytes = await _cryptoService.encryptData(rawBytes, _masterKey!);
       
       final files = _index['files'] as Map<String, dynamic>;
       String uuid;
@@ -558,6 +560,106 @@ class WebDavServer {
     }
   }
   
+  Future<void> _handleCopy(HttpRequest request, String normPath) async {
+    final destination = request.headers.value('destination');
+    if (destination == null) {
+      request.response.statusCode = HttpStatus.badRequest;
+      await request.response.close();
+      return;
+    }
+    
+    final destUri = Uri.parse(destination);
+    var destPath = Uri.decodeComponent(destUri.path);
+    
+    // Strip DavWWWRoot if present in destination path
+    if (destPath.startsWith('/DavWWWRoot')) {
+      destPath = destPath.substring(11);
+      if (destPath.isEmpty) destPath = '/';
+    }
+    
+    String normDestPath = destPath.endsWith('/') && destPath.length > 1
+        ? destPath.substring(0, destPath.length - 1)
+        : destPath;
+    
+    final bool isDir = (_index['directories'] as List).contains(normPath);
+    final bool isFile = (_index['files'] as Map).containsKey(normPath);
+    
+    if (!isDir && !isFile) {
+      request.response.statusCode = HttpStatus.notFound;
+      await request.response.close();
+      return;
+    }
+    
+    try {
+      if (isFile) {
+        final srcFileData = _index['files'][normPath] as Map<String, dynamic>;
+        final srcUuid = srcFileData['uuid'] as String;
+        final destUuid = const Uuid().v4();
+        
+        // Copy physical file
+        final srcFile = File(p.join(_vaultPath!, 'data', srcUuid));
+        final destFile = File(p.join(_vaultPath!, 'data', destUuid));
+        if (await srcFile.exists()) {
+          await srcFile.copy(destFile.path);
+        }
+        
+        _ensureParentDirectories(normDestPath);
+        _index['files'][normDestPath] = {
+          'uuid': destUuid,
+          'size': srcFileData['size'],
+          'lastModified': DateTime.now().toUtc().toIso8601String()
+        };
+      } else {
+        // Copy directory structure and all nested files
+        final dirs = _index['directories'] as List;
+        if (!dirs.contains(normDestPath)) {
+          dirs.add(normDestPath);
+        }
+        
+        final prefix = '$normPath/';
+        final newPrefix = '$normDestPath/';
+        
+        final files = _index['files'] as Map<String, dynamic>;
+        final filesToCopy = files.keys.where((k) => k.startsWith(prefix)).toList();
+        for (final f in filesToCopy) {
+          final fileData = files[f] as Map<String, dynamic>;
+          final srcUuid = fileData['uuid'] as String;
+          final destUuid = const Uuid().v4();
+          
+          // Copy physical file
+          final srcFile = File(p.join(_vaultPath!, 'data', srcUuid));
+          final destFile = File(p.join(_vaultPath!, 'data', destUuid));
+          if (await srcFile.exists()) {
+            await srcFile.copy(destFile.path);
+          }
+          
+          final newPath = f.replaceFirst(prefix, newPrefix);
+          _ensureParentDirectories(newPath);
+          files[newPath] = {
+            'uuid': destUuid,
+            'size': fileData['size'],
+            'lastModified': DateTime.now().toUtc().toIso8601String()
+          };
+        }
+        
+        final dirsToCopy = dirs.where((d) => (d as String).startsWith(prefix)).toList();
+        for (final d in dirsToCopy) {
+          final newPath = (d as String).replaceFirst(prefix, newPrefix);
+          if (!dirs.contains(newPath)) {
+            dirs.add(newPath);
+          }
+        }
+      }
+      
+      await _saveIndex();
+      request.response.statusCode = HttpStatus.created;
+      await request.response.close();
+    } catch (e) {
+      request.response.statusCode = HttpStatus.internalServerError;
+      await request.response.close();
+    }
+  }
+
   // ─── LOCK / UNLOCK (COMPATIBILITY) ──────────────────────────────────────────
   
   Future<void> _handleLock(HttpRequest request, String normPath) async {
@@ -593,12 +695,8 @@ class WebDavServer {
   
   // ─── PROPPATCH (COMPATIBILITY) ───────────────────────────────────────────────
   
-  Future<void> _handleProppatch(HttpRequest request, String normPath) async {
-    final bytesBuilder = BytesBuilder();
-    await for (final chunk in request) {
-      bytesBuilder.add(chunk);
-    }
-    final rawBody = utf8.decode(bytesBuilder.takeBytes());
+  Future<void> _handleProppatch(HttpRequest request, String normPath, Uint8List rawBytes) async {
+    final rawBody = utf8.decode(rawBytes);
     
     // Extract property tags requested by the client to return them as success
     final tags = _extractPropTags(rawBody);
@@ -682,9 +780,9 @@ class WebDavServer {
         final driveMatch = RegExp(r'^([A-Za-z]):').firstMatch(_vaultPath!);
         final driveLetter = driveMatch != null ? driveMatch.group(1) : 'C';
         
-        final result = await Process.run('powershell', [
+        final result = await Process.run('powershell.exe', [
           '-Command',
-          '\$d = [System.IO.DriveInfo]::new(\'$driveLetter\'); \$d.TotalSize; \$d.AvailableFreeSpace'
+          '(Get-Volume -DriveLetter $driveLetter).Size; (Get-Volume -DriveLetter $driveLetter).SizeRemaining'
         ]);
         
         if (result.exitCode == 0) {

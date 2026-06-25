@@ -91,6 +91,21 @@ class MyApp extends StatelessWidget {
           title: 'AMPCrypt Zero-Trust Vault',
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
+            brightness: Brightness.light,
+            primaryColor: const Color(0xFF00A29A),
+            scaffoldBackgroundColor: const Color(0xFFF1F5F9),
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF00A29A),
+              secondary: Color(0xFF008D86),
+              surface: Colors.white,
+              error: Color(0xFFE06C75),
+            ),
+            textTheme: GoogleFonts.outfitTextTheme(
+              ThemeData.light().textTheme,
+            ),
+            useMaterial3: true,
+          ),
+          darkTheme: ThemeData(
             brightness: Brightness.dark,
             primaryColor: const Color(0xFF00A29A),
             scaffoldBackgroundColor: const Color(0xFF1E2228),
@@ -105,6 +120,7 @@ class MyApp extends StatelessWidget {
             ),
             useMaterial3: true,
           ),
+          themeMode: ThemeMode.system,
           home: const VaultPage(),
         ),
       ),
