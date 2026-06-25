@@ -17,6 +17,8 @@ import 'package:window_manager/window_manager.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:ampcrypt/core/version.dart';
+import 'package:http/http.dart' as http_pkg;
 
 import '../bloc/vault_bloc.dart';
 import '../bloc/vault_event.dart';
@@ -28,13 +30,21 @@ import '../../../ransomware_monitor/presentation/bloc/monitor_bloc.dart';
 import '../../../ransomware_monitor/presentation/bloc/monitor_event.dart';
 import '../../../ransomware_monitor/presentation/bloc/monitor_state.dart';
 
-const Color kPrimaryColor = Color(0xFF00A29A);
-const Color kPrimaryHoverColor = Color(0xFF00B3AA);
-const Color kScaffoldBackgroundColor = Color(0xFF1E2228);
-const Color kSurfaceColor = Color(0xFF181B20);
-const Color kSidebarBackgroundColor = Color(0xFF14171A);
-const Color kSuccessColor = Color(0xFF98C379);
-const Color kErrorColor = Color(0xFFE06C75);
+bool get isSystemDark {
+  try {
+    return PlatformDispatcher.instance.platformBrightness == Brightness.dark;
+  } catch (_) {
+    return true; // default dark
+  }
+}
+
+Color get kPrimaryColor => const Color(0xFF00A29A);
+Color get kPrimaryHoverColor => const Color(0xFF00B3AA);
+Color get kScaffoldBackgroundColor => isSystemDark ? const Color(0xFF1E2228) : const Color(0xFFF1F5F9);
+Color get kSurfaceColor => const Color(0xFF181B20); // Keep vault core components dark for readability of white text
+Color get kSidebarBackgroundColor => isSystemDark ? const Color(0xFF14171A) : const Color(0xFF1E2228);
+Color get kSuccessColor => const Color(0xFF98C379);
+Color get kErrorColor => const Color(0xFFE06C75);
 
 class VaultPage extends StatefulWidget {
   const VaultPage({super.key});
@@ -1420,21 +1430,28 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                                               ),
                                             ),
                                             const SizedBox(height: 2),
-                                            Row(
+                                            Wrap(
                                               children: [
                                                 Text(
-                                                  'Builder: ',
-                                                  style: GoogleFonts.outfit(
-                                                    fontSize: 11,
-                                                    color: const Color(0xFF64748B),
+                                                  'Made by ',
+                                                  style: GoogleFonts.outfit(fontSize: 10, color: const Color(0xFF64748B)),
+                                                ),
+                                                InkWell(
+                                                  onTap: () => launchUrl(Uri.parse('https://itsupport.com.bd/'), mode: LaunchMode.externalApplication),
+                                                  child: Text(
+                                                    'IT Support BD',
+                                                    style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: kPrimaryColor, decoration: TextDecoration.underline),
                                                   ),
                                                 ),
                                                 Text(
-                                                  'IT Support BD',
-                                                  style: GoogleFonts.outfit(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: kPrimaryColor,
+                                                  ' | Contributor: ',
+                                                  style: GoogleFonts.outfit(fontSize: 10, color: const Color(0xFF64748B)),
+                                                ),
+                                                InkWell(
+                                                  onTap: () => launchUrl(Uri.parse('https://arifmahmud.com/'), mode: LaunchMode.externalApplication),
+                                                  child: Text(
+                                                    'Arif Mahmud Pranto',
+                                                    style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: kPrimaryColor, decoration: TextDecoration.underline),
                                                   ),
                                                 ),
                                               ],
@@ -1467,7 +1484,7 @@ class _SettingsViewState extends State<SettingsView> with SingleTickerProviderSt
                                       ),
                                       const SizedBox(width: 8),
                                       Text(
-                                        'Version 1.0.0+1 (Stable)',
+                                        'Version $kAppVersion (Stable)',
                                         style: GoogleFonts.shareTechMono(
                                           fontSize: 11,
                                           color: const Color(0xFF94A3B8),
