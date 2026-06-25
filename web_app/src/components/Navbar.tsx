@@ -2,12 +2,12 @@
 
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, ChevronDown, Monitor, Globe, Terminal, ArrowRight, Shield, Cpu, ExternalLink } from "lucide-react";
+import { Menu, X, ChevronDown, Monitor, Globe, Terminal, ArrowRight, Shield, ExternalLink } from "lucide-react";
 
 interface ProductItem {
   name: string;
   description: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<{ className?: string }>;
   href: string;
 }
 
