@@ -1,2 +1,2 @@
 // Generated file. Do not edit.
-const String kAppVersion = 'V0.62';
+const String kAppVersion = 'V0.65';

@@ -4843,15 +4843,15 @@ InputDecoration _inputDecoration({
     ),
     focusedBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: kPrimaryColor, width: 1.5),
+      borderSide: BorderSide(color: kPrimaryColor, width: 1.5),
     ),
     errorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: kErrorColor),
+      borderSide: BorderSide(color: kErrorColor),
     ),
     focusedErrorBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: kErrorColor, width: 1.5),
+      borderSide: BorderSide(color: kErrorColor, width: 1.5),
     ),
   );
 }
@@ -4967,7 +4967,7 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
                                 width: 2,
                               ),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.security_update_warning_outlined,
                               color: kErrorColor,
                               size: 48,
@@ -5060,7 +5060,7 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: kErrorColor),
+                            borderSide: BorderSide(color: kErrorColor),
                           ),
                           errorText: _error,
                           errorStyle: GoogleFonts.outfit(color: kErrorColor),
@@ -5353,7 +5353,7 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
             const SizedBox(height: 28),
             
             if (_isLoading)
-              const CircularProgressIndicator(color: kPrimaryHoverColor)
+              CircularProgressIndicator(color: kPrimaryHoverColor)
             else
               Row(
                 children: [
@@ -5567,7 +5567,7 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
                 child: _selectedFile != null
                     ? Container(
                         color: const Color(0xFF1E293B),
-                        child: const Icon(
+                        child: Icon(
                           Icons.audiotrack,
                           size: 64,
                           color: kSuccessColor,
@@ -5607,7 +5607,7 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
             const SizedBox(height: 28),
             
             if (_isLoading)
-              const CircularProgressIndicator(color: kPrimaryHoverColor)
+              CircularProgressIndicator(color: kPrimaryHoverColor)
             else
               Row(
                 children: [
@@ -5765,7 +5765,7 @@ class _WebLandingPageState extends State<WebLandingPage> {
                         'assets/app_icon.ico',
                         width: 96,
                         height: 96,
-                        errorBuilder: (context, error, stackTrace) => const Icon(
+                        errorBuilder: (context, error, stackTrace) => Icon(
                           Icons.verified_user_rounded,
                           size: 96,
                           color: kPrimaryColor,
@@ -6102,15 +6102,15 @@ class _WebLandingPageState extends State<WebLandingPage> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: kPrimaryColor, width: 1.5),
+        borderSide: BorderSide(color: kPrimaryColor, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: kErrorColor),
+        borderSide: BorderSide(color: kErrorColor),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: kErrorColor, width: 1.5),
+        borderSide: BorderSide(color: kErrorColor, width: 1.5),
       ),
     );
   }
