@@ -243,8 +243,8 @@ class VaultRepositoryImpl implements VaultRepository {
       final port = _webDavServer.port;
       // First try to safely unmount any existing drive to prevent conflicts
       await Process.run('cmd.exe', ['/c', 'net use $driveLetter /delete /y']);
-      // Mount the network drive
-      await Process.run('cmd.exe', ['/c', 'net use $driveLetter http://localhost:$port /persistent:no']);
+      // Mount the network drive (using UNC format with DavWWWRoot to ensure Windows Explorer queries quota sizes correctly)
+      await Process.run('cmd.exe', ['/c', 'net use $driveLetter \\\\localhost@$port\\DavWWWRoot /persistent:no']);
 
       // Rename and set drive icon in Windows Explorer
       try {
@@ -256,10 +256,11 @@ class VaultRepositoryImpl implements VaultRepository {
         ]);
 
         // Set drive icon in Registry (HKCU so it is writeable without admin privileges)
+        // Note: Using Set-Item on the key path correctly overwrites the unnamed default value of the DefaultIcon key.
         final exePath = Platform.resolvedExecutable;
         await Process.run('powershell.exe', [
           '-Command',
-          'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Force; Set-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Name "(Default)" -Value "$exePath"'
+          'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Value "$exePath"'
         ]);
       } catch (_) {}
     }

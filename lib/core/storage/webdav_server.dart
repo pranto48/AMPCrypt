@@ -111,7 +111,13 @@ class WebDavServer {
   
   Future<void> _handleRequest(HttpRequest request) async {
     final rawPath = request.uri.path;
-    final path = Uri.decodeComponent(rawPath);
+    var path = Uri.decodeComponent(rawPath);
+    
+    // Strip DavWWWRoot if present (Windows UNC mounting compatibility)
+    if (path.startsWith('/DavWWWRoot')) {
+      path = path.substring(11);
+      if (path.isEmpty) path = '/';
+    }
     final method = request.method;
 
     final isRead = (method == 'GET' || method == 'HEAD' || method == 'PROPFIND');
@@ -173,6 +179,7 @@ class WebDavServer {
   Future<void> _handlePropfind(HttpRequest request, String normPath) async {
     await _updateQuota();
     final depth = request.headers.value('depth') ?? '1';
+    final String prefix = request.uri.path.startsWith('/DavWWWRoot') ? '/DavWWWRoot' : '';
     
     final bool isRoot = normPath == '/';
     final bool isDir = isRoot || (_index['directories'] as List).contains(normPath);
@@ -263,8 +270,10 @@ class WebDavServer {
         contentLength = '<D:getcontentlength>$size</D:getcontentlength>';
       }
       
+      final fullHref = '$prefix$hrefWithSlash';
+      
       buffer.write('''  <D:response>
-    <D:href>$hrefWithSlash</D:href>
+    <D:href>$fullHref</D:href>
     <D:propstat>
       <D:prop>
         <D:displayname>$escapedDisplay</D:displayname>
@@ -485,7 +494,14 @@ class WebDavServer {
     }
     
     final destUri = Uri.parse(destination);
-    final destPath = Uri.decodeComponent(destUri.path);
+    var destPath = Uri.decodeComponent(destUri.path);
+    
+    // Strip DavWWWRoot if present in destination path
+    if (destPath.startsWith('/DavWWWRoot')) {
+      destPath = destPath.substring(11);
+      if (destPath.isEmpty) destPath = '/';
+    }
+    
     String normDestPath = destPath.endsWith('/') && destPath.length > 1
         ? destPath.substring(0, destPath.length - 1)
         : destPath;
