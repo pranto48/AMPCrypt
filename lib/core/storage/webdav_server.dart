@@ -255,7 +255,7 @@ class WebDavServer {
     // Build XML response
     final buffer = StringBuffer();
     buffer.write('<?xml version="1.0" encoding="utf-8" ?>\n');
-    buffer.write('<D:multistatus xmlns:D="DAV:">\n');
+    buffer.write('<multistatus xmlns="DAV:">\n');
     
     for (final item in items) {
       final pathStr = item['path'] as String;
@@ -273,32 +273,32 @@ class WebDavServer {
       String resourceType = '';
       String contentLength = '';
       if (isItemDir) {
-        resourceType = '<D:resourcetype><D:collection/></D:resourcetype>';
-        contentLength = '''<D:quota-available-bytes>$_cachedFreeSize</D:quota-available-bytes>
-        <D:quota-used-bytes>${_cachedTotalSize - _cachedFreeSize}</D:quota-used-bytes>''';
+        resourceType = '<resourcetype><collection/></resourcetype>';
+        contentLength = '''<quota-available-bytes>$_cachedFreeSize</quota-available-bytes>
+        <quota-used-bytes>${_cachedTotalSize - _cachedFreeSize}</quota-used-bytes>''';
       } else {
-        resourceType = '<D:resourcetype/>';
-        contentLength = '<D:getcontentlength>$size</D:getcontentlength>';
+        resourceType = '<resourcetype/>';
+        contentLength = '<getcontentlength>$size</getcontentlength>';
       }
       
       final fullHref = '$prefix$hrefWithSlash';
       
-      buffer.write('''  <D:response>
-    <D:href>$fullHref</D:href>
-    <D:propstat>
-      <D:prop>
-        <D:displayname>$escapedDisplay</D:displayname>
+      buffer.write('''  <response>
+    <href>$fullHref</href>
+    <propstat>
+      <prop>
+        <displayname>$escapedDisplay</displayname>
         $contentLength
-        <D:getlastmodified>${_formatHttpDate(lastModified)}</D:getlastmodified>
+        <getlastmodified>${_formatHttpDate(lastModified)}</getlastmodified>
         $resourceType
-        <D:supportedlock/>
-      </D:prop>
-      <D:status>HTTP/1.1 200 OK</D:status>
-    </D:propstat>
-  </D:response>\n''');
+        <supportedlock/>
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>\n''');
     }
     
-    buffer.write('</D:multistatus>');
+    buffer.write('</multistatus>');
     
     request.response.statusCode = 207; // Multi-Status
     request.response.headers.set('Content-Type', 'application/xml; charset="utf-8"');
@@ -673,19 +673,19 @@ class WebDavServer {
     request.response.headers.set('Lock-Token', '<opaquelocktoken:$lockToken>');
     
     request.response.write('''<?xml version="1.0" encoding="utf-8" ?>
-<D:prop xmlns:D="DAV:">
-  <D:lockdiscovery>
-    <D:activelock>
-      <D:lockscope><D:exclusive/></D:lockscope>
-      <D:locktype><D:write/></D:locktype>
-      <D:depth>0</D:depth>
-      <D:timeout>Second-3600</D:timeout>
-      <D:locktoken>
-        <D:href>opaquelocktoken:$lockToken</D:href>
-      </D:locktoken>
-    </D:activelock>
-  </D:lockdiscovery>
-</D:prop>''');
+<prop xmlns="DAV:">
+  <lockdiscovery>
+    <activelock>
+      <lockscope><exclusive/></lockscope>
+      <locktype><write/></locktype>
+      <depth>0</depth>
+      <timeout>Second-3600</timeout>
+      <locktoken>
+        <href>opaquelocktoken:$lockToken</href>
+      </locktoken>
+    </activelock>
+  </lockdiscovery>
+</prop>''');
     
     await request.response.close();
   }
@@ -705,17 +705,17 @@ class WebDavServer {
     final propsXml = tags.map((t) => "<$t/>").join('\n        ');
     
     final xmlResponse = '''<?xml version="1.0" encoding="utf-8" ?>
-<D:multistatus xmlns:D="DAV:">
-  <D:response>
-    <D:href>${_escapeXml(normPath)}</D:href>
-    <D:propstat>
-      <D:prop>
+<multistatus xmlns="DAV:">
+  <response>
+    <href>${_escapeXml(normPath)}</href>
+    <propstat>
+      <prop>
         $propsXml
-      </D:prop>
-      <D:status>HTTP/1.1 200 OK</D:status>
-    </D:propstat>
-  </D:response>
-</D:multistatus>''';
+      </prop>
+      <status>HTTP/1.1 200 OK</status>
+    </propstat>
+  </response>
+</multistatus>''';
     
     request.response.statusCode = 207; // Multi-Status
     request.response.headers.set('Content-Type', 'application/xml; charset="utf-8"');

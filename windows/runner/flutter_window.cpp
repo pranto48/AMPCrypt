@@ -175,6 +175,9 @@ bool FlutterWindow::OnCreate() {
             return;
           }
           std::wstring wpath(path_str->begin(), path_str->end());
+          if (!wpath.empty() && wpath.back() != L'\\') {
+            wpath += L'\\';
+          }
           
           ULARGE_INTEGER freeBytesAvailable;
           ULARGE_INTEGER totalNumberOfBytes;

@@ -261,24 +261,38 @@ class VaultRepositoryImpl implements VaultRepository {
         await Process.run('cmd.exe', ['/c', 'net use $driveLetter \\\\localhost@$port\\DavWWWRoot /persistent:no']);
       }
 
-      // Set drive icon in Registry using bundled vault_drive.ico asset
-      // The asset is extracted to flutter_assets/assets/ alongside the exe
+      // Set drive icon & name in Registry using bundled vault_drive.ico asset
       try {
         final letterOnly = driveLetter.replaceAll(':', '');
         final exeDir = p.dirname(Platform.resolvedExecutable);
         final icoPath = p.join(exeDir, 'data', 'flutter_assets', 'assets', 'vault_drive.ico');
 
-        // Rename using PowerShell (via COM object Namespace)
-        await Process.run('powershell.exe', [
-          '-Command',
-          '(New-Object -ComObject Shell.Application).NameSpace(\'$driveLetter\').Self.Name = \'AMPCrypt\''
-        ]);
+        if (winFspMounted) {
+          // Rename local drive (WinFSP)
+          await Process.run('powershell.exe', [
+            '-Command',
+            '(New-Object -ComObject Shell.Application).NameSpace(\'$driveLetter\').Self.Name = \'AMPCrypt\''
+          ]);
 
-        // Set drive icon in Registry (HKCU — writeable without admin)
-        await Process.run('powershell.exe', [
-          '-Command',
-          'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Value "$icoPath"'
-        ]);
+          // Set drive icon for local drive (HKCU — writeable without admin)
+          await Process.run('powershell.exe', [
+            '-Command',
+            'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Value "$icoPath"'
+          ]);
+        } else {
+          final port = _webDavServer.port;
+          // Set drive icon for mapped network WebDAV location (HKCU MountPoints2)
+          await Process.run('powershell.exe', [
+            '-Command',
+            'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\MountPoints2\\##localhost@$port#DavWWWRoot\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\MountPoints2\\##localhost@$port#DavWWWRoot\\DefaultIcon" -Value "$icoPath"'
+          ]);
+
+          // Set custom label for mapped network WebDAV location (HKCU MountPoints2)
+          await Process.run('powershell.exe', [
+            '-Command',
+            'New-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\MountPoints2\\##localhost@$port#DavWWWRoot" -Name "_LabelFromReg" -Value "AMPCrypt" -PropertyType String -Force'
+          ]);
+        }
 
         // Notify Windows shell to refresh icon cache immediately
         await _winFspChannel.invokeMethod<void>('refreshShell');
