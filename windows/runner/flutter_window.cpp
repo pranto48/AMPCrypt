@@ -175,15 +175,18 @@ bool FlutterWindow::OnCreate() {
             return;
           }
           std::wstring wpath(path_str->begin(), path_str->end());
-          if (!wpath.empty() && wpath.back() != L'\\') {
-            wpath += L'\\';
+          std::wstring rootPath = L"";
+          if (wpath.length() >= 2 && wpath[1] == L':') {
+            rootPath = wpath.substr(0, 2) + L"\\";
+          } else {
+            rootPath = L"C:\\";
           }
           
           ULARGE_INTEGER freeBytesAvailable;
           ULARGE_INTEGER totalNumberOfBytes;
           ULARGE_INTEGER totalNumberOfFreeBytes;
           
-          if (GetDiskFreeSpaceExW(wpath.c_str(), &freeBytesAvailable, &totalNumberOfBytes, &totalNumberOfFreeBytes)) {
+          if (GetDiskFreeSpaceExW(rootPath.c_str(), &freeBytesAvailable, &totalNumberOfBytes, &totalNumberOfFreeBytes)) {
             flutter::EncodableMap resultMap;
             resultMap[flutter::EncodableValue("total")] = static_cast<int64_t>(totalNumberOfBytes.QuadPart);
             resultMap[flutter::EncodableValue("free")] = static_cast<int64_t>(freeBytesAvailable.QuadPart);

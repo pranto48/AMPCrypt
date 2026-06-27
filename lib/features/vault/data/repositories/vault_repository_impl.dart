@@ -287,6 +287,12 @@ class VaultRepositoryImpl implements VaultRepository {
             'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\MountPoints2\\##localhost@$port#DavWWWRoot\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\MountPoints2\\##localhost@$port#DavWWWRoot\\DefaultIcon" -Value "$icoPath"'
           ]);
 
+          // Set drive icon for drive letter as well (ensures Windows Explorer shows it under Network locations too)
+          await Process.run('powershell.exe', [
+            '-Command',
+            'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Value "$icoPath"'
+          ]);
+
           // Set custom label for mapped network WebDAV location (HKCU MountPoints2)
           await Process.run('powershell.exe', [
             '-Command',
