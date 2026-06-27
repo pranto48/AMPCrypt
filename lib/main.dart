@@ -92,11 +92,11 @@ class MyApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
             brightness: Brightness.light,
-            primaryColor: const Color(0xFF00A29A),
-            scaffoldBackgroundColor: const Color(0xFFF1F5F9),
+            primaryColor: const Color(0xFF16A34A),
+            scaffoldBackgroundColor: const Color(0xFFF0FDF4),
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF00A29A),
-              secondary: Color(0xFF008D86),
+              primary: Color(0xFF16A34A),
+              secondary: Color(0xFF15803D),
               surface: Colors.white,
               error: Color(0xFFE06C75),
             ),
@@ -107,12 +107,12 @@ class MyApp extends StatelessWidget {
           ),
           darkTheme: ThemeData(
             brightness: Brightness.dark,
-            primaryColor: const Color(0xFF00A29A),
-            scaffoldBackgroundColor: const Color(0xFF1E2228),
+            primaryColor: const Color(0xFF16A34A),
+            scaffoldBackgroundColor: const Color(0xFF0F1613),
             colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF00A29A),
-              secondary: Color(0xFF008D86),
-              surface: Color(0xFF181B20),
+              primary: Color(0xFF16A34A),
+              secondary: Color(0xFF15803D),
+              surface: Color(0xFF111915),
               error: Color(0xFFE06C75),
             ),
             textTheme: GoogleFonts.outfitTextTheme(

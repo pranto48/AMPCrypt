@@ -38,13 +38,14 @@ bool get isSystemDark {
   }
 }
 
-Color get kPrimaryColor => const Color(0xFF00A29A);
-Color get kPrimaryHoverColor => const Color(0xFF00B3AA);
-Color get kScaffoldBackgroundColor => isSystemDark ? const Color(0xFF1E2228) : const Color(0xFFF1F5F9);
-Color get kSurfaceColor => const Color(0xFF181B20); // Keep vault core components dark for readability of white text
-Color get kSidebarBackgroundColor => isSystemDark ? const Color(0xFF14171A) : const Color(0xFF1E2228);
-Color get kSuccessColor => const Color(0xFF98C379);
-Color get kErrorColor => const Color(0xFFE06C75);
+// ─── Security Green Palette ───────────────────────────────────────────────────
+Color get kPrimaryColor => const Color(0xFF16A34A);       // Emerald green — security / vault
+Color get kPrimaryHoverColor => const Color(0xFF22C55E);  // Bright green on hover
+Color get kScaffoldBackgroundColor => isSystemDark ? const Color(0xFF0F1613) : const Color(0xFFF0FDF4);
+Color get kSurfaceColor => const Color(0xFF111915);       // Deep vault-dark surface
+Color get kSidebarBackgroundColor => isSystemDark ? const Color(0xFF0A1009) : const Color(0xFF111915);
+Color get kSuccessColor => const Color(0xFF4ADE80);        // Soft bright green — unlocked / OK
+Color get kErrorColor => const Color(0xFFE06C75);          // Red — warnings / errors
 
 class VaultPage extends StatefulWidget {
   const VaultPage({super.key});
@@ -131,8 +132,19 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
   }
 
   // --- TrayListener overrides ---
+  @override
   void onTrayIconClick() {
     _restoreWindow();
+  }
+
+  @override
+  void onTrayIconRightMouseDown() {
+    trayManager.popUpContextMenu();
+  }
+
+  @override
+  void onTrayIconRightMouseUp() {
+    // No-op: menu already shown on MouseDown
   }
 
   @override

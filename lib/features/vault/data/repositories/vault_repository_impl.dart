@@ -261,21 +261,23 @@ class VaultRepositoryImpl implements VaultRepository {
         await Process.run('cmd.exe', ['/c', 'net use $driveLetter \\\\localhost@$port\\DavWWWRoot /persistent:no']);
       }
 
-      // Rename and set drive icon in Windows Explorer
+      // Set drive icon in Registry using bundled vault_drive.ico asset
+      // The asset is extracted to flutter_assets/assets/ alongside the exe
       try {
         final letterOnly = driveLetter.replaceAll(':', '');
+        final exeDir = p.dirname(Platform.resolvedExecutable);
+        final icoPath = p.join(exeDir, 'data', 'flutter_assets', 'assets', 'vault_drive.ico');
+
         // Rename using PowerShell (via COM object Namespace)
         await Process.run('powershell.exe', [
           '-Command',
           '(New-Object -ComObject Shell.Application).NameSpace(\'$driveLetter\').Self.Name = \'AMPCrypt\''
         ]);
 
-        // Set drive icon in Registry (HKCU so it is writeable without admin privileges)
-        // Note: Using Set-Item on the key path correctly overwrites the unnamed default value of the DefaultIcon key.
-        final exePath = Platform.resolvedExecutable;
+        // Set drive icon in Registry (HKCU — writeable without admin)
         await Process.run('powershell.exe', [
           '-Command',
-          'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Value "$exePath"'
+          'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Value "$icoPath"'
         ]);
 
         // Notify Windows shell to refresh icon cache immediately
@@ -341,6 +343,10 @@ class VaultRepositoryImpl implements VaultRepository {
     final configuredPath = _prefs.getString('vault_path');
     if (configuredPath != null && configuredPath.isNotEmpty) {
       return configuredPath;
+    }
+    // Default to D:\Data on Windows; fall back to home dir on other platforms
+    if (Platform.isWindows) {
+      return r'D:\Data';
     }
     final home = _getHomeDir();
     return p.join(home, '.ampcrypt_vault');
