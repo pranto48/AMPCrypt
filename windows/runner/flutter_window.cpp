@@ -14,6 +14,7 @@
 
 #include "winfsp_tpm_helper.h"
 #include <wincrypt.h>
+#include <shlobj.h>
 
 // Helper to base64 encode
 static std::string Base64Encode(const std::vector<uint8_t>& data) {
@@ -167,6 +168,29 @@ bool FlutterWindow::OnCreate() {
             bool success = UnmountWinFspDrive(wdrive);
             result->Success(flutter::EncodableValue(success));
           }).detach();
+        } else if (call.method_name() == "getDiskSpace") {
+          const auto* path_str = std::get_if<std::string>(call.arguments());
+          if (!path_str) {
+            result->Error("INVALID_ARGUMENTS", "Expected path string.");
+            return;
+          }
+          std::wstring wpath(path_str->begin(), path_str->end());
+          
+          ULARGE_INTEGER freeBytesAvailable;
+          ULARGE_INTEGER totalNumberOfBytes;
+          ULARGE_INTEGER totalNumberOfFreeBytes;
+          
+          if (GetDiskFreeSpaceExW(wpath.c_str(), &freeBytesAvailable, &totalNumberOfBytes, &totalNumberOfFreeBytes)) {
+            flutter::EncodableMap resultMap;
+            resultMap[flutter::EncodableValue("total")] = static_cast<int64_t>(totalNumberOfBytes.QuadPart);
+            resultMap[flutter::EncodableValue("free")] = static_cast<int64_t>(freeBytesAvailable.QuadPart);
+            result->Success(flutter::EncodableValue(resultMap));
+          } else {
+            result->Error("DISK_FREE_SPACE_FAILED", "Failed to get disk free space.");
+          }
+        } else if (call.method_name() == "refreshShell") {
+          SHChangeNotify(0x08000000, 0, NULL, NULL); // SHCNE_ASSOCCHANGED
+          result->Success(flutter::EncodableValue(true));
         } else {
           result->NotImplemented();
         }

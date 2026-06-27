@@ -3046,6 +3046,9 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
   Widget build(BuildContext context) {
     final status = widget.state.deviceStatus;
     final isNewVault = widget.state.backupRecoveryPhrases != null;
+    final repository = context.read<VaultBloc>().repository;
+    final driveLetter = repository.getDriveLetter();
+    final vaultPath = repository.getVaultPath();
 
     return Center(
       child: GlassmorphicCard(
@@ -3147,7 +3150,7 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
-                                    'Mounted on Z:',
+                                    'Mounted on $driveLetter',
                                     style: GoogleFonts.outfit(
                                       color: Colors.white,
                                       fontSize: 13,
@@ -3174,14 +3177,14 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                   ),
                                 ),
                                 onPressed: () {
-                                  Process.run('explorer.exe', ['Z:']);
+                                  Process.run('explorer.exe', [driveLetter]);
                                 },
                               ),
                             ],
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Files in Z:\\ are encrypted on D:\\Data and synced in real-time.',
+                            'Files in $driveLetter\\ are encrypted on $vaultPath and synced in real-time.',
                             style: GoogleFonts.outfit(
                               color: const Color(0xFF94A3B8),
                               fontSize: 11,

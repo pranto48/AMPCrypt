@@ -3,10 +3,12 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
+import 'package:flutter/services.dart';
 import '../crypto/crypto_service.dart';
 
 class WebDavServer {
   final CryptoService _cryptoService;
+  static const _winFspChannel = MethodChannel('ampcrypt/winfsp');
   
   HttpServer? _server;
   Uint8List? _masterKey;
@@ -777,23 +779,13 @@ class WebDavServer {
     
     if (Platform.isWindows) {
       try {
-        final driveMatch = RegExp(r'^([A-Za-z]):').firstMatch(_vaultPath!);
-        final driveLetter = driveMatch != null ? driveMatch.group(1) : 'C';
-        
-        final result = await Process.run('powershell.exe', [
-          '-Command',
-          '(Get-Volume -DriveLetter $driveLetter).Size; (Get-Volume -DriveLetter $driveLetter).SizeRemaining'
-        ]);
-        
-        if (result.exitCode == 0) {
-          final lines = result.stdout.toString().trim().split(RegExp(r'\r?\n'));
-          if (lines.length >= 2) {
-            final total = int.tryParse(lines[0].trim());
-            final free = int.tryParse(lines[1].trim());
-            if (total != null && free != null) {
-              _cachedTotalSize = total;
-              _cachedFreeSize = free;
-            }
+        final space = await _winFspChannel.invokeMethod<dynamic>('getDiskSpace', _vaultPath);
+        if (space is Map) {
+          final total = space['total'] as int?;
+          final free = space['free'] as int?;
+          if (total != null && free != null) {
+            _cachedTotalSize = total;
+            _cachedFreeSize = free;
           }
         }
       } catch (_) {}
