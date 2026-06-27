@@ -133,8 +133,13 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
 
   // --- TrayListener overrides ---
   @override
-  void onTrayIconClick() {
+  void onTrayIconMouseDown() {
     _restoreWindow();
+  }
+
+  @override
+  void onTrayIconMouseUp() {
+    // No-op
   }
 
   @override
