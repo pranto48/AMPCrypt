@@ -4,7 +4,7 @@
 import { scrypt } from "scrypt-js";
 
 export interface CryptoWorkerMessage {
-  type: "DERIVE_KEY" | "ENCRYPT_CHUNK" | "DECRYPT_CHUNK" | "RESET";
+  type: "DERIVE_KEY" | "ENCRYPT_CHUNK" | "DECRYPT_CHUNK" | "RESET" | "ENCRYPT_RECOVERY" | "DECRYPT_RECOVERY";
   payload: {
     data?: ArrayBuffer; // Used for chunk data
     passphrase?: string; // Used for key derivation

@@ -18,7 +18,6 @@ import {
   Users,
   Clipboard,
   Mail,
-  HelpCircle,
   FileText
 } from "lucide-react";
 import { CryptoWorkerResponse } from "./crypto.worker";
@@ -57,9 +56,9 @@ export default function VaultPage() {
   // Configurator (Create backup)
   const [recMasterKey, setRecMasterKey] = useState("");
   const [recEmail, setRecEmail] = useState("");
-  const [recQ1, setRecQ1] = useState("What was the name of your first pet?");
-  const [recQ2, setRecQ2] = useState("What city were you born in?");
-  const [recQ3, setRecQ3] = useState("What was your childhood nickname?");
+  const recQ1 = "What was the name of your first pet?";
+  const recQ2 = "What city were you born in?";
+  const recQ3 = "What was your childhood nickname?";
   const [recA1, setRecA1] = useState("");
   const [recA2, setRecA2] = useState("");
   const [recA3, setRecA3] = useState("");
@@ -383,12 +382,19 @@ export default function VaultPage() {
         throw new Error(encryptRes.payload.error || "Recovery encryption failed.");
       }
 
-      // Convert typed array properties to base64
-      const saltBase64 = btoa(String.fromCharCode(...salt));
-      const ivBase64 = btoa(String.fromCharCode(...new Uint8Array(encryptRes.payload.iv)));
-      const encryptedMasterKeyBase64 = btoa(
-        String.fromCharCode(...new Uint8Array(encryptRes.payload.data))
-      );
+      // Convert typed array properties to base64 using helper function
+      const uint8ArrayToBase64 = (arr: Uint8Array): string => {
+        let binary = "";
+        const len = arr.byteLength;
+        for (let i = 0; i < len; i++) {
+          binary += String.fromCharCode(arr[i]);
+        }
+        return window.btoa(binary);
+      };
+
+      const saltBase64 = uint8ArrayToBase64(salt);
+      const ivBase64 = uint8ArrayToBase64(new Uint8Array(encryptRes.payload.iv));
+      const encryptedMasterKeyBase64 = uint8ArrayToBase64(new Uint8Array(encryptRes.payload.data));
 
       const configObj = {
         questions_recovery_enabled: true,
