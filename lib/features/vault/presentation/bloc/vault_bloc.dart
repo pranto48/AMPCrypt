@@ -103,10 +103,18 @@ class VaultBloc extends Bloc<VaultEvent, VaultState> {
         ));
       }
     } catch (e) {
-      emit(VaultFailureState(
-        errorMessage: 'An unexpected error occurred during unlock: ${e.toString()}',
-        previousState: VaultLockedState(),
-      ));
+      final msg = e.toString();
+      if (msg.contains("WINFSP_MISSING")) {
+        emit(VaultFailureState(
+          errorMessage: 'WINFSP_MISSING',
+          previousState: VaultLockedState(),
+        ));
+      } else {
+        emit(VaultFailureState(
+          errorMessage: 'An unexpected error occurred during unlock: ${e.toString()}',
+          previousState: VaultLockedState(),
+        ));
+      }
     }
   }
 

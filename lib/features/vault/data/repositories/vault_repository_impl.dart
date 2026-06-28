@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import '../../../../core/crypto/crypto_service.dart';
 import '../../../../core/storage/webdav_server.dart';
 import '../../../../core/storage/vault_storage.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:ftpconnect/ftpconnect.dart';
 import '../../domain/repositories/vault_repository.dart';
 
@@ -24,6 +25,7 @@ class VaultRepositoryImpl implements VaultRepository {
   final CryptoService _cryptoService;
   final SharedPreferences _prefs;
   final WebDavServer _webDavServer;
+  Process? _rcloneProcess;
 
   // In-memory cache for the unlocked master key
   Uint8List? _cachedMasterKey;
@@ -255,80 +257,77 @@ class VaultRepositoryImpl implements VaultRepository {
     }
 
     await _webDavServer.start(masterKey, storage);
-
     // Mount to driveLetter on Windows
     if (Platform.isWindows && _webDavServer.isRunning) {
       final port = _webDavServer.port;
-      bool winFspMounted = false;
+      
+      // Check WinFSP dependency first
+      final fspInstalled = await isWinFspInstalled();
+      if (!fspInstalled) {
+        throw Exception("WINFSP_MISSING");
+      }
+      
+      // Ensure rclone is available
+      final rclonePath = await _ensureRclone();
+      
+      // Safely kill any existing rclone process or delete drive letter
       try {
-        winFspMounted = await _winFspChannel.invokeMethod<bool>('mount', {
-          'driveLetter': driveLetter,
-          'port': port,
-        }) ?? false;
-      } catch (e) {
-        print('WinFsp mount failed, falling back: $e');
-      }
-
-      if (!winFspMounted) {
-        // First try to safely unmount any existing drive to prevent conflicts
+        if (_rcloneProcess != null) {
+          _rcloneProcess!.kill();
+          _rcloneProcess = null;
+        }
         await Process.run('cmd.exe', ['/c', 'net use $driveLetter /delete /y']);
-        // Mount the network drive (using UNC format with DavWWWRoot to ensure Windows Explorer queries quota sizes correctly)
-        await Process.run('cmd.exe', ['/c', 'net use $driveLetter \\\\localhost@$port\\DavWWWRoot /persistent:no']);
-      }
+      } catch (_) {}
 
-      // Set drive icon & name in Registry using Windows native secure drive icon
+      // Launch silent rclone.exe mount process
+      // --vfs-cache-mode off disables WebDAV caches on C: drive.
+      _rcloneProcess = await Process.start(
+        rclonePath,
+        [
+          'mount',
+          ':webdav:',
+          driveLetter,
+          '--webdav-url',
+          'http://localhost:$port',
+          '--vfs-cache-mode',
+          'off',
+          '--network-mode=false',
+          '--volname',
+          'AMPCrypt',
+        ],
+        runInShell: true,
+      );
+
+      // Wait a moment for rclone to initialize mount
+      await Future.delayed(const Duration(milliseconds: 1500));
+
+      // HKLM / HKCU Local Drive Icon Injection (Fixing the Square Icon)
       try {
         final letterOnly = driveLetter.replaceAll(':', '');
         const securityIcon = r'%SystemRoot%\System32\imageres.dll,104';
 
-        // WebDAV File Size Limit Registry Fix
+        // 1. HKCU DriveIcons (no admin needed)
         try {
-          await Process.run('reg.exe', [
-            'add',
-            r'HKLM\SYSTEM\CurrentControlSet\Services\WebClient\Parameters',
-            '/v',
-            'FileSizeLimitInBytes',
-            '/t',
-            'REG_DWORD',
-            '/d',
-            '4294967295',
-            '/f'
+          await Process.run('powershell.exe', [
+            '-Command',
+            'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Value "$securityIcon"'
           ]);
         } catch (_) {}
 
-        if (winFspMounted) {
-          // Rename local drive (WinFSP)
-          await Process.run('powershell.exe', [
-            '-Command',
-            '(New-Object -ComObject Shell.Application).NameSpace(\'$driveLetter\').Self.Name = \'AMPCrypt\''
+        // 2. HKLM DriveIcons (in case of admin/elevation permissions)
+        try {
+          await Process.run('reg.exe', [
+            'add',
+            'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon',
+            '/ve',
+            '/d',
+            securityIcon,
+            '/f'
           ]);
-
-          // Set drive icon for local drive (HKCU — writeable without admin)
-          await Process.run('powershell.exe', [
-            '-Command',
-            'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Value "$securityIcon"'
-          ]);
-        } else {
-          final port = _webDavServer.port;
-          // Set drive icon for mapped network WebDAV location (HKCU MountPoints2)
-          await Process.run('powershell.exe', [
-            '-Command',
-            'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\MountPoints2\\##localhost@$port#DavWWWRoot\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\MountPoints2\\##localhost@$port#DavWWWRoot\\DefaultIcon" -Value "$securityIcon"'
-          ]);
-
-          // Set drive icon for drive letter as well (ensures Windows Explorer shows it under Network locations too)
-          await Process.run('powershell.exe', [
-            '-Command',
-            'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Value "$securityIcon"'
-          ]);
-
-          // Set custom label for mapped network WebDAV location (HKCU MountPoints2)
-          await Process.run('powershell.exe', [
-            '-Command',
-            'New-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\MountPoints2\\##localhost@$port#DavWWWRoot" -Name "_LabelFromReg" -Value "AMPCrypt" -PropertyType String -Force'
-          ]);
-
-          // Secret Vault registry icon injection (Explorer.exe Drives)
+        } catch (_) {}
+        
+        // Secret Vault registry icon injection (Explorer.exe Drives)
+        try {
           await Process.run('reg.exe', [
             'add',
             'HKCU\\Software\\Classes\\Applications\\Explorer.exe\\Drives\\$letterOnly\\DefaultIcon',
@@ -337,9 +336,11 @@ class VaultRepositoryImpl implements VaultRepository {
             securityIcon,
             '/f'
           ]);
-        }
+        } catch (_) {}
+      } catch (_) {}
 
-        // Notify Windows shell to refresh icon cache immediately
+      // Notify Windows shell to refresh icon cache immediately
+      try {
         await _winFspChannel.invokeMethod<void>('refreshShell');
       } catch (_) {}
     }
@@ -348,29 +349,49 @@ class VaultRepositoryImpl implements VaultRepository {
   Future<void> _stopServerAndUnmount() async {
     if (Platform.isWindows) {
       final driveLetter = getDriveLetter();
-      bool winFspUnmounted = false;
+      
+      // Cleanly terminate rclone process
+      if (_rcloneProcess != null) {
+        _rcloneProcess!.kill();
+        _rcloneProcess = null;
+      }
       try {
-        winFspUnmounted = await _winFspChannel.invokeMethod<bool>('unmount', driveLetter) ?? false;
+        await Process.run('taskkill.exe', ['/f', '/im', 'rclone.exe']);
       } catch (_) {}
 
-      if (!winFspUnmounted) {
+      // Safe clean net use
+      try {
         await Process.run('cmd.exe', ['/c', 'net use $driveLetter /delete /y']);
-      }
+      } catch (_) {}
 
       try {
         final letterOnly = driveLetter.replaceAll(':', '');
-        // Clean up registry key on unmount
-        await Process.run('powershell.exe', [
-          '-Command',
-          'Remove-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly" -Recurse -ErrorAction SilentlyContinue'
-        ]);
+        
+        // Clean up HKCU DriveIcons Registry
+        try {
+          await Process.run('powershell.exe', [
+            '-Command',
+            'Remove-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly" -Recurse -ErrorAction SilentlyContinue'
+          ]);
+        } catch (_) {}
+
+        // Clean up HKLM DriveIcons Registry
+        try {
+          await Process.run('reg.exe', [
+            'delete',
+            'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly',
+            '/f'
+          ]);
+        } catch (_) {}
 
         // Clean up Secret Vault explorer registry key on unmount
-        await Process.run('reg.exe', [
-          'delete',
-          'HKCU\\Software\\Classes\\Applications\\Explorer.exe\\Drives\\$letterOnly',
-          '/f'
-        ]);
+        try {
+          await Process.run('reg.exe', [
+            'delete',
+            'HKCU\\Software\\Classes\\Applications\\Explorer.exe\\Drives\\$letterOnly',
+            '/f'
+          ]);
+        } catch (_) {}
 
         // Cache Cleanup: Free up system C: drive WebDAV caching files immediately
         try {
@@ -387,12 +408,48 @@ class VaultRepositoryImpl implements VaultRepository {
         } catch (_) {}
 
         // Notify Windows shell of the registry change
-        await _winFspChannel.invokeMethod<void>('refreshShell');
+        try {
+          await _winFspChannel.invokeMethod<void>('refreshShell');
+        } catch (_) {}
       } catch (_) {}
     }
     await _webDavServer.stop();
   }
 
+  @override
+  Future<bool> isWinFspInstalled() async {
+    if (!Platform.isWindows) return true;
+    try {
+      final result = await Process.run('reg.exe', ['query', r'HKLM\SOFTWARE\WOW6432Node\WinFsp']);
+      if (result.exitCode == 0) return true;
+    } catch (_) {}
+    try {
+      final result = await Process.run('reg.exe', ['query', r'HKLM\SOFTWARE\WinFsp']);
+      if (result.exitCode == 0) return true;
+    } catch (_) {}
+    return false;
+  }
+
+  Future<String> _ensureRclone() async {
+    final supportDir = await getApplicationSupportDirectory();
+    final rcloneExe = File(p.join(supportDir.path, 'rclone.exe'));
+    if (await rcloneExe.exists()) {
+      return rcloneExe.path;
+    }
+    
+    // Download and extract silently
+    final psCommand = '''
+      Set-Location -Path '${supportDir.path}';
+      [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;
+      Invoke-WebRequest -Uri 'https://downloads.rclone.org/v1.66.0/rclone-v1.66.0-windows-amd64.zip' -OutFile 'rclone.zip';
+      Expand-Archive -Path 'rclone.zip' -DestinationPath 'rclone-temp' -Force;
+      Copy-Item 'rclone-temp\\rclone-v1.66.0-windows-amd64\\rclone.exe' -Destination 'rclone.exe' -Force;
+      Remove-Item -Recurse -Force 'rclone-temp', 'rclone.zip'
+    ''';
+    
+    await Process.run('powershell.exe', ['-Command', psCommand]);
+    return rcloneExe.path;
+  }
   // ─── DEVICE STATUS ───────────────────────────────────────────────────────────
 
   @override

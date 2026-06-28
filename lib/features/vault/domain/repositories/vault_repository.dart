@@ -58,6 +58,9 @@ abstract class VaultRepository {
   /// Gets simulated device status information for display.
   Future<Map<String, dynamic>> getDeviceStatus();
 
+  /// Checks if the WinFsp FUSE driver is installed on the host OS.
+  Future<bool> isWinFspInstalled();
+
   /// Registers/Trusts the current device (mock).
   Future<void> trustCurrentDevice();
 

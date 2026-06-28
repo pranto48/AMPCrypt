@@ -66,6 +66,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
     windowManager.addListener(this);
     _initSystemTray();
     _loadSettings();
+    _checkWinFspDependency();
     // Check initial vault status
     context.read<VaultBloc>().add(CheckVaultStatusEvent());
   }
@@ -77,6 +78,84 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
         _minimizeToTray = prefs.getBool('minimize_to_tray') ?? true;
       });
     } catch (_) {}
+  }
+
+  Future<void> _checkWinFspDependency() async {
+    if (kIsWeb || !Platform.isWindows) return;
+    try {
+      final repository = context.read<VaultBloc>().repository;
+      final installed = await repository.isWinFspInstalled();
+      if (!installed && mounted) {
+        _showWinFspMissingDialog();
+      }
+    } catch (_) {}
+  }
+
+  void _showWinFspMissingDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: kSurfaceColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: kErrorColor.withValues(alpha: 0.8), width: 1.5),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: kErrorColor, size: 24),
+            const SizedBox(width: 12),
+            Text(
+              'WinFsp Driver Missing',
+              style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'AMPCrypt requires the WinFsp (Windows File System Proxy) driver to mount secure vaults as native local drives under "Devices and Drives".',
+              style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Without WinFsp, you will not be able to unlock or mount your files.',
+              style: GoogleFonts.outfit(color: const Color(0xFFE2E8F0), fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'CLOSE',
+              style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontWeight: FontWeight.bold),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kPrimaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () async {
+              try {
+                await launchUrl(
+                  Uri.parse('https://winfsp.dev/rel/'),
+                  mode: LaunchMode.externalApplication,
+                );
+              } catch (_) {}
+            },
+            child: Text(
+              'DOWNLOAD WINFSP',
+              style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -396,29 +475,33 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                   child: BlocConsumer<VaultBloc, VaultState>(
               listener: (context, state) {
                 if (state is VaultFailureState) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: const Color(0xFF3F0B24),
-                      content: Row(
-                        children: [
-                          const Icon(Icons.error_outline, color: Color(0xFFFF4D88)),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              state.errorMessage,
-                              style: GoogleFonts.outfit(color: Colors.white),
+                  if (state.errorMessage == 'WINFSP_MISSING') {
+                    _showWinFspMissingDialog();
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: const Color(0xFF3F0B24),
+                        content: Row(
+                          children: [
+                            const Icon(Icons.error_outline, color: Color(0xFFFF4D88)),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                state.errorMessage,
+                                style: GoogleFonts.outfit(color: Colors.white),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
+                        duration: const Duration(seconds: 4),
+                        action: SnackBarAction(
+                          label: 'Dismiss',
+                          textColor: const Color(0xFFFF4D88),
+                          onPressed: () {},
+                        ),
                       ),
-                      duration: const Duration(seconds: 4),
-                      action: SnackBarAction(
-                        label: 'Dismiss',
-                        textColor: const Color(0xFFFF4D88),
-                        onPressed: () {},
-                      ),
-                    ),
-                  );
+                    );
+                  }
                 }
               },
               builder: (context, state) {
