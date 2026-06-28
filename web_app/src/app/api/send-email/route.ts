@@ -20,7 +20,8 @@ export async function POST(request: Request) {
 
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
-  } catch (error: any) {
-    return NextResponse.json({ message: error.message || "Failed to send email" }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to send email";
+    return NextResponse.json({ message }, { status: 500 });
   }
 }

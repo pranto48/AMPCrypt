@@ -26,6 +26,15 @@ import { splitSecret, recombineShares } from "@/lib/shamir";
 const CHUNK_SIZE = 32 * 1024; // 32 KiB chunking
 const MAGIC_SIGNATURE = "AMPCRYPT";
 
+interface RecoveryConfig {
+  questions_recovery_enabled: boolean;
+  questions_recovery_email: string;
+  questions_recovery_questions: string[];
+  questions_recovery_salt: string;
+  questions_recovery_iv: string;
+  questions_recovery_encrypted_master_key: string;
+}
+
 type ActiveTab = "crypto" | "sss" | "recovery";
 
 export default function VaultPage() {
