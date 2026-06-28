@@ -612,7 +612,9 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Path: ${context.read<VaultBloc>().repository.getVaultPath()}',
+                          context.read<VaultBloc>().repository.storageType == 'ftp'
+                              ? 'FTP: ${context.read<VaultBloc>().repository.getFtpHost()}'
+                              : 'Path: ${context.read<VaultBloc>().repository.getVaultPath()}',
                           style: GoogleFonts.shareTechMono(
                             fontSize: 10,
                             color: const Color(0xFF94A3B8),
@@ -658,12 +660,14 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                     ),
                     child: PopupMenuButton<String>(
                       tooltip: 'Add or Open Vault',
-                      offset: const Offset(0, -90),
+                      offset: const Offset(0, -120),
                       onSelected: (value) {
                         if (value == 'new') {
                           _showCreateVaultDialog(context);
                         } else if (value == 'open') {
                           _showOpenVaultDialog(context);
+                        } else if (value == 'ftp') {
+                          _showAddFtpDriveDialog(context);
                         }
                       },
                       itemBuilder: (context) => [
@@ -684,6 +688,16 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                               Icon(Icons.folder_open_outlined, color: kPrimaryColor, size: 16),
                               const SizedBox(width: 8),
                               Text('Open Existing Vault', style: GoogleFonts.outfit(fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem(
+                          value: 'ftp',
+                          child: Row(
+                            children: [
+                              Icon(Icons.cloud_queue_outlined, color: kPrimaryColor, size: 16),
+                              const SizedBox(width: 8),
+                              Text('Add FTP Drive', style: GoogleFonts.outfit(fontSize: 12)),
                             ],
                           ),
                         ),
@@ -854,6 +868,389 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                     }
                   },
                   child: Text('Create & Setup', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showAddFtpDriveDialog(BuildContext context) {
+    final repository = context.read<VaultBloc>().repository;
+    final hostController = TextEditingController(text: '127.0.0.1');
+    final portController = TextEditingController(text: '21');
+    final usernameController = TextEditingController(text: 'anonymous');
+    final passwordController = TextEditingController(text: 'anonymous');
+    final pathController = TextEditingController(text: '/');
+    final driveController = TextEditingController(text: 'Z:');
+    final vaultPasswordController = TextEditingController();
+    
+    bool isOpenMode = true;
+    int selectedAuthLevel = 4;
+    bool isTesting = false;
+    bool isConnecting = false;
+    String? connectionError;
+    
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: kSurfaceColor,
+              title: Text(
+                'Add FTP Drive',
+                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+              content: SizedBox(
+                width: 500,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isOpenMode ? kPrimaryColor : const Color(0xFF1E2228),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                              ),
+                              onPressed: () => setDialogState(() => isOpenMode = true),
+                              child: Text('Open Existing Vault', style: GoogleFonts.outfit(fontSize: 12)),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: !isOpenMode ? kPrimaryColor : const Color(0xFF1E2228),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                              ),
+                              onPressed: () => setDialogState(() => isOpenMode = false),
+                              child: Text('Create New Vault', style: GoogleFonts.outfit(fontSize: 12)),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'FTP CONNECTION SETTINGS',
+                        style: GoogleFonts.outfit(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                          color: kPrimaryColor,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: TextField(
+                              controller: hostController,
+                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                              decoration: InputDecoration(
+                                labelText: 'FTP Server Host',
+                                labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            flex: 1,
+                            child: TextField(
+                              controller: portController,
+                              keyboardType: TextInputType.number,
+                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                              decoration: InputDecoration(
+                                labelText: 'Port',
+                                labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: usernameController,
+                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                              decoration: InputDecoration(
+                                labelText: 'Username',
+                                labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: TextField(
+                              controller: passwordController,
+                              obscureText: true,
+                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                              decoration: InputDecoration(
+                                labelText: 'Password',
+                                labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: TextField(
+                              controller: pathController,
+                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                              decoration: InputDecoration(
+                                labelText: 'Remote Vault Directory Path',
+                                labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            flex: 1,
+                            child: DropdownButtonFormField<String>(
+                              value: driveController.text,
+                              dropdownColor: const Color(0xFF1E293B),
+                              decoration: InputDecoration(
+                                labelText: 'Drive',
+                                labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                              ),
+                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                              items: ['D:', 'E:', 'F:', 'G:', 'H:', 'V:', 'W:', 'X:', 'Y:', 'Z:']
+                                  .map((drive) => DropdownMenuItem(
+                                        value: drive,
+                                        child: Text(drive, style: GoogleFonts.outfit(color: Colors.white)),
+                                      ))
+                                  .toList(),
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setDialogState(() {
+                                    driveController.text = val;
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'SECURE VAULT KEY',
+                        style: GoogleFonts.outfit(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.2,
+                          color: kPrimaryColor,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: vaultPasswordController,
+                        obscureText: true,
+                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                        decoration: InputDecoration(
+                          labelText: 'Vault Password',
+                          labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                        ),
+                      ),
+                      if (!isOpenMode) ...[
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '4FA Biometric Protection Level',
+                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                            ),
+                            DropdownButton<int>(
+                              value: selectedAuthLevel,
+                              dropdownColor: const Color(0xFF1E293B),
+                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                              items: const [
+                                DropdownMenuItem(value: 1, child: Text('1FA (Password Only)')),
+                                DropdownMenuItem(value: 2, child: Text('2FA (+Fingerprint)')),
+                                DropdownMenuItem(value: 3, child: Text('3FA (+Face Scan)')),
+                                DropdownMenuItem(value: 4, child: Text('4FA (+Voice Print)')),
+                              ],
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setDialogState(() => selectedAuthLevel = val);
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                      if (connectionError != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          connectionError!,
+                          style: GoogleFonts.outfit(color: kPrimaryHoverColor, fontSize: 11),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isTesting
+                      ? null
+                      : () async {
+                          setDialogState(() {
+                            isTesting = true;
+                            connectionError = null;
+                          });
+                          final host = hostController.text;
+                          final port = int.tryParse(portController.text) ?? 21;
+                          final user = usernameController.text;
+                          final pass = passwordController.text;
+                          final remotePath = pathController.text;
+                          final success = await repository.testFtpConnection(host, port, user, pass, remotePath);
+                          setDialogState(() {
+                            isTesting = false;
+                            if (success) {
+                              connectionError = "Connection successful!";
+                            } else {
+                              connectionError = "Failed to connect to FTP server.";
+                            }
+                          });
+                        },
+                  child: Text(
+                    isTesting ? 'Testing...' : 'Test Connection',
+                    style: GoogleFonts.outfit(color: kPrimaryHoverColor, fontSize: 12),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text('Cancel', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kPrimaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: isConnecting
+                      ? null
+                      : () async {
+                          if (vaultPasswordController.text.isEmpty) {
+                            setDialogState(() => connectionError = "Please enter vault password.");
+                            return;
+                          }
+                          setDialogState(() {
+                            isConnecting = true;
+                            connectionError = null;
+                          });
+                          
+                          final host = hostController.text;
+                          final port = int.tryParse(portController.text) ?? 21;
+                          final user = usernameController.text;
+                          final pass = passwordController.text;
+                          final remotePath = pathController.text;
+                          final driveLetter = driveController.text;
+                          final vaultPassword = vaultPasswordController.text;
+                          
+                          bool success = false;
+                          if (isOpenMode) {
+                            success = await repository.openFtpVault(
+                              vaultPassword,
+                              host: host,
+                              port: port,
+                              user: user,
+                              pass: pass,
+                              path: remotePath,
+                              driveLetter: driveLetter,
+                            );
+                            if (!success) {
+                              setDialogState(() {
+                                isConnecting = false;
+                                connectionError = "Failed to open vault. Check FTP settings or password.";
+                              });
+                            } else {
+                              Navigator.pop(dialogContext);
+                              context.read<VaultBloc>().add(CheckVaultStatusEvent());
+                            }
+                          } else {
+                            try {
+                              final recoveryPhrases = await repository.createFtpVault(
+                                vaultPassword,
+                                host: host,
+                                port: port,
+                                user: user,
+                                pass: pass,
+                                path: remotePath,
+                                driveLetter: driveLetter,
+                                authLevel: selectedAuthLevel,
+                              );
+                              Navigator.pop(dialogContext);
+                              context.read<VaultBloc>().add(CheckVaultStatusEvent());
+                              
+                              showDialog(
+                                context: context,
+                                builder: (phrasesContext) => AlertDialog(
+                                  backgroundColor: kSurfaceColor,
+                                  title: Text('Recovery Phrases', style: GoogleFonts.outfit(color: Colors.white)),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'Please write down these backup recovery phrases (2-of-3 required to restore):',
+                                        style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      ...List.generate(recoveryPhrases.length, (index) {
+                                        return Text(
+                                          '${index+1}. ${recoveryPhrases[index]}',
+                                          style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 12),
+                                        );
+                                      }),
+                                    ],
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(phrasesContext),
+                                      child: Text('OK', style: GoogleFonts.outfit(color: kPrimaryColor)),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            } catch (e) {
+                              setDialogState(() {
+                                isConnecting = false;
+                                connectionError = "Failed to create vault: $e";
+                              });
+                            }
+                          }
+                        },
+                  child: Text(
+                    isConnecting ? 'Connecting...' : (isOpenMode ? 'Open & Mount' : 'Create & Setup'),
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
                 ),
               ],
             );
@@ -3184,7 +3581,9 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Files in $driveLetter\\ are encrypted on $vaultPath and synced in real-time.',
+                            repository.storageType == 'ftp'
+                                ? 'Files in $driveLetter\\ are encrypted on remote FTP server ${repository.getFtpHost()} and synced in real-time.'
+                                : 'Files in $driveLetter\\ are encrypted on $vaultPath and synced in real-time.',
                             style: GoogleFonts.outfit(
                               color: const Color(0xFF94A3B8),
                               fontSize: 11,

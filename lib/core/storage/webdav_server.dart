@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 import 'package:flutter/services.dart';
 import '../crypto/crypto_service.dart';
+import 'vault_storage.dart';
 
 class WebDavServer {
   final CryptoService _cryptoService;
@@ -12,7 +13,7 @@ class WebDavServer {
   
   HttpServer? _server;
   Uint8List? _masterKey;
-  String? _vaultPath;
+  VaultStorage? _storage;
   Map<String, dynamic> _index = {'version': 1, 'files': {}, 'directories': []};
   
   bool get isRunning => _server != null;
@@ -26,14 +27,14 @@ class WebDavServer {
   WebDavServer(this._cryptoService);
   
   /// Starts the WebDAV server on loopback IPv4 with a dynamic port.
-  Future<void> start(Uint8List masterKey, String vaultPath) async {
+  Future<void> start(Uint8List masterKey, VaultStorage storage) async {
     if (isRunning) return;
     
     _masterKey = Uint8List.fromList(masterKey);
-    _vaultPath = vaultPath;
+    _storage = storage;
     
-    // Ensure vault directories exist
-    Directory(p.join(_vaultPath!, 'data')).createSync(recursive: true);
+    // Ensure vault storage initialized
+    await _storage!.initialize();
     
     // Load virtual file system index
     await _loadIndex();
@@ -59,32 +60,31 @@ class WebDavServer {
       _masterKey!.fillRange(0, _masterKey!.length, 0);
       _masterKey = null;
     }
-    _vaultPath = null;
+    _storage = null;
     _index = {'version': 1, 'files': {}, 'directories': []};
   }
   
   // ─── INDEX PERSISTENCE ───────────────────────────────────────────────────────
   
   Future<void> _saveIndex() async {
-    if (_masterKey == null || _vaultPath == null) return;
+    if (_masterKey == null || _storage == null) return;
     
     try {
       final jsonString = json.encode(_index);
       final jsonBytes = utf8.encode(jsonString);
       final encrypted = await _cryptoService.encryptData(Uint8List.fromList(jsonBytes), _masterKey!);
       
-      final indexFile = File(p.join(_vaultPath!, 'metadata.json.enc'));
-      await indexFile.writeAsBytes(encrypted, flush: true);
+      await _storage!.writeFile('metadata.json.enc', encrypted);
     } catch (e) {
       // Log index save error
     }
   }
   
   Future<void> _loadIndex() async {
-    if (_masterKey == null || _vaultPath == null) return;
+    if (_masterKey == null || _storage == null) return;
     
-    final indexFile = File(p.join(_vaultPath!, 'metadata.json.enc'));
-    if (!indexFile.existsSync()) {
+    final exists = await _storage!.fileExists('metadata.json.enc');
+    if (!exists) {
       _index = {
         'version': 1,
         'files': {},
@@ -95,7 +95,7 @@ class WebDavServer {
     }
     
     try {
-      final encrypted = await indexFile.readAsBytes();
+      final encrypted = await _storage!.readFile('metadata.json.enc');
       final decryptedBytes = await _cryptoService.decryptData(encrypted, _masterKey!);
       final jsonString = utf8.decode(decryptedBytes);
       _index = json.decode(jsonString) as Map<String, dynamic>;
@@ -338,15 +338,15 @@ class WebDavServer {
     final fileData = files[normPath] as Map;
     final uuid = fileData['uuid'] as String;
     
-    final physicalFile = File(p.join(_vaultPath!, 'data', uuid));
-    if (!physicalFile.existsSync()) {
+    final exists = await _storage!.fileExists('data/$uuid');
+    if (!exists) {
       request.response.statusCode = HttpStatus.notFound;
       await request.response.close();
       return;
     }
     
     try {
-      final encryptedBytes = await physicalFile.readAsBytes();
+      final encryptedBytes = await _storage!.readFile('data/$uuid');
       final decryptedBytes = await _cryptoService.decryptData(encryptedBytes, _masterKey!);
       
       request.response.statusCode = HttpStatus.ok;
@@ -384,8 +384,7 @@ class WebDavServer {
         uuid = const Uuid().v4();
       }
       
-      final physicalFile = File(p.join(_vaultPath!, 'data', uuid));
-      await physicalFile.writeAsBytes(encryptedBytes, flush: true);
+      await _storage!.writeFile('data/$uuid', encryptedBytes);
       
       // Ensure the parent directories exist in our virtual directory map
       _ensureParentDirectories(normPath);
@@ -437,10 +436,7 @@ class WebDavServer {
       if (isFile) {
         final fileData = _index['files'][normPath] as Map;
         final uuid = fileData['uuid'] as String;
-        final physicalFile = File(p.join(_vaultPath!, 'data', uuid));
-        if (physicalFile.existsSync()) {
-          physicalFile.deleteSync();
-        }
+        await _storage!.deleteFile('data/$uuid');
         _index['files'].remove(normPath);
       } else {
         // Recursively delete folder children
@@ -450,10 +446,7 @@ class WebDavServer {
         final filesToDelete = files.keys.where((k) => k.startsWith(prefix)).toList();
         for (final f in filesToDelete) {
           final uuid = files[f]['uuid'] as String;
-          final physicalFile = File(p.join(_vaultPath!, 'data', uuid));
-          if (physicalFile.existsSync()) {
-            physicalFile.deleteSync();
-          }
+          await _storage!.deleteFile('data/$uuid');
           files.remove(f);
         }
         
@@ -598,12 +591,7 @@ class WebDavServer {
         final srcUuid = srcFileData['uuid'] as String;
         final destUuid = const Uuid().v4();
         
-        // Copy physical file
-        final srcFile = File(p.join(_vaultPath!, 'data', srcUuid));
-        final destFile = File(p.join(_vaultPath!, 'data', destUuid));
-        if (await srcFile.exists()) {
-          await srcFile.copy(destFile.path);
-        }
+        await _storage!.copyFile('data/$srcUuid', 'data/$destUuid');
         
         _ensureParentDirectories(normDestPath);
         _index['files'][normDestPath] = {
@@ -628,12 +616,7 @@ class WebDavServer {
           final srcUuid = fileData['uuid'] as String;
           final destUuid = const Uuid().v4();
           
-          // Copy physical file
-          final srcFile = File(p.join(_vaultPath!, 'data', srcUuid));
-          final destFile = File(p.join(_vaultPath!, 'data', destUuid));
-          if (await srcFile.exists()) {
-            await srcFile.copy(destFile.path);
-          }
+          await _storage!.copyFile('data/$srcUuid', 'data/$destUuid');
           
           final newPath = f.replaceFirst(prefix, newPrefix);
           _ensureParentDirectories(newPath);
@@ -768,7 +751,7 @@ class WebDavServer {
   }
 
   Future<void> _updateQuota() async {
-    if (_vaultPath == null) return;
+    if (_storage == null) return;
     
     if (_lastQuotaUpdate != null && 
         DateTime.now().difference(_lastQuotaUpdate!) < const Duration(seconds: 10)) {
@@ -777,9 +760,17 @@ class WebDavServer {
     
     _lastQuotaUpdate = DateTime.now();
     
+    final path = _storage!.localPath;
+    if (path == null) {
+      // Default to 100 GB total, 50 GB free for remote FTP storage
+      _cachedTotalSize = 100 * 1024 * 1024 * 1024;
+      _cachedFreeSize = 50 * 1024 * 1024 * 1024;
+      return;
+    }
+    
     if (Platform.isWindows) {
       try {
-        final space = await _winFspChannel.invokeMethod<dynamic>('getDiskSpace', _vaultPath);
+        final space = await _winFspChannel.invokeMethod<dynamic>('getDiskSpace', path);
         if (space is Map) {
           final total = space['total'] as int?;
           final free = space['free'] as int?;
@@ -791,7 +782,7 @@ class WebDavServer {
       } catch (_) {}
     } else {
       try {
-        final result = await Process.run('df', ['-k', _vaultPath!]);
+        final result = await Process.run('df', ['-k', path]);
         if (result.exitCode == 0) {
           final lines = result.stdout.toString().trim().split('\n');
           if (lines.length >= 2) {

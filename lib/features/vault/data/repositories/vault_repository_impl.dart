@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as p;
 import '../../../../core/crypto/crypto_service.dart';
 import '../../../../core/storage/webdav_server.dart';
+import '../../../../core/storage/vault_storage.dart';
+import 'package:ftpconnect/ftpconnect.dart';
 import '../../domain/repositories/vault_repository.dart';
 
 /// Factor names in Group 1, indexed by position.
@@ -238,8 +240,21 @@ class VaultRepositoryImpl implements VaultRepository {
     final vaultPath = getVaultPath();
     final driveLetter = getDriveLetter();
 
-    // Start WebDAV server
-    await _webDavServer.start(masterKey, vaultPath);
+    // Start WebDAV server with abstract storage
+    VaultStorage storage;
+    if (storageType == 'ftp') {
+      storage = FtpVaultStorage(
+        host: _prefs.getString('ftp_host') ?? '',
+        port: _prefs.getInt('ftp_port') ?? 21,
+        username: _prefs.getString('ftp_username') ?? '',
+        password: _prefs.getString('ftp_password') ?? '',
+        remotePath: _prefs.getString('ftp_remote_path') ?? '',
+      );
+    } else {
+      storage = LocalVaultStorage(vaultPath);
+    }
+
+    await _webDavServer.start(masterKey, storage);
 
     // Mount to driveLetter on Windows
     if (Platform.isWindows && _webDavServer.isRunning) {
@@ -367,6 +382,11 @@ class VaultRepositoryImpl implements VaultRepository {
   }
 
   @override
+  String? getFtpHost() {
+    return _prefs.getString('ftp_host');
+  }
+
+  @override
   String getDriveLetter() {
     return _prefs.getString('drive_letter') ?? 'Z:';
   }
@@ -380,11 +400,252 @@ class VaultRepositoryImpl implements VaultRepository {
       await _stopServerAndUnmount();
     }
     
+    await _prefs.setString('vault_storage_type', 'local');
     await _prefs.setString('vault_path', path);
     await _prefs.setString('drive_letter', driveLetter);
     
     if (isCurrentlyUnlocked && masterKey != null) {
       await _startServerAndMount(masterKey);
+    }
+  }
+
+  @override
+  String get storageType => _prefs.getString('vault_storage_type') ?? 'local';
+
+  @override
+  Future<bool> testFtpConnection(String host, int port, String user, String pass, String path) async {
+    final client = FTPConnect(
+      host,
+      port: port,
+      user: user,
+      pass: pass,
+      timeout: 10,
+    );
+    try {
+      await client.connect();
+      if (path.isNotEmpty && path != '/') {
+        final dirs = path.split('/').where((d) => d.isNotEmpty).toList();
+        for (final dir in dirs) {
+          bool dirExists = false;
+          try {
+            dirExists = await client.changeDirectory(dir);
+          } catch (_) {}
+          if (!dirExists) {
+            await client.makeDirectory(dir);
+            await client.changeDirectory(dir);
+          }
+        }
+      }
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      try {
+        await client.disconnect();
+      } catch (_) {}
+    }
+  }
+
+  @override
+  Future<void> saveFtpVaultSettings({
+    required String host,
+    required int port,
+    required String user,
+    required String pass,
+    required String path,
+    required String driveLetter,
+  }) async {
+    final isCurrentlyUnlocked = isUnlocked;
+    final masterKey = _cachedMasterKey;
+    
+    if (isCurrentlyUnlocked && masterKey != null) {
+      await _stopServerAndUnmount();
+    }
+    
+    await _prefs.setString('vault_storage_type', 'ftp');
+    await _prefs.setString('ftp_host', host);
+    await _prefs.setInt('ftp_port', port);
+    await _prefs.setString('ftp_username', user);
+    await _prefs.setString('ftp_password', pass);
+    await _prefs.setString('ftp_remote_path', path);
+    await _prefs.setString('drive_letter', driveLetter);
+    
+    if (isCurrentlyUnlocked && masterKey != null) {
+      await _startServerAndMount(masterKey);
+    }
+  }
+
+  @override
+  Future<List<String>> createFtpVault(
+    String password, {
+    required String host,
+    required int port,
+    required String user,
+    required String pass,
+    required String path,
+    required String driveLetter,
+    int authLevel = 4,
+  }) async {
+    final level = authLevel.clamp(1, 4);
+
+    // 1. Generate Master Key (256-bit) and Salt (16 bytes)
+    final masterKey = _cryptoService.generateSecureRandom(32);
+    final salt = _cryptoService.generateSecureRandom(16);
+
+    // 2. Split Master Key via SLIP-39
+    final passphrase = "ampcrypt-secure-passphrase";
+    final mnemonics = _cryptoService.splitSecret(
+      masterKey,
+      passphrase: passphrase,
+      authLevel: level,
+    );
+
+    final operationalShares = mnemonics.sublist(0, level);
+    final recoveryMnemonics = mnemonics.sublist(level, level + 3);
+
+    // 3. Derive key from password using Argon2id
+    final derivedKey = await _cryptoService.deriveKey(password, salt);
+
+    // 4. Encrypt the password-bound share
+    final encryptedPasswordShare = await _cryptoService.encryptData(
+      Uint8List.fromList(utf8.encode(operationalShares[0])),
+      derivedKey,
+    );
+
+    // Build config
+    final Map<String, dynamic> configMap = {
+      'vault_created': true,
+      'auth_level': level,
+      'password_salt': base64Encode(salt),
+      'encrypted_password_share': base64Encode(encryptedPasswordShare),
+    };
+    for (int i = 1; i < level; i++) {
+      configMap[_kFactorKeys[i]] = base64Encode(utf8.encode(operationalShares[i]));
+    }
+
+    // 5. Upload config to FTP server as vault.json
+    final storage = FtpVaultStorage(
+      host: host,
+      port: port,
+      username: user,
+      password: pass,
+      remotePath: path,
+    );
+    await storage.initialize();
+    final configBytes = Uint8List.fromList(utf8.encode(json.encode(configMap)));
+    await storage.writeFile('vault.json', configBytes);
+
+    // 6. Persist settings and credentials locally
+    await _prefs.setString('vault_storage_type', 'ftp');
+    await _prefs.setString('ftp_host', host);
+    await _prefs.setInt('ftp_port', port);
+    await _prefs.setString('ftp_username', user);
+    await _prefs.setString('ftp_password', pass);
+    await _prefs.setString('ftp_remote_path', path);
+    await _prefs.setString('drive_letter', driveLetter);
+
+    await _prefs.setString('password_salt', base64Encode(salt));
+    await _prefs.setString('encrypted_password_share', base64Encode(encryptedPasswordShare));
+    for (int i = 1; i < level; i++) {
+      await _prefs.setString(_kFactorKeys[i], base64Encode(utf8.encode(operationalShares[i])));
+    }
+    for (int i = level; i < 4; i++) {
+      await _prefs.remove(_kFactorKeys[i]);
+    }
+
+    await _prefs.setInt('auth_level', level);
+    await _prefs.setBool('vault_created', true);
+    await _prefs.setBool('is_device_trusted', true);
+    await _prefs.setString('device_fingerprint', _generateMockDeviceFingerprint());
+
+    // 7. Cache master key and mount
+    _cachedMasterKey = masterKey;
+    await _startServerAndMount(masterKey);
+
+    return recoveryMnemonics;
+  }
+
+  @override
+  Future<bool> openFtpVault(
+    String password, {
+    required String host,
+    required int port,
+    required String user,
+    required String pass,
+    required String path,
+    required String driveLetter,
+  }) async {
+    try {
+      final storage = FtpVaultStorage(
+        host: host,
+        port: port,
+        username: user,
+        password: pass,
+        remotePath: path,
+      );
+
+      final exists = await storage.fileExists('vault.json');
+      if (!exists) return false;
+
+      final configBytes = await storage.readFile('vault.json');
+      final configMap = json.decode(utf8.decode(configBytes)) as Map<String, dynamic>;
+
+      final String? saltBase64 = configMap['password_salt'];
+      final String? encryptedShareBase64 = configMap['encrypted_password_share'];
+      if (saltBase64 == null || encryptedShareBase64 == null) return false;
+
+      final salt = base64Decode(saltBase64);
+      final encryptedPasswordShare = base64Decode(encryptedShareBase64);
+
+      // 1. Verify password
+      final derivedKey = await _cryptoService.deriveKey(password, salt);
+      final decryptedBytes = await _cryptoService.decryptData(encryptedPasswordShare, derivedKey);
+      final passwordShare = utf8.decode(decryptedBytes);
+
+      // 2. Reconstruct master key
+      final List<String> sharesToReconstruct = [passwordShare];
+      final actualLevel = configMap['auth_level'] as int;
+      for (int i = 1; i < actualLevel; i++) {
+        final shareBase64 = configMap[_kFactorKeys[i]];
+        if (shareBase64 == null) return false;
+        sharesToReconstruct.add(utf8.decode(base64Decode(shareBase64)));
+      }
+
+      final passphrase = "ampcrypt-secure-passphrase";
+      final recoveredMasterKey = _cryptoService.recoverSecret(
+        sharesToReconstruct,
+        passphrase: passphrase,
+      );
+
+      // 3. Persist settings and credentials locally on success
+      await _prefs.setString('vault_storage_type', 'ftp');
+      await _prefs.setString('ftp_host', host);
+      await _prefs.setInt('ftp_port', port);
+      await _prefs.setString('ftp_username', user);
+      await _prefs.setString('ftp_password', pass);
+      await _prefs.setString('ftp_remote_path', path);
+      await _prefs.setString('drive_letter', driveLetter);
+
+      await _prefs.setString('password_salt', saltBase64);
+      await _prefs.setString('encrypted_password_share', encryptedShareBase64);
+      for (int i = 1; i < actualLevel; i++) {
+        await _prefs.setString(_kFactorKeys[i], configMap[_kFactorKeys[i]]);
+      }
+      for (int i = actualLevel; i < 4; i++) {
+        await _prefs.remove(_kFactorKeys[i]);
+      }
+
+      await _prefs.setInt('auth_level', actualLevel);
+      await _prefs.setBool('vault_created', true);
+      await _prefs.setBool('is_device_trusted', true);
+      await _prefs.setString('device_fingerprint', _generateMockDeviceFingerprint());
+
+      // 4. Cache master key and mount
+      _cachedMasterKey = recoveredMasterKey;
+      await _startServerAndMount(recoveredMasterKey);
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 

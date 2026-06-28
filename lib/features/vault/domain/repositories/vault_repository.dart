@@ -19,6 +19,29 @@ abstract class VaultRepository {
   /// 1FA = Password only, 2FA = +Fingerprint, 3FA = +Face, 4FA = +Voice.
   Future<List<String>> createVault(String password, {int authLevel = 4});
 
+  /// Creates a new vault hosted on a remote FTP server.
+  Future<List<String>> createFtpVault(
+    String password, {
+    required String host,
+    required int port,
+    required String user,
+    required String pass,
+    required String path,
+    required String driveLetter,
+    int authLevel = 4,
+  });
+
+  /// Opens an existing vault hosted on a remote FTP server.
+  Future<bool> openFtpVault(
+    String password, {
+    required String host,
+    required int port,
+    required String user,
+    required String pass,
+    required String path,
+    required String driveLetter,
+  });
+
   /// Returns the auth level (1–4) that was configured when the vault was created.
   int get configuredAuthLevel;
 
@@ -41,11 +64,30 @@ abstract class VaultRepository {
   /// Gets the vault folder path.
   String getVaultPath();
 
+  /// Gets the FTP host if active.
+  String? getFtpHost();
+
   /// Gets the virtual drive mount letter.
   String getDriveLetter();
 
   /// Updates the vault storage path and drive letter.
   Future<void> updateVaultSettings(String path, String driveLetter);
+
+  /// Gets the vault storage type ('local' or 'ftp')
+  String get storageType;
+
+  /// Tests the FTP connection parameters.
+  Future<bool> testFtpConnection(String host, int port, String user, String pass, String path);
+
+  /// Saves the FTP vault settings.
+  Future<void> saveFtpVaultSettings({
+    required String host,
+    required int port,
+    required String user,
+    required String pass,
+    required String path,
+    required String driveLetter,
+  });
 
   /// Gets the Ransomware Monitor sensitivity threshold.
   double get monitorSensitivity;
