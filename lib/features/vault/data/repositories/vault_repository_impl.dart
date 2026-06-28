@@ -276,11 +276,25 @@ class VaultRepositoryImpl implements VaultRepository {
         await Process.run('cmd.exe', ['/c', 'net use $driveLetter \\\\localhost@$port\\DavWWWRoot /persistent:no']);
       }
 
-      // Set drive icon & name in Registry using bundled vault_drive.ico asset
+      // Set drive icon & name in Registry using Windows native secure drive icon
       try {
         final letterOnly = driveLetter.replaceAll(':', '');
-        final exeDir = p.dirname(Platform.resolvedExecutable);
-        final icoPath = p.join(exeDir, 'data', 'flutter_assets', 'assets', 'vault_drive.ico');
+        const securityIcon = r'%SystemRoot%\System32\imageres.dll,104';
+
+        // WebDAV File Size Limit Registry Fix
+        try {
+          await Process.run('reg.exe', [
+            'add',
+            r'HKLM\SYSTEM\CurrentControlSet\Services\WebClient\Parameters',
+            '/v',
+            'FileSizeLimitInBytes',
+            '/t',
+            'REG_DWORD',
+            '/d',
+            '4294967295',
+            '/f'
+          ]);
+        } catch (_) {}
 
         if (winFspMounted) {
           // Rename local drive (WinFSP)
@@ -292,20 +306,20 @@ class VaultRepositoryImpl implements VaultRepository {
           // Set drive icon for local drive (HKCU — writeable without admin)
           await Process.run('powershell.exe', [
             '-Command',
-            'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Value "$icoPath"'
+            'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Value "$securityIcon"'
           ]);
         } else {
           final port = _webDavServer.port;
           // Set drive icon for mapped network WebDAV location (HKCU MountPoints2)
           await Process.run('powershell.exe', [
             '-Command',
-            'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\MountPoints2\\##localhost@$port#DavWWWRoot\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\MountPoints2\\##localhost@$port#DavWWWRoot\\DefaultIcon" -Value "$icoPath"'
+            'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\MountPoints2\\##localhost@$port#DavWWWRoot\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\MountPoints2\\##localhost@$port#DavWWWRoot\\DefaultIcon" -Value "$securityIcon"'
           ]);
 
           // Set drive icon for drive letter as well (ensures Windows Explorer shows it under Network locations too)
           await Process.run('powershell.exe', [
             '-Command',
-            'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Value "$icoPath"'
+            'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Value "$securityIcon"'
           ]);
 
           // Set custom label for mapped network WebDAV location (HKCU MountPoints2)
@@ -320,7 +334,7 @@ class VaultRepositoryImpl implements VaultRepository {
             'HKCU\\Software\\Classes\\Applications\\Explorer.exe\\Drives\\$letterOnly\\DefaultIcon',
             '/ve',
             '/d',
-            icoPath,
+            securityIcon,
             '/f'
           ]);
         }
@@ -357,6 +371,20 @@ class VaultRepositoryImpl implements VaultRepository {
           'HKCU\\Software\\Classes\\Applications\\Explorer.exe\\Drives\\$letterOnly',
           '/f'
         ]);
+
+        // Cache Cleanup: Free up system C: drive WebDAV caching files immediately
+        try {
+          final tfsDavDir = Directory(r'C:\Windows\ServiceProfiles\LocalService\AppData\Local\Temp\TfsStore\Tfs_DAV');
+          if (await tfsDavDir.exists()) {
+            await tfsDavDir.delete(recursive: true);
+          }
+        } catch (_) {}
+        try {
+          await Process.run('cmd.exe', [
+            '/c',
+            r'del /f /s /q "C:\Windows\ServiceProfiles\LocalService\AppData\Local\Temp\TfsStore\Tfs_DAV\*"'
+          ]);
+        } catch (_) {}
 
         // Notify Windows shell of the registry change
         await _winFspChannel.invokeMethod<void>('refreshShell');

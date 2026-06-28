@@ -3589,6 +3589,24 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                               fontSize: 11,
                             ),
                           ),
+                          const SizedBox(height: 6),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.info_outline, color: kPrimaryColor, size: 12),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  "Note: Windows WebDAV natively displays the C: drive capacity. Your files are securely stored on your original vault path.",
+                                  style: GoogleFonts.outfit(
+                                    color: const Color(0xFF64748B),
+                                    fontSize: 10,
+                                    height: 1.3,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
