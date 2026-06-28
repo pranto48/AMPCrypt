@@ -118,6 +118,54 @@ self.onmessage = async (event: MessageEvent<CryptoWorkerMessage>) => {
       // Post back plaintext chunk utilizing Transferable Objects
       ctx.postMessage(response, [plaintext]);
 
+    } else if (type === "ENCRYPT_RECOVERY") {
+      if (!payload.passphrase || !payload.salt || !payload.data) {
+        throw new Error("Passphrase, salt, and plaintext data are required for recovery encryption.");
+      }
+
+      const tempKey = await deriveScryptKey(payload.passphrase, payload.salt);
+      const iv = self.crypto.getRandomValues(new Uint8Array(12));
+      const ciphertext = await self.crypto.subtle.encrypt(
+        {
+          name: "AES-GCM",
+          iv: iv,
+        },
+        tempKey,
+        payload.data
+      );
+
+      const response: CryptoWorkerResponse = {
+        type: "ENCRYPT_CHUNK_SUCCESS", // Reuse success type
+        payload: {
+          data: ciphertext,
+          iv: iv,
+        },
+      };
+      ctx.postMessage(response, [ciphertext]);
+
+    } else if (type === "DECRYPT_RECOVERY") {
+      if (!payload.passphrase || !payload.salt || !payload.data || !payload.iv) {
+        throw new Error("Passphrase, salt, ciphertext data, and IV are required for recovery decryption.");
+      }
+
+      const tempKey = await deriveScryptKey(payload.passphrase, payload.salt);
+      const plaintext = await self.crypto.subtle.decrypt(
+        {
+          name: "AES-GCM",
+          iv: payload.iv as unknown as BufferSource,
+        },
+        tempKey,
+        payload.data
+      );
+
+      const response: CryptoWorkerResponse = {
+        type: "DECRYPT_CHUNK_SUCCESS", // Reuse success type
+        payload: {
+          data: plaintext,
+        },
+      };
+      ctx.postMessage(response, [plaintext]);
+
     } else if (type === "RESET") {
       cachedKey = null;
       ctx.postMessage({ type: "RESET_SUCCESS", payload: {} });
