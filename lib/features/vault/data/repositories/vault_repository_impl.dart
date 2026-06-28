@@ -313,6 +313,16 @@ class VaultRepositoryImpl implements VaultRepository {
             '-Command',
             'New-ItemProperty -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\MountPoints2\\##localhost@$port#DavWWWRoot" -Name "_LabelFromReg" -Value "AMPCrypt" -PropertyType String -Force'
           ]);
+
+          // Secret Vault registry icon injection (Explorer.exe Drives)
+          await Process.run('reg.exe', [
+            'add',
+            'HKCU\\Software\\Classes\\Applications\\Explorer.exe\\Drives\\$letterOnly\\DefaultIcon',
+            '/ve',
+            '/d',
+            icoPath,
+            '/f'
+          ]);
         }
 
         // Notify Windows shell to refresh icon cache immediately
@@ -339,6 +349,13 @@ class VaultRepositoryImpl implements VaultRepository {
         await Process.run('powershell.exe', [
           '-Command',
           'Remove-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly" -Recurse -ErrorAction SilentlyContinue'
+        ]);
+
+        // Clean up Secret Vault explorer registry key on unmount
+        await Process.run('reg.exe', [
+          'delete',
+          'HKCU\\Software\\Classes\\Applications\\Explorer.exe\\Drives\\$letterOnly',
+          '/f'
         ]);
 
         // Notify Windows shell of the registry change
