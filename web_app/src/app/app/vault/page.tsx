@@ -75,7 +75,7 @@ export default function VaultPage() {
 
   // Reconstructor (Restore backup)
   const [recUploadDragOver, setRecUploadDragOver] = useState(false);
-  const [recLoadedConfig, setRecLoadedConfig] = useState<any>(null);
+  const [recLoadedConfig, setRecLoadedConfig] = useState<RecoveryConfig | null>(null);
   const [recInputEmail, setRecInputEmail] = useState("");
   const [recInputA1, setRecInputA1] = useState("");
   const [recInputA2, setRecInputA2] = useState("");
@@ -336,7 +336,9 @@ export default function VaultPage() {
     try {
       const generated = splitSecret(sssPassphrase, sssN, sssT);
       setSssShares(generated);
-    } catch (_) {}
+    } catch {
+      // Ignore error
+    }
   };
 
   const handleSssRecombine = () => {
@@ -355,8 +357,9 @@ export default function VaultPage() {
     try {
       const recovered = recombineShares(parsed);
       setSssCombinedResult(recovered);
-    } catch (e: any) {
-      setSssCombineError(e.message || "Failed to combine shares. Ensure hex shares are copied accurately.");
+    } catch (e: unknown) {
+      const errMsg = e instanceof Error ? e.message : "Failed to combine shares. Ensure hex shares are copied accurately.";
+      setSssCombineError(errMsg);
     }
   };
 
@@ -421,9 +424,10 @@ export default function VaultPage() {
       setRecConfigDownloadUrl(url);
       setRecStatus("SUCCESS");
       setRecStatusMessage("Recovery backup config file successfully compiled!");
-    } catch (e: any) {
+    } catch (e: unknown) {
       setRecStatus("ERROR");
-      setRecStatusMessage(e.message || "Failed to generate recovery config.");
+      const errMsg = e instanceof Error ? e.message : "Failed to generate recovery config.";
+      setRecStatusMessage(errMsg);
     }
   };
 
@@ -444,9 +448,10 @@ export default function VaultPage() {
         setRecLoadedConfig(parsed);
         setRecStatus("IDLE");
         setRecStatusMessage("Configuration loaded. Answer your security questions.");
-      } catch (e: any) {
+      } catch (e: unknown) {
         setRecStatus("ERROR");
-        setRecStatusMessage(e.message || "Failed to parse JSON file.");
+        const errMsg = e instanceof Error ? e.message : "Failed to parse JSON file.";
+        setRecStatusMessage(errMsg);
       }
     };
     reader.readAsText(file);
@@ -488,9 +493,10 @@ export default function VaultPage() {
         const errData = await response.json();
         throw new Error(errData.message || "Failed to dispatch email.");
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       setRecStatus("ERROR");
-      setRecStatusMessage(e.message || "Failed to send code. Please check your internet connection.");
+      const errMsg = e instanceof Error ? e.message : "Failed to send code. Please check your internet connection.";
+      setRecStatusMessage(errMsg);
     }
   };
 
@@ -545,9 +551,10 @@ export default function VaultPage() {
       setRecoveredMasterKey(decodedMasterKey);
       setRecStatus("SUCCESS");
       setRecStatusMessage("Master key recovered successfully!");
-    } catch (e: any) {
+    } catch (e: unknown) {
       setRecStatus("ERROR");
-      setRecStatusMessage(e.message || "Failed to reconstruct master key. Please check your answers.");
+      const errMsg = e instanceof Error ? e.message : "Failed to reconstruct master key. Please check your answers.";
+      setRecStatusMessage(errMsg);
     }
   };
 
