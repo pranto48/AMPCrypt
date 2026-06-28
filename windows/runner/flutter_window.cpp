@@ -175,11 +175,14 @@ bool FlutterWindow::OnCreate() {
             return;
           }
           std::wstring wpath(path_str->begin(), path_str->end());
-          std::wstring rootPath = L"";
-          if (wpath.length() >= 2 && wpath[1] == L':') {
+          std::wstring rootPath = L"C:\\";
+          bool isLetter0 = (wpath[0] >= L'A' && wpath[0] <= L'Z') || (wpath[0] >= L'a' && wpath[0] <= L'z');
+          bool isLetter1 = wpath.length() >= 2 && ((wpath[1] >= L'A' && wpath[1] <= L'Z') || (wpath[1] >= L'a' && wpath[1] <= L'z'));
+          
+          if (wpath.length() >= 2 && isLetter0 && wpath[1] == L':') {
             rootPath = wpath.substr(0, 2) + L"\\";
-          } else {
-            rootPath = L"C:\\";
+          } else if (wpath.length() >= 3 && (wpath[0] == L'/' || wpath[0] == L'\\') && isLetter1 && wpath[2] == L':') {
+            rootPath = wpath.substr(1, 2) + L"\\";
           }
           
           ULARGE_INTEGER freeBytesAvailable;
