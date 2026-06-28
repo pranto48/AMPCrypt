@@ -126,7 +126,7 @@ abstract class VaultRepository {
   Future<void> disableQuestionsRecovery();
 
   /// Sends the recovery code via Resend API.
-  Future<bool> sendRecoveryEmail(String email, String code);
+  Future<String?> sendRecoveryEmail(String email, String code);
 
   /// Attempts recovery via questions, returning decrypted master key if successful.
   Future<Uint8List?> recoverWithQuestionsAndEmail(List<String> answers);

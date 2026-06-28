@@ -4293,15 +4293,16 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
     _generatedCode = code;
 
     // Send email using Resend API
-    final success = await repository.sendRecoveryEmail(email, code);
+    final errorMsg = await repository.sendRecoveryEmail(email, code);
 
     setState(() {
       _sendingCode = false;
-      if (success) {
+      if (errorMsg == null) {
         _recoveryStep = 2;
         _localSuccess = 'Verification code sent to $email!';
+        _localError = null;
       } else {
-        _localError = 'Failed to send recovery email. Please check internet connection.';
+        _localError = errorMsg;
       }
     });
   }
@@ -4884,15 +4885,16 @@ class _RecoveryPageState extends State<RecoveryPage> {
     _generatedCode = code;
 
     // Send email using Resend API
-    final success = await repository.sendRecoveryEmail(email, code);
+    final errorMsg = await repository.sendRecoveryEmail(email, code);
 
     setState(() {
       _sendingCode = false;
-      if (success) {
+      if (errorMsg == null) {
         _recoveryStep = 2;
         _localSuccess = 'Verification code sent to $email!';
+        _localError = null;
       } else {
-        _localError = 'Failed to send recovery email. Please check internet connection.';
+        _localError = errorMsg;
       }
     });
   }

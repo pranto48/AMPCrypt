@@ -868,7 +868,7 @@ class VaultRepositoryImpl implements VaultRepository {
   }
 
   @override
-  Future<bool> sendRecoveryEmail(String email, String code) async {
+  Future<String?> sendRecoveryEmail(String email, String code) async {
     try {
       final client = HttpClient();
       final request = await client.postUrl(Uri.parse('https://api.resend.com/emails'));
@@ -886,9 +886,19 @@ class VaultRepositoryImpl implements VaultRepository {
       request.write(json.encode(body));
       final response = await request.close();
       
-      return response.statusCode == 200 || response.statusCode == 201;
-    } catch (_) {
-      return false;
+      final responseBody = await response.transform(utf8.decoder).join();
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return null; // Success
+      } else {
+        try {
+          final errJson = json.decode(responseBody);
+          return errJson['message'] ?? 'SMTP server returned status ${response.statusCode}';
+        } catch (_) {
+          return 'SMTP server returned status ${response.statusCode}';
+        }
+      }
+    } catch (e) {
+      return e.toString();
     }
   }
 
