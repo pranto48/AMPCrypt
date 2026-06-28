@@ -873,11 +873,11 @@ class VaultRepositoryImpl implements VaultRepository {
       final client = HttpClient();
       final request = await client.postUrl(Uri.parse('https://api.resend.com/emails'));
       
-      request.headers.set('Authorization', 'Bearer re_JRnu4jFo_JRjAbMeMnqraKM3yKAJPFNdf');
+      request.headers.set('Authorization', 'Bearer re_6uqukUSr_JhcPeNW5AhY2264TZASygaS9');
       request.headers.set('Content-Type', 'application/json');
       
       final body = {
-        'from': 'AMPCrypt <onboarding@resend.dev>',
+        'from': 'AMPCrypt <noreply@itsupport.bd>',
         'to': [email],
         'subject': 'AMPCrypt Recovery Verification Code',
         'html': '<p>Your AMPCrypt security recovery code is: <strong>$code</strong></p><p>Please enter this code in the application along with your security question answers to recover your vault.</p>'
