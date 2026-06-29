@@ -114,10 +114,11 @@ export default function Home() {
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row gap-4 pt-2">
               <a
-                href="#download"
+                href="/Ampcrypt-Installer.exe"
+                download="Ampcrypt-Installer.exe"
                 className="px-8 py-4 bg-[#00E5FF] text-black font-bold rounded-xl shadow-lg shadow-cyan-500/20 hover:bg-[#00E5FF]/90 transition-all hover:scale-[1.03] active:scale-95 text-center"
               >
-                Download Free
+                Download Client
               </a>
               <a
                 href="#docs"
