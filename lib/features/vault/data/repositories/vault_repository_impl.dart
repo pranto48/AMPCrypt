@@ -304,7 +304,8 @@ class VaultRepositoryImpl implements VaultRepository {
       // HKLM / HKCU Local Drive Icon Injection (Fixing the Square Icon)
       try {
         final letterOnly = driveLetter.replaceAll(':', '');
-        const securityIcon = r'%SystemRoot%\System32\imageres.dll,104';
+        final systemRoot = Platform.environment['SystemRoot'] ?? r'C:\Windows';
+        final securityIcon = '$systemRoot\\System32\\imageres.dll,104';
 
         // 1. HKCU DriveIcons (no admin needed)
         try {
