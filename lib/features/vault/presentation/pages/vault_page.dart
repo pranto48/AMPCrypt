@@ -1099,15 +1099,56 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                         children: [
                           Expanded(
                             flex: 3,
-                            child: TextField(
-                              controller: pathController,
-                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
-                              decoration: InputDecoration(
-                                labelText: 'Remote Vault Directory Path',
-                                labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
-                              ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: pathController,
+                                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                                    decoration: InputDecoration(
+                                      labelText: 'Remote Vault Directory Path',
+                                      labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                                      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                                      focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.folder_open, color: Colors.white, size: 20),
+                                  tooltip: 'Browse FTP Directories',
+                                  onPressed: () {
+                                    final host = hostController.text;
+                                    final port = int.tryParse(portController.text) ?? 21;
+                                    final user = usernameController.text;
+                                    final pass = passwordController.text;
+                                    
+                                    if (host.isEmpty) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Please enter FTP Host first.')),
+                                      );
+                                      return;
+                                    }
+                                    
+                                    showDialog(
+                                      context: context,
+                                      builder: (browseContext) {
+                                        return _FtpDirectoryExplorerDialog(
+                                          host: host,
+                                          port: port,
+                                          user: user,
+                                          pass: pass,
+                                          initialPath: pathController.text.isEmpty ? '/' : pathController.text,
+                                          onPathSelected: (selectedPath) {
+                                            setDialogState(() {
+                                              pathController.text = selectedPath;
+                                            });
+                                          },
+                                        );
+                                      },
+                                    );
+                                  },
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -6976,6 +7017,316 @@ class _AnimatedGlassButtonState extends State<AnimatedGlassButton> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _FtpDirectoryExplorerDialog extends StatefulWidget {
+  final String host;
+  final int port;
+  final String user;
+  final String pass;
+  final String initialPath;
+  final ValueChanged<String> onPathSelected;
+
+  const _FtpDirectoryExplorerDialog({
+    required this.host,
+    required this.port,
+    required this.user,
+    required this.pass,
+    required this.initialPath,
+    required this.onPathSelected,
+  });
+
+  @override
+  State<_FtpDirectoryExplorerDialog> createState() => _FtpDirectoryExplorerDialogState();
+}
+
+class _FtpDirectoryExplorerDialogState extends State<_FtpDirectoryExplorerDialog> {
+  late String _currentPath;
+  List<String> _folders = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+  final _newFolderController = TextEditingController();
+  bool _isCreatingFolder = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentPath = widget.initialPath.isEmpty ? '/' : widget.initialPath;
+    if (!_currentPath.startsWith('/')) {
+      _currentPath = '/$_currentPath';
+    }
+    _loadFolders();
+  }
+
+  @override
+  void dispose() {
+    _newFolderController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadFolders() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final repository = context.read<VaultBloc>().repository;
+      final dirs = await repository.listFtpDirectories(
+        widget.host,
+        widget.port,
+        widget.user,
+        widget.pass,
+        _currentPath,
+      );
+      if (mounted) {
+        setState(() {
+          _folders = dirs;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString().replaceAll("Exception: ", "");
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _navigateInto(String folder) {
+    if (_currentPath == '/') {
+      _currentPath = '/$folder';
+    } else if (_currentPath.endsWith('/')) {
+      _currentPath = '$_currentPath$folder';
+    } else {
+      _currentPath = '$_currentPath/$folder';
+    }
+    _loadFolders();
+  }
+
+  void _navigateUp() {
+    if (_currentPath == '/' || _currentPath.isEmpty) return;
+    final parts = _currentPath.split('/').where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) {
+      _currentPath = '/';
+    } else {
+      parts.removeLast();
+      _currentPath = '/${parts.join('/')}';
+    }
+    _loadFolders();
+  }
+
+  Future<void> _createNewFolder() async {
+    final name = _newFolderController.text.trim();
+    if (name.isEmpty) return;
+    
+    setState(() {
+      _isCreatingFolder = true;
+    });
+
+    try {
+      final repository = context.read<VaultBloc>().repository;
+      final success = await repository.createFtpDirectory(
+        widget.host,
+        widget.port,
+        widget.user,
+        widget.pass,
+        _currentPath,
+        name,
+      );
+      if (success) {
+        _newFolderController.clear();
+        await _loadFolders();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to create folder. Check permissions.')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error creating folder: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCreatingFolder = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: kSurfaceColor,
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Browse FTP Server',
+            style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 450,
+        height: 400,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F1613),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFF334155)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.folder, color: Color(0xFFE2E8F0), size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _currentPath,
+                      style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (_currentPath != '/')
+                    IconButton(
+                      icon: const Icon(Icons.arrow_upward, color: Colors.white, size: 14),
+                      tooltip: 'Go Up',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: _navigateUp,
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0A1009),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFF334155)),
+                ),
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator(color: Color(0xFF16A34A)))
+                    : _errorMessage != null
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.error_outline, color: kErrorColor, size: 36),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    _errorMessage!,
+                                    textAlign: TextAlign.center,
+                                    style: GoogleFonts.outfit(color: Colors.white70, fontSize: 12),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  ElevatedButton(
+                                    onPressed: _loadFolders,
+                                    style: ElevatedButton.styleFrom(backgroundColor: kPrimaryColor),
+                                    child: Text('Retry', style: GoogleFonts.outfit(fontSize: 12)),
+                                  )
+                                ],
+                              ),
+                            ),
+                          )
+                        : _folders.isEmpty
+                            ? Center(
+                                child: Text(
+                                  'Empty Folder',
+                                  style: GoogleFonts.outfit(color: Colors.white38, fontSize: 12),
+                                ),
+                              )
+                            : ListView.builder(
+                                itemCount: _folders.length,
+                                itemBuilder: (context, index) {
+                                  final name = _folders[index];
+                                  return ListTile(
+                                    leading: const Icon(Icons.folder, color: Color(0xFFFBBF24), size: 20),
+                                    title: Text(
+                                      name,
+                                      style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                                    ),
+                                    hoverColor: Colors.white.withValues(alpha: 0.05),
+                                    onTap: () => _navigateInto(name),
+                                  );
+                                },
+                              ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _newFolderController,
+                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                    decoration: InputDecoration(
+                      hintText: 'New Folder Name',
+                      hintStyle: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 12),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                      focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _isCreatingFolder
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF16A34A)),
+                      )
+                    : ElevatedButton.icon(
+                        onPressed: _createNewFolder,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1E2228),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                        icon: const Icon(Icons.add, size: 14),
+                        label: Text('Create', style: GoogleFonts.outfit(fontSize: 11)),
+                      ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Cancel', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12)),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            widget.onPathSelected(_currentPath);
+            Navigator.pop(context);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: kPrimaryColor,
+            foregroundColor: Colors.white,
+          ),
+          child: Text('Select Folder', style: GoogleFonts.outfit(fontSize: 12)),
+        ),
+      ],
     );
   }
 }

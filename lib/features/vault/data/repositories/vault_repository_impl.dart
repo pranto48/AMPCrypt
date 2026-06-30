@@ -305,13 +305,27 @@ class VaultRepositoryImpl implements VaultRepository {
       try {
         final letterOnly = driveLetter.replaceAll(':', '');
         final systemRoot = Platform.environment['SystemRoot'] ?? r'C:\Windows';
-        final securityIcon = '$systemRoot\\System32\\imageres.dll,104';
+        
+        final supportDir = await getApplicationSupportDirectory();
+        final iconFile = File(p.join(supportDir.path, 'vault_drive.ico'));
+        String securityIcon = iconFile.path;
+        if (!await iconFile.exists()) {
+          try {
+            final byteData = await rootBundle.load('assets/vault_drive.ico');
+            await iconFile.writeAsBytes(
+              byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes),
+              flush: true,
+            );
+          } catch (_) {
+            securityIcon = '$systemRoot\\System32\\imageres.dll,104';
+          }
+        }
 
         // 1. HKCU DriveIcons (no admin needed)
         try {
           await Process.run('powershell.exe', [
             '-Command',
-            'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Value "$securityIcon"'
+            'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Value "$securityIcon"; New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultLabel" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultLabel" -Value "AMPCrypt Vault"'
           ]);
         } catch (_) {}
 
@@ -325,6 +339,14 @@ class VaultRepositoryImpl implements VaultRepository {
             securityIcon,
             '/f'
           ]);
+          await Process.run('reg.exe', [
+            'add',
+            'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultLabel',
+            '/ve',
+            '/d',
+            'AMPCrypt Vault',
+            '/f'
+          ]);
         } catch (_) {}
         
         // Secret Vault registry icon injection (Explorer.exe Drives)
@@ -335,6 +357,14 @@ class VaultRepositoryImpl implements VaultRepository {
             '/ve',
             '/d',
             securityIcon,
+            '/f'
+          ]);
+          await Process.run('reg.exe', [
+            'add',
+            'HKCU\\Software\\Classes\\Applications\\Explorer.exe\\Drives\\$letterOnly\\DefaultLabel',
+            '/ve',
+            '/d',
+            'AMPCrypt Vault',
             '/f'
           ]);
         } catch (_) {}
@@ -540,6 +570,72 @@ class VaultRepositoryImpl implements VaultRepository {
         }
       }
       return true;
+    } catch (_) {
+      return false;
+    } finally {
+      try {
+        await client.disconnect();
+      } catch (_) {}
+    }
+  }
+
+  @override
+  Future<List<String>> listFtpDirectories(String host, int port, String user, String pass, String currentPath) async {
+    final client = FTPConnect(
+      host,
+      port: port,
+      user: user,
+      pass: pass,
+      timeout: 10,
+    );
+    try {
+      await client.connect();
+      if (currentPath.isNotEmpty && currentPath != '/') {
+        final dirs = currentPath.split('/').where((d) => d.isNotEmpty).toList();
+        for (final dir in dirs) {
+          try {
+            await client.changeDirectory(dir);
+          } catch (_) {
+            break;
+          }
+        }
+      }
+      final entries = await client.listDirectoryContent();
+      return entries
+          .where((entry) => entry.type == FTPEntryType.FOLDER)
+          .map((entry) => entry.name)
+          .where((name) => name != null && name.isNotEmpty && name != '.' && name != '..')
+          .cast<String>()
+          .toList();
+    } catch (e) {
+      throw Exception("Failed to list FTP directories: $e");
+    } finally {
+      try {
+        await client.disconnect();
+      } catch (_) {}
+    }
+  }
+
+  @override
+  Future<bool> createFtpDirectory(String host, int port, String user, String pass, String parentPath, String folderName) async {
+    final client = FTPConnect(
+      host,
+      port: port,
+      user: user,
+      pass: pass,
+      timeout: 10,
+    );
+    try {
+      await client.connect();
+      if (parentPath.isNotEmpty && parentPath != '/') {
+        final dirs = parentPath.split('/').where((d) => d.isNotEmpty).toList();
+        for (final dir in dirs) {
+          try {
+            await client.changeDirectory(dir);
+          } catch (_) {}
+        }
+      }
+      return await client.makeDirectory(folderName);
     } catch (_) {
       return false;
     } finally {

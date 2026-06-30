@@ -82,6 +82,12 @@ abstract class VaultRepository {
   /// Tests the FTP connection parameters.
   Future<bool> testFtpConnection(String host, int port, String user, String pass, String path);
 
+  /// Lists all subdirectories in the given path on the FTP server.
+  Future<List<String>> listFtpDirectories(String host, int port, String user, String pass, String currentPath);
+
+  /// Creates a directory at the given parent path on the FTP server.
+  Future<bool> createFtpDirectory(String host, int port, String user, String pass, String parentPath, String folderName);
+
   /// Saves the FTP vault settings.
   Future<void> saveFtpVaultSettings({
     required String host,
