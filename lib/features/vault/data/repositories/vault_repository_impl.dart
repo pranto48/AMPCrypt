@@ -41,7 +41,6 @@ class VaultRepositoryImpl implements VaultRepository {
   void _initVaultFromHistory() async {
     try {
       final currentPath = _prefs.getString('vault_path');
-      final currentStorage = _prefs.getString('vault_storage_type');
       if (currentPath == null || currentPath.isEmpty) {
         final list = await getRememberedVaults();
         if (list.isNotEmpty) {
@@ -91,8 +90,6 @@ class VaultRepositoryImpl implements VaultRepository {
     final salt = _cryptoService.generateSecureRandom(16);
 
     // 2. Split Master Key via SLIP-39 using the selected auth level.
-    //    Returns: level Group-1 shares + 3 Group-2 backup shares = level+3 mnemonics.
-    //    Ordering: [0..level-1] = Group 1 operational, [level..level+2] = Group 2 backup.
     final passphrase = "ampcrypt-secure-passphrase";
     final mnemonics = _cryptoService.splitSecret(
       masterKey,
@@ -100,9 +97,7 @@ class VaultRepositoryImpl implements VaultRepository {
       authLevel: level,
     );
 
-    // Group 1 shares: indices 0 … level-1
     final operationalShares = mnemonics.sublist(0, level);
-    // Group 2 recovery shares: indices level … level+2
     final recoveryMnemonics = mnemonics.sublist(level, level + 3);
 
     // 3. Derive key from password using Argon2id
@@ -154,6 +149,40 @@ class VaultRepositoryImpl implements VaultRepository {
 
     // 8. Cache master key
     _cachedMasterKey = masterKey;
+
+    // 9. Windows-specific: Create and initialize VHDX container
+    if (Platform.isWindows) {
+      final driveLetter = getDriveLetter();
+      final letterOnly = driveLetter.replaceAll(':', '');
+      final vhdxPath = p.join(vaultPath, 'vault.vhdx');
+      final vhdxEncPath = p.join(vaultPath, 'vault.vhdx.enc');
+
+      // Create dynamically expanding VHDX of 100GB
+      await Process.run('powershell.exe', [
+        '-Command',
+        "New-VHD -Path '$vhdxPath' -SizeBytes 100GB -Dynamic -BlockSizeBytes 2MB"
+      ]);
+
+      // Initialize, partition and format VHDX
+      final formatScript = """
+        Mount-DiskImage -ImagePath '$vhdxPath'
+        Start-Sleep -Seconds 2
+        \$disk = Get-DiskImage -ImagePath '$vhdxPath' | Get-Disk
+        Initialize-Disk -Number \$disk.Number -PartitionStyle GPT
+        \$partition = New-Partition -DiskNumber \$disk.Number -UseMaximumSize -DriveLetter $letterOnly
+        Format-Volume -Partition \$partition -FileSystem NTFS -NewFileSystemLabel "AMPCrypt" -Confirm:\$false
+        Dismount-DiskImage -ImagePath '$vhdxPath'
+      """;
+      await Process.run('powershell.exe', ['-Command', formatScript]);
+
+      // Encrypt container using the master key
+      final vhdxFile = File(vhdxPath);
+      final vhdxEncFile = File(vhdxEncPath);
+      if (vhdxFile.existsSync()) {
+        await _encryptFile(vhdxFile, vhdxEncFile, masterKey);
+        vhdxFile.deleteSync();
+      }
+    }
 
     // Save to remembered vaults
     await addRememberedVault(VaultProfile(
@@ -265,6 +294,112 @@ class VaultRepositoryImpl implements VaultRepository {
     final vaultPath = getVaultPath();
     final driveLetter = getDriveLetter();
 
+    if (Platform.isWindows && storageType == 'local') {
+      final vhdxPath = p.join(vaultPath, 'vault.vhdx');
+      final vhdxEncPath = p.join(vaultPath, 'vault.vhdx.enc');
+
+      // 1. Decrypt vault.vhdx.enc to vault.vhdx
+      final vhdxFile = File(vhdxPath);
+      final vhdxEncFile = File(vhdxEncPath);
+      if (vhdxEncFile.existsSync()) {
+        await _decryptFile(vhdxEncFile, vhdxFile, masterKey);
+      }
+
+      // 2. Mount VHDX Disk Image
+      await Process.run('powershell.exe', [
+        '-Command',
+        "Mount-DiskImage -ImagePath '$vhdxPath'"
+      ]);
+
+      // Wait a moment for mount initialization
+      await Future.delayed(const Duration(milliseconds: 2000));
+
+      // 3. Dynamically detect drive letter
+      final detectResult = await Process.run('powershell.exe', [
+        '-Command',
+        "Get-Volume -DiskImage (Get-DiskImage -ImagePath '$vhdxPath') | Select-Object -ExpandProperty DriveLetter"
+      ]);
+      final detected = detectResult.stdout.toString().trim();
+      final activeDriveLetter = detected.isNotEmpty ? '$detected:' : driveLetter;
+
+      // Update active drive letter in memory/prefs for locking registry cleanup
+      await _prefs.setString('drive_letter', activeDriveLetter);
+
+      // 4. Inject transparent custom icon
+      try {
+        final letterOnly = activeDriveLetter.replaceAll(':', '');
+        final systemRoot = Platform.environment['SystemRoot'] ?? r'C:\Windows';
+        final supportDir = await getApplicationSupportDirectory();
+        final iconFile = File(p.join(supportDir.path, 'vault_drive.ico'));
+        String securityIcon = iconFile.path;
+        if (!await iconFile.exists()) {
+          try {
+            final byteData = await rootBundle.load('assets/vault_drive.ico');
+            await iconFile.writeAsBytes(
+              byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes),
+              flush: true,
+            );
+          } catch (_) {
+            securityIcon = '$systemRoot\\System32\\imageres.dll,104';
+          }
+        }
+
+        // 1. HKCU DriveIcons (no admin needed)
+        try {
+          await Process.run('powershell.exe', [
+            '-Command',
+            'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Value "$securityIcon"; New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultLabel" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultLabel" -Value "AMPCrypt Vault"'
+          ]);
+        } catch (_) {}
+
+        // 2. HKLM DriveIcons (in case of admin/elevation permissions)
+        try {
+          await Process.run('reg.exe', [
+            'add',
+            'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon',
+            '/ve',
+            '/d',
+            securityIcon,
+            '/f'
+          ]);
+          await Process.run('reg.exe', [
+            'add',
+            'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultLabel',
+            '/ve',
+            '/d',
+            'AMPCrypt Vault',
+            '/f'
+          ]);
+        } catch (_) {}
+
+        // Secret Vault registry icon injection (Explorer.exe Drives)
+        try {
+          await Process.run('reg.exe', [
+            'add',
+            'HKCU\\Software\\Classes\\Applications\\Explorer.exe\\Drives\\$letterOnly\\DefaultIcon',
+            '/ve',
+            '/d',
+            securityIcon,
+            '/f'
+          ]);
+          await Process.run('reg.exe', [
+            'add',
+            'HKCU\\Software\\Classes\\Applications\\Explorer.exe\\Drives\\$letterOnly\\DefaultLabel',
+            '/ve',
+            '/d',
+            'AMPCrypt Vault',
+            '/f'
+          ]);
+        } catch (_) {}
+      } catch (_) {}
+
+      // Refresh shell
+      try {
+        await _winFspChannel.invokeMethod<void>('refreshShell');
+      } catch (_) {}
+      return;
+    }
+
     // Start WebDAV server with abstract storage
     VaultStorage storage;
     if (storageType == 'ftp') {
@@ -302,7 +437,6 @@ class VaultRepositoryImpl implements VaultRepository {
       } catch (_) {}
 
       // Launch silent rclone.exe mount process
-      // Redirect cache dir to E:\crypt\.amp_cache (local) or application support directory (FTP) to prevent C: drive usage.
       final supportDir = await getApplicationSupportDirectory();
       final cachePath = storageType == 'ftp'
           ? p.join(supportDir.path, '.amp_cache_ftp')
@@ -411,8 +545,65 @@ class VaultRepositoryImpl implements VaultRepository {
   Future<void> _stopServerAndUnmount() async {
     if (Platform.isWindows) {
       final driveLetter = getDriveLetter();
+      final letterOnly = driveLetter.replaceAll(':', '');
+
+      if (storageType == 'local') {
+        final vaultPath = getVaultPath();
+        final vhdxPath = p.join(vaultPath, 'vault.vhdx');
+        final vhdxEncPath = p.join(vaultPath, 'vault.vhdx.enc');
+
+        // 1. Dismount Disk Image
+        await Process.run('powershell.exe', [
+          '-Command',
+          "Dismount-DiskImage -ImagePath '$vhdxPath'"
+        ]);
+
+        // Wait for file handles to be released
+        await Future.delayed(const Duration(milliseconds: 1500));
+
+        // 2. Encrypt VHDX to VHDX.ENC
+        final masterKey = _cachedMasterKey;
+        if (masterKey != null) {
+          final vhdxFile = File(vhdxPath);
+          final vhdxEncFile = File(vhdxEncPath);
+          if (vhdxFile.existsSync()) {
+            try {
+              await _encryptFile(vhdxFile, vhdxEncFile, masterKey);
+              vhdxFile.deleteSync();
+            } catch (_) {}
+          }
+        }
+
+        // 3. Clean up registry icons
+        try {
+          await Process.run('powershell.exe', [
+            '-Command',
+            'Remove-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly" -Recurse -ErrorAction SilentlyContinue'
+          ]);
+        } catch (_) {}
+        try {
+          await Process.run('reg.exe', [
+            'delete',
+            'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly',
+            '/f'
+          ]);
+        } catch (_) {}
+        try {
+          await Process.run('reg.exe', [
+            'delete',
+            'HKCU\\Software\\Classes\\Applications\\Explorer.exe\\Drives\\$letterOnly',
+            '/f'
+          ]);
+        } catch (_) {}
+
+        // Notify shell of refresh
+        try {
+          await _winFspChannel.invokeMethod<void>('refreshShell');
+        } catch (_) {}
+        return;
+      }
       
-      // Cleanly terminate rclone process
+      // Rclone WebDAV Mount Cleanup (FTP Fallback)
       if (_rcloneProcess != null) {
         _rcloneProcess!.kill();
         _rcloneProcess = null;
@@ -422,8 +613,6 @@ class VaultRepositoryImpl implements VaultRepository {
       } catch (_) {}
 
       try {
-        final letterOnly = driveLetter.replaceAll(':', '');
-        
         // Clean up HKCU DriveIcons Registry
         try {
           await Process.run('powershell.exe', [
@@ -450,7 +639,7 @@ class VaultRepositoryImpl implements VaultRepository {
           ]);
         } catch (_) {}
 
-        // Cache Cleanup: Free up system C: drive WebDAV caching files immediately
+        // Cache Cleanup
         try {
           final tfsDavDir = Directory(r'C:\Windows\ServiceProfiles\LocalService\AppData\Local\Temp\TfsStore\Tfs_DAV');
           if (await tfsDavDir.exists()) {
@@ -464,7 +653,7 @@ class VaultRepositoryImpl implements VaultRepository {
           ]);
         } catch (_) {}
 
-        // Notify Windows shell of the registry change
+        // Notify Windows shell
         try {
           await _winFspChannel.invokeMethod<void>('refreshShell');
         } catch (_) {}
@@ -1046,6 +1235,18 @@ class VaultRepositoryImpl implements VaultRepository {
       }
     } catch (_) {}
     return null;
+  }
+
+  Future<void> _encryptFile(File inputFile, File outputFile, Uint8List key) async {
+    final bytes = await inputFile.readAsBytes();
+    final encrypted = await _cryptoService.encryptData(bytes, key);
+    await outputFile.writeAsBytes(encrypted, flush: true);
+  }
+
+  Future<void> _decryptFile(File inputFile, File outputFile, Uint8List key) async {
+    final bytes = await inputFile.readAsBytes();
+    final decrypted = await _cryptoService.decryptData(bytes, key);
+    await outputFile.writeAsBytes(decrypted, flush: true);
   }
 
   @override
