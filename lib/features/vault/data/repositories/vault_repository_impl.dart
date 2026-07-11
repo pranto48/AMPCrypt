@@ -749,18 +749,20 @@ class VaultRepositoryImpl implements VaultRepository {
       derivedKey,
     );
 
-    // Build config
-    final Map<String, dynamic> configMap = {
+    // Build configs
+    final Map<String, dynamic> metadataMap = {
       'vault_created': true,
       'auth_level': level,
       'password_salt': base64Encode(salt),
+    };
+    final Map<String, dynamic> masterkeyMap = {
       'encrypted_password_share': base64Encode(encryptedPasswordShare),
     };
     for (int i = 1; i < level; i++) {
-      configMap[_kFactorKeys[i]] = base64Encode(utf8.encode(operationalShares[i]));
+      masterkeyMap[_kFactorKeys[i]] = base64Encode(utf8.encode(operationalShares[i]));
     }
 
-    // 5. Upload config to FTP server as vault.json
+    // 5. Upload configs to FTP server
     final storage = FtpVaultStorage(
       host: host,
       port: port,
@@ -769,8 +771,10 @@ class VaultRepositoryImpl implements VaultRepository {
       remotePath: path,
     );
     await storage.initialize();
-    final configBytes = Uint8List.fromList(utf8.encode(json.encode(configMap)));
-    await storage.writeFile('vault.json', configBytes);
+    final metadataBytes = Uint8List.fromList(utf8.encode(json.encode(metadataMap)));
+    final masterkeyBytes = Uint8List.fromList(utf8.encode(json.encode(masterkeyMap)));
+    await storage.writeFile('vault.ampcrypt', metadataBytes);
+    await storage.writeFile('masterkey.ampcrypt', masterkeyBytes);
 
     // 6. Persist settings and credentials locally
     await _prefs.setString('vault_storage_type', 'ftp');
@@ -835,11 +839,19 @@ class VaultRepositoryImpl implements VaultRepository {
         remotePath: path,
       );
 
-      final exists = await storage.fileExists('vault.json');
+      final exists = await storage.fileExists('vault.ampcrypt');
       if (!exists) return false;
 
-      final configBytes = await storage.readFile('vault.json');
-      final configMap = json.decode(utf8.decode(configBytes)) as Map<String, dynamic>;
+      final metadataBytes = await storage.readFile('vault.ampcrypt');
+      final metadataMap = json.decode(utf8.decode(metadataBytes)) as Map<String, dynamic>;
+
+      Map<String, dynamic> masterkeyMap = {};
+      if (await storage.fileExists('masterkey.ampcrypt')) {
+        final masterkeyBytes = await storage.readFile('masterkey.ampcrypt');
+        masterkeyMap = json.decode(utf8.decode(masterkeyBytes)) as Map<String, dynamic>;
+      }
+
+      final configMap = {...metadataMap, ...masterkeyMap};
 
       final String? saltBase64 = configMap['password_salt'];
       final String? encryptedShareBase64 = configMap['encrypted_password_share'];
@@ -937,9 +949,13 @@ class VaultRepositoryImpl implements VaultRepository {
   Future<void> clearVaultData() async {
     try {
       final vaultPath = getVaultPath();
-      final configFile = File(p.join(vaultPath, 'vault.json'));
-      if (configFile.existsSync()) {
-        configFile.deleteSync();
+      final metadataFile = File(p.join(vaultPath, 'vault.ampcrypt'));
+      if (metadataFile.existsSync()) {
+        metadataFile.deleteSync();
+      }
+      final masterkeyFile = File(p.join(vaultPath, 'masterkey.ampcrypt'));
+      if (masterkeyFile.existsSync()) {
+        masterkeyFile.deleteSync();
       }
       final dataDir = Directory(p.join(vaultPath, 'data'));
       if (dataDir.existsSync()) {
@@ -956,16 +972,50 @@ class VaultRepositoryImpl implements VaultRepository {
 
   Future<void> _saveVaultConfig(Map<String, dynamic> config) async {
     final vaultPath = getVaultPath();
-    final configFile = File(p.join(vaultPath, 'vault.json'));
-    await configFile.writeAsString(json.encode(config), flush: true);
+    final metadataFile = File(p.join(vaultPath, 'vault.ampcrypt'));
+    final masterkeyFile = File(p.join(vaultPath, 'masterkey.ampcrypt'));
+
+    final Map<String, dynamic> metadata = {};
+    final Map<String, dynamic> masterkey = {};
+
+    final masterkeyKeys = [
+      'encrypted_password_share',
+      ..._kFactorKeys,
+    ];
+
+    config.forEach((key, value) {
+      if (masterkeyKeys.contains(key)) {
+        masterkey[key] = value;
+      } else {
+        metadata[key] = value;
+      }
+    });
+
+    await metadataFile.writeAsString(json.encode(metadata), flush: true);
+    await masterkeyFile.writeAsString(json.encode(masterkey), flush: true);
   }
 
   Map<String, dynamic>? _loadVaultConfig() {
     try {
       final vaultPath = getVaultPath();
-      final configFile = File(p.join(vaultPath, 'vault.json'));
-      if (configFile.existsSync()) {
-        return json.decode(configFile.readAsStringSync()) as Map<String, dynamic>;
+      final metadataFile = File(p.join(vaultPath, 'vault.ampcrypt'));
+      final masterkeyFile = File(p.join(vaultPath, 'masterkey.ampcrypt'));
+
+      Map<String, dynamic>? metadata;
+      Map<String, dynamic>? masterkey;
+
+      if (metadataFile.existsSync()) {
+        metadata = json.decode(metadataFile.readAsStringSync()) as Map<String, dynamic>;
+      }
+      if (masterkeyFile.existsSync()) {
+        masterkey = json.decode(masterkeyFile.readAsStringSync()) as Map<String, dynamic>;
+      }
+
+      if (metadata != null || masterkey != null) {
+        final Map<String, dynamic> merged = {};
+        if (metadata != null) merged.addAll(metadata);
+        if (masterkey != null) merged.addAll(masterkey);
+        return merged;
       }
     } catch (_) {}
     return null;
@@ -1342,10 +1392,16 @@ class VaultRepositoryImpl implements VaultRepository {
           password: profile.ftpPassword ?? '',
           remotePath: profile.path,
         );
-        final exists = await storage.fileExists('vault.json');
+        final exists = await storage.fileExists('vault.ampcrypt');
         if (exists) {
-          final configBytes = await storage.readFile('vault.json');
-          final configMap = json.decode(utf8.decode(configBytes)) as Map<String, dynamic>;
+          final metadataBytes = await storage.readFile('vault.ampcrypt');
+          final metadataMap = json.decode(utf8.decode(metadataBytes)) as Map<String, dynamic>;
+          Map<String, dynamic> masterkeyMap = {};
+          if (await storage.fileExists('masterkey.ampcrypt')) {
+            final masterkeyBytes = await storage.readFile('masterkey.ampcrypt');
+            masterkeyMap = json.decode(utf8.decode(masterkeyBytes)) as Map<String, dynamic>;
+          }
+          final configMap = {...metadataMap, ...masterkeyMap};
           await _prefs.setBool('vault_created', configMap['vault_created'] == true);
           if (configMap.containsKey('auth_level')) {
             await _prefs.setInt('auth_level', configMap['auth_level'] as int);
@@ -1381,10 +1437,17 @@ class VaultRepositoryImpl implements VaultRepository {
     required String driveLetter,
   }) async {
     try {
-      final configFile = File(p.join(path, 'vault.json'));
-      if (!await configFile.exists()) return false;
+      final metadataFile = File(p.join(path, 'vault.ampcrypt'));
+      final masterkeyFile = File(p.join(path, 'masterkey.ampcrypt'));
+      if (!await metadataFile.exists()) return false;
 
-      final config = json.decode(await configFile.readAsString()) as Map<String, dynamic>;
+      final metadataMap = json.decode(await metadataFile.readAsString()) as Map<String, dynamic>;
+      Map<String, dynamic> masterkeyMap = {};
+      if (await masterkeyFile.exists()) {
+        masterkeyMap = json.decode(await masterkeyFile.readAsString()) as Map<String, dynamic>;
+      }
+
+      final config = {...metadataMap, ...masterkeyMap};
       final String? saltBase64 = config['password_salt'];
       final String? encryptedShareBase64 = config['encrypted_password_share'];
       if (saltBase64 == null || encryptedShareBase64 == null) return false;

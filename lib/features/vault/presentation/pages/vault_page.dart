@@ -1592,11 +1592,17 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
     return Stack(
       children: [
         if (previousState is VaultLockedState)
-          const UnlockVaultView()
+          UnlockVaultView(
+            onShowVaultsManager: () => _showVaultsManagerDialog(context),
+          )
         else if (previousState is VaultUninitializedState)
-          const CreateVaultView()
+          CreateVaultView(
+            onShowVaultsManager: () => _showVaultsManagerDialog(context),
+          )
         else
-          const UnlockVaultView(),
+          UnlockVaultView(
+            onShowVaultsManager: () => _showVaultsManagerDialog(context),
+          ),
       ],
     );
   }
@@ -3182,7 +3188,7 @@ class _CreateVaultViewState extends State<CreateVaultView> {
                       Center(
                         child: TextButton.icon(
                           onPressed: widget.onShowVaultsManager,
-                          icon: const Icon(Icons.folder_open_outlined, size: 14, color: kPrimaryColor),
+                          icon: Icon(Icons.folder_open_outlined, size: 14, color: kPrimaryColor),
                           label: Text(
                             'Open or Manage Existing Vaults',
                             style: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 12),
@@ -3437,7 +3443,7 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
                           elevation: 0,
                         ),
                         onPressed: widget.onShowVaultsManager,
-                        icon: const Icon(Icons.swap_horiz, size: 16, color: kPrimaryHoverColor),
+                        icon: Icon(Icons.swap_horiz, size: 16, color: kPrimaryHoverColor),
                         label: Text('Manage & Switch Vaults', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
                     ),
@@ -7648,7 +7654,7 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
                           const SizedBox(width: 8),
                           if (!isActive) ...[
                             IconButton(
-                              icon: const Icon(Icons.login, color: kPrimaryHoverColor, size: 16),
+                              icon: Icon(Icons.login, color: kPrimaryHoverColor, size: 16),
                               tooltip: 'Select Vault',
                               visualDensity: VisualDensity.compact,
                               onPressed: () async {
@@ -7666,7 +7672,7 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
                               },
                             ),
                             IconButton(
-                              icon: const Icon(Icons.delete_outline, color: kErrorColor, size: 16),
+                              icon: Icon(Icons.delete_outline, color: kErrorColor, size: 16),
                               tooltip: 'Forget Vault',
                               visualDensity: VisualDensity.compact,
                               onPressed: () async {
@@ -7678,8 +7684,8 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
                               },
                             ),
                           ] else
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 8.0),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8.0),
                               child: Icon(Icons.check_circle, color: kPrimaryColor, size: 16),
                             ),
                         ],
@@ -7772,7 +7778,7 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
                     icon: const Icon(Icons.upload_file_outlined, size: 13),
                     label: Text('Import Registry File', style: GoogleFonts.outfit(fontSize: 11)),
                     onPressed: () async {
-                      final result = await FilePicker.platform.pickFiles(
+                      final result = await FilePicker.pickFiles(
                         type: FileType.custom,
                         allowedExtensions: ['json'],
                       );
@@ -7808,7 +7814,7 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
                     icon: const Icon(Icons.download_outlined, size: 13),
                     label: Text('Backup Registry File', style: GoogleFonts.outfit(fontSize: 11)),
                     onPressed: () async {
-                      final result = await FilePicker.platform.saveFile(
+                      final result = await FilePicker.saveFile(
                         dialogTitle: 'Export AMPCrypt Vault Registry',
                         fileName: 'ampcrypt_registry.json',
                         type: FileType.custom,
