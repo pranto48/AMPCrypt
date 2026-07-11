@@ -261,7 +261,15 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
   Widget _buildCustomTitleBar() {
     return Container(
       height: 40,
-      color: kSidebarBackgroundColor,
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.22),
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.white.withValues(alpha: 0.03),
+            width: 1.0,
+          ),
+        ),
+      ),
       child: Row(
         children: [
           Expanded(
@@ -355,6 +363,20 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
         _showMountDialogForPath(context, selectedDirectory);
       }
     }
+  }
+
+  void _showVaultsManagerDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return VaultsManagerDialog(
+          onAddFtpVault: () {
+            _showAddFtpDriveDialog(context);
+          },
+        );
+      },
+    );
   }
 
   void _showMountDialogForPath(BuildContext context, String path) {
@@ -460,64 +482,105 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
           Expanded(
             child: Stack(
               children: [
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        kScaffoldBackgroundColor,
-                        kSurfaceColor,
-                        kSidebarBackgroundColor,
-                      ],
+                // Glowing glassmorphic blobs behind
+                Positioned.fill(
+                  child: Container(
+                    color: const Color(0xFF070B08),
+                  ),
+                ),
+                Positioned(
+                  top: -120,
+                  left: -120,
+                  child: Container(
+                    width: 380,
+                    height: 380,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: kPrimaryColor.withValues(alpha: 0.16),
                     ),
                   ),
-                  child: BlocConsumer<VaultBloc, VaultState>(
-              listener: (context, state) {
-                if (state is VaultFailureState) {
-                  if (state.errorMessage == 'WINFSP_MISSING') {
-                    _showWinFspMissingDialog();
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        backgroundColor: const Color(0xFF3F0B24),
-                        content: Row(
-                          children: [
-                            const Icon(Icons.error_outline, color: Color(0xFFFF4D88)),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                state.errorMessage,
-                                style: GoogleFonts.outfit(color: Colors.white),
-                              ),
+                ),
+                Positioned(
+                  bottom: -150,
+                  right: -80,
+                  child: Container(
+                    width: 480,
+                    height: 480,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF0EA5E9).withValues(alpha: 0.12),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 180,
+                  right: 250,
+                  child: Container(
+                    width: 280,
+                    height: 280,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.06),
+                    ),
+                  ),
+                ),
+                // Frosted glass blur overlay
+                Positioned.fill(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 55.0, sigmaY: 55.0),
+                    child: Container(
+                      color: const Color(0xFF090D0A).withValues(alpha: 0.78),
+                    ),
+                  ),
+                ),
+                BlocConsumer<VaultBloc, VaultState>(
+                  listener: (context, state) {
+                    if (state is VaultFailureState) {
+                      if (state.errorMessage == 'WINFSP_MISSING') {
+                        _showWinFspMissingDialog();
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: const Color(0xFF3F0B24),
+                            content: Row(
+                              children: [
+                                const Icon(Icons.error_outline, color: Color(0xFFFF4D88)),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    state.errorMessage,
+                                    style: GoogleFonts.outfit(color: Colors.white),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                            duration: const Duration(seconds: 4),
+                            action: SnackBarAction(
+                              label: 'Dismiss',
+                              textColor: const Color(0xFFFF4D88),
+                              onPressed: () {},
+                            ),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  builder: (context, state) {
+                    return Row(
+                      children: [
+                        _buildSidebar(context, state),
+                        Container(
+                          width: 1,
+                          color: Colors.white.withValues(alpha: 0.08),
                         ),
-                        duration: const Duration(seconds: 4),
-                        action: SnackBarAction(
-                          label: 'Dismiss',
-                          textColor: const Color(0xFFFF4D88),
-                          onPressed: () {},
+                        Expanded(
+                          child: _buildDesktopMainContent(context, state),
                         ),
-                      ),
+                      ],
                     );
-                  }
-                }
-              },
-              builder: (context, state) {
-                return Row(
-                  children: [
-                    _buildSidebar(context, state),
-                    Container(
-                      width: 1,
-                      color: Colors.white.withValues(alpha: 0.08),
-                    ),
-                    Expanded(
-                      child: _buildDesktopMainContent(context, state),
-                    ),
-                  ],
-                );
-              },
+                  },
+                ),
+              ],
             ),
           ),
           BlocBuilder<MonitorBloc, MonitorState>(
@@ -532,10 +595,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
           ),
         ],
       ),
-    ),
-  ],
-),
-);
+    );
   }
 
   Widget _buildSidebar(BuildContext context, VaultState state) {
@@ -599,7 +659,15 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
 
     return Container(
       width: 250,
-      color: kSidebarBackgroundColor,
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.15),
+        border: Border(
+          right: BorderSide(
+            color: Colors.white.withValues(alpha: 0.05),
+            width: 1.0,
+          ),
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1456,21 +1524,42 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
               padding: const EdgeInsets.all(24),
               child: Container(
                 constraints: const BoxConstraints(
-                  maxWidth: 800,
+                  maxWidth: 850,
                 ),
-                child: _activeView == ActiveView.settings
-                    ? SettingsView(
-                        onClose: () {
-                          _loadSettings();
-                          setState(() => _activeView = ActiveView.dashboard);
-                        },
-                        onQuit: _quitApp,
-                      )
-                    : (_activeView == ActiveView.recovery
-                        ? const InlineRecoveryView()
-                        : (isUnlocked 
-                            ? UnlockedDashboardView(state: state)
-                            : _buildVaultConsoleView(context, state))),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.015),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.06),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: _activeView == ActiveView.settings
+                        ? SettingsView(
+                            onClose: () {
+                              _loadSettings();
+                              setState(() => _activeView = ActiveView.dashboard);
+                            },
+                            onQuit: _quitApp,
+                          )
+                        : (_activeView == ActiveView.recovery
+                            ? const InlineRecoveryView()
+                            : (isUnlocked 
+                                ? UnlockedDashboardView(state: state)
+                                : _buildVaultConsoleView(context, state))),
+                  ),
+                ),
               ),
             ),
           ),
@@ -1485,9 +1574,13 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
     } else if (state is VaultLoadingState) {
       return VaultLoadingView(message: state.message);
     } else if (state is VaultUninitializedState) {
-      return const CreateVaultView();
+      return CreateVaultView(
+        onShowVaultsManager: () => _showVaultsManagerDialog(context),
+      );
     } else if (state is VaultLockedState) {
-      return const UnlockVaultView();
+      return UnlockVaultView(
+        onShowVaultsManager: () => _showVaultsManagerDialog(context),
+      );
     } else if (state is VaultFailureState) {
       return _buildFailureView(context, state);
     }
@@ -2710,7 +2803,8 @@ class VaultLoadingView extends StatelessWidget {
 // 2. Create Vault View (Setup Screen)
 // ==========================================
 class CreateVaultView extends StatefulWidget {
-  const CreateVaultView({super.key});
+  final VoidCallback onShowVaultsManager;
+  const CreateVaultView({super.key, required this.onShowVaultsManager});
 
   @override
   State<CreateVaultView> createState() => _CreateVaultViewState();
@@ -3084,6 +3178,17 @@ class _CreateVaultViewState extends State<CreateVaultView> {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      Center(
+                        child: TextButton.icon(
+                          onPressed: widget.onShowVaultsManager,
+                          icon: const Icon(Icons.folder_open_outlined, size: 14, color: kPrimaryColor),
+                          label: Text(
+                            'Open or Manage Existing Vaults',
+                            style: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 12),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -3100,7 +3205,8 @@ class _CreateVaultViewState extends State<CreateVaultView> {
 // 3. Unlock Vault View (Simulated Multi-Factor Screen)
 // ==========================================
 class UnlockVaultView extends StatefulWidget {
-  const UnlockVaultView({super.key});
+  final VoidCallback onShowVaultsManager;
+  const UnlockVaultView({super.key, required this.onShowVaultsManager});
 
   @override
   State<UnlockVaultView> createState() => _UnlockVaultViewState();
@@ -3316,7 +3422,26 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 38,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white.withValues(alpha: 0.05),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+                          ),
+                          elevation: 0,
+                        ),
+                        onPressed: widget.onShowVaultsManager,
+                        icon: const Icon(Icons.swap_horiz, size: 16, color: kPrimaryHoverColor),
+                        label: Text('Manage & Switch Vaults', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -7327,6 +7452,628 @@ class _FtpDirectoryExplorerDialogState extends State<_FtpDirectoryExplorerDialog
           child: Text('Select Folder', style: GoogleFonts.outfit(fontSize: 12)),
         ),
       ],
+    );
+  }
+}
+
+// ==========================================
+// Vaults Manager Dialog & Support
+// ==========================================
+
+class VaultsManagerDialog extends StatefulWidget {
+  final VoidCallback onAddFtpVault;
+  const VaultsManagerDialog({super.key, required this.onAddFtpVault});
+
+  @override
+  State<VaultsManagerDialog> createState() => _VaultsManagerDialogState();
+}
+
+class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
+  List<VaultProfile> _vaults = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVaults();
+  }
+
+  Future<void> _loadVaults() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      final repo = context.read<VaultBloc>().repository;
+      final list = await repo.getRememberedVaults();
+      if (mounted) {
+        setState(() {
+          _vaults = list;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final repo = context.read<VaultBloc>().repository;
+    final activePath = repo.getVaultPath();
+    final activeType = repo.storageType;
+    final activeFtpHost = repo.getFtpHost();
+
+    return AlertDialog(
+      backgroundColor: kSurfaceColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.08), width: 1.5),
+      ),
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Secure Vault Registry',
+            style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, color: Color(0xFF64748B), size: 20),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 500,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Select a remembered vault profile to load, or import/register a new vault folder.',
+              style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+            ),
+            const SizedBox(height: 16),
+            if (_isLoading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24.0),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (_vaults.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.01),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+                ),
+                child: Center(
+                  child: Text(
+                    'No registered vault profiles. Use options below.',
+                    style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 12),
+                  ),
+                ),
+              )
+            else
+              Container(
+                constraints: const BoxConstraints(maxHeight: 220),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: _vaults.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) {
+                    final vault = _vaults[index];
+                    final isActive = vault.storageType == activeType &&
+                        (vault.storageType == 'local'
+                            ? vault.path == activePath
+                            : vault.path == activePath && vault.ftpHost == activeFtpHost);
+
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isActive
+                            ? kPrimaryColor.withValues(alpha: 0.08)
+                            : Colors.white.withValues(alpha: 0.02),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isActive
+                              ? kPrimaryColor.withValues(alpha: 0.4)
+                              : Colors.white.withValues(alpha: 0.05),
+                          width: isActive ? 1.5 : 1.0,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            vault.storageType == 'ftp' ? Icons.cloud_outlined : Icons.folder_open_outlined,
+                            color: isActive ? kPrimaryColor : const Color(0xFF94A3B8),
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  vault.name,
+                                  style: GoogleFonts.outfit(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  vault.path,
+                                  style: GoogleFonts.shareTechMono(
+                                    color: const Color(0xFF64748B),
+                                    fontSize: 10,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: vault.storageType == 'ftp'
+                                  ? Colors.blue.withValues(alpha: 0.15)
+                                  : Colors.green.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              vault.storageType.toUpperCase(),
+                              style: GoogleFonts.outfit(
+                                color: vault.storageType == 'ftp' ? Colors.blue : Colors.green,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            vault.driveLetter,
+                            style: GoogleFonts.shareTechMono(
+                              color: Colors.white70,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          if (!isActive) ...[
+                            IconButton(
+                              icon: const Icon(Icons.login, color: kPrimaryHoverColor, size: 16),
+                              tooltip: 'Select Vault',
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () async {
+                                Navigator.pop(context);
+                                await repo.selectVault(vault);
+                                if (context.mounted) {
+                                  context.read<VaultBloc>().add(CheckVaultStatusEvent());
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      backgroundColor: kSuccessColor,
+                                      content: Text('Vault profile loaded: ${vault.name}', style: GoogleFonts.outfit()),
+                                    ),
+                                  );
+                                }
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, color: kErrorColor, size: 16),
+                              tooltip: 'Forget Vault',
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () async {
+                                await repo.removeRememberedVault(vault.path);
+                                _loadVaults();
+                                if (context.mounted) {
+                                  context.read<VaultBloc>().add(CheckVaultStatusEvent());
+                                }
+                              },
+                            ),
+                          ] else
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 8.0),
+                              child: Icon(Icons.check_circle, color: kPrimaryColor, size: 16),
+                            ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            const SizedBox(height: 16),
+            Text(
+              'VAULT PROFILE ACTIONS',
+              style: GoogleFonts.outfit(
+                color: const Color(0xFF64748B),
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white.withValues(alpha: 0.04),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  icon: const Icon(Icons.folder_open_outlined, size: 14),
+                  label: Text('Add Existing Vault', style: GoogleFonts.outfit(fontSize: 11)),
+                  onPressed: () async {
+                    String? selectedDirectory = await FilePicker.getDirectoryPath();
+                    if (selectedDirectory != null) {
+                      if (mounted) {
+                        _showAddExistingVaultVerifyDialog(context, selectedDirectory);
+                      }
+                    }
+                  },
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white.withValues(alpha: 0.04),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  icon: const Icon(Icons.cloud_outlined, size: 14),
+                  label: Text('Setup FTP Vault', style: GoogleFonts.outfit(fontSize: 11)),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    widget.onAddFtpVault();
+                  },
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white.withValues(alpha: 0.04),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  icon: const Icon(Icons.add, size: 14),
+                  label: Text('Create New', style: GoogleFonts.outfit(fontSize: 11)),
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    context.read<VaultBloc>().add(ResetToUninitializedEvent());
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white.withValues(alpha: 0.01),
+                      foregroundColor: const Color(0xFF94A3B8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+                      ),
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    icon: const Icon(Icons.upload_file_outlined, size: 13),
+                    label: Text('Import Registry File', style: GoogleFonts.outfit(fontSize: 11)),
+                    onPressed: () async {
+                      final result = await FilePicker.platform.pickFiles(
+                        type: FileType.custom,
+                        allowedExtensions: ['json'],
+                      );
+                      if (result != null && result.files.single.path != null) {
+                        await repo.importVaultsHistory(result.files.single.path!);
+                        _loadVaults();
+                        if (context.mounted) {
+                          context.read<VaultBloc>().add(CheckVaultStatusEvent());
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: kSuccessColor,
+                              content: Text('Vault registry imported successfully.', style: GoogleFonts.outfit()),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white.withValues(alpha: 0.01),
+                      foregroundColor: const Color(0xFF94A3B8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+                      ),
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    icon: const Icon(Icons.download_outlined, size: 13),
+                    label: Text('Backup Registry File', style: GoogleFonts.outfit(fontSize: 11)),
+                    onPressed: () async {
+                      final result = await FilePicker.platform.saveFile(
+                        dialogTitle: 'Export AMPCrypt Vault Registry',
+                        fileName: 'ampcrypt_registry.json',
+                        type: FileType.custom,
+                        allowedExtensions: ['json'],
+                      );
+                      if (result != null) {
+                        await repo.exportVaultsHistory(result);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: kSuccessColor,
+                              content: Text('Vault registry backed up successfully.', style: GoogleFonts.outfit()),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showMountDialogForPath(BuildContext context, String path) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            String selectedDrive = 'Z:';
+            return AlertDialog(
+              backgroundColor: kSurfaceColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              title: Text(
+                'Open Existing Vault',
+                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Selected folder:',
+                    style: GoogleFonts.outfit(color: Colors.white70, fontSize: 12),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    path,
+                    style: GoogleFonts.shareTechMono(color: kPrimaryColor, fontSize: 11),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedDrive,
+                    dropdownColor: kSurfaceColor,
+                    decoration: InputDecoration(
+                      labelText: 'Virtual Drive Letter',
+                      labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
+                      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                    ),
+                    style: GoogleFonts.outfit(color: Colors.white),
+                    items: ['D:', 'E:', 'F:', 'G:', 'H:', 'V:', 'W:', 'X:', 'Y:', 'Z:']
+                        .map((drive) => DropdownMenuItem(
+                              value: drive,
+                              child: Text(drive, style: GoogleFonts.outfit(color: Colors.white)),
+                            ))
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() {
+                          selectedDrive = val;
+                        });
+                      }
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: Text('Cancel', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8))),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kPrimaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: () async {
+                    Navigator.of(dialogContext).pop();
+                    final repo = context.read<VaultBloc>().repository;
+                    await repo.updateVaultSettings(path, selectedDrive);
+                    if (context.mounted) {
+                      context.read<VaultBloc>().add(CheckVaultStatusEvent());
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          backgroundColor: kSuccessColor,
+                          content: Text('Vault profile loaded. Unlock to mount.', style: GoogleFonts.outfit()),
+                        ),
+                      );
+                    }
+                  },
+                  child: Text('Open Vault', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showAddExistingVaultVerifyDialog(BuildContext context, String path) {
+    final repo = context.read<VaultBloc>().repository;
+    final passwordController = TextEditingController();
+    final nameController = TextEditingController(text: p.basename(path));
+    String selectedDrive = 'W:';
+    bool isVerifying = false;
+    String? verifyError;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: kSurfaceColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.08), width: 1.5),
+              ),
+              title: Text(
+                'Verify & Import Vault',
+                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Folder Path:',
+                    style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    path,
+                    style: GoogleFonts.shareTechMono(color: kPrimaryColor, fontSize: 11),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: nameController,
+                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                    decoration: InputDecoration(
+                      labelText: 'Vault Name',
+                      labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
+                      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: passwordController,
+                    obscureText: true,
+                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                    decoration: InputDecoration(
+                      labelText: 'Vault Passphrase',
+                      labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
+                      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedDrive,
+                    dropdownColor: kSurfaceColor,
+                    decoration: InputDecoration(
+                      labelText: 'Virtual Drive Letter',
+                      labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
+                      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                    ),
+                    style: GoogleFonts.outfit(color: Colors.white),
+                    items: ['D:', 'E:', 'F:', 'G:', 'H:', 'V:', 'W:', 'X:', 'Y:', 'Z:']
+                        .map((drive) => DropdownMenuItem(
+                              value: drive,
+                              child: Text(drive, style: GoogleFonts.outfit(color: Colors.white)),
+                            ))
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() {
+                          selectedDrive = val;
+                        });
+                      }
+                    },
+                  ),
+                  if (verifyError != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      verifyError!,
+                      style: GoogleFonts.outfit(color: kErrorColor, fontSize: 12),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isVerifying ? null : () => Navigator.of(dialogContext).pop(),
+                  child: Text('Cancel', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8))),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kPrimaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: isVerifying
+                      ? null
+                      : () async {
+                          if (passwordController.text.isEmpty) {
+                            setDialogState(() => verifyError = 'Passphrase is required');
+                            return;
+                          }
+                          setDialogState(() {
+                            isVerifying = true;
+                            verifyError = null;
+                          });
+
+                          final success = await repo.verifyAndAddExistingVault(
+                            name: nameController.text.trim(),
+                            path: path,
+                            password: passwordController.text,
+                            driveLetter: selectedDrive,
+                          );
+
+                          if (success) {
+                            Navigator.of(dialogContext).pop();
+                            _loadVaults();
+                            if (context.mounted) {
+                              context.read<VaultBloc>().add(CheckVaultStatusEvent());
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: kSuccessColor,
+                                  content: Text('Vault verified and registered successfully.', style: GoogleFonts.outfit()),
+                                ),
+                              );
+                            }
+                          } else {
+                            setDialogState(() {
+                              isVerifying = false;
+                              verifyError = 'Failed to verify Master Key. Check passphrase or directory structure.';
+                            });
+                          }
+                        },
+                  child: Text(
+                    isVerifying ? 'Verifying...' : 'Verify & Import',
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 }

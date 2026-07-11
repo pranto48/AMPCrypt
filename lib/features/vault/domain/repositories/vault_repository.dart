@@ -1,5 +1,58 @@
 import 'dart:typed_data';
 
+class VaultProfile {
+  final String name;
+  final String path;
+  final String storageType; // 'local' or 'ftp'
+  final String driveLetter;
+  // FTP settings (optional)
+  final String? ftpHost;
+  final int? ftpPort;
+  final String? ftpUsername;
+  final String? ftpPassword;
+  final String? ftpRemotePath;
+
+  VaultProfile({
+    required this.name,
+    required this.path,
+    required this.storageType,
+    required this.driveLetter,
+    this.ftpHost,
+    this.ftpPort,
+    this.ftpUsername,
+    this.ftpPassword,
+    this.ftpRemotePath,
+  });
+
+  factory VaultProfile.fromJson(Map<String, dynamic> json) {
+    return VaultProfile(
+      name: json['name'] as String,
+      path: json['path'] as String,
+      storageType: json['storage_type'] as String,
+      driveLetter: json['drive_letter'] as String,
+      ftpHost: json['ftp_host'] as String?,
+      ftpPort: json['ftp_port'] as int?,
+      ftpUsername: json['ftp_username'] as String?,
+      ftpPassword: json['ftp_password'] as String?,
+      ftpRemotePath: json['ftp_remote_path'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'path': path,
+      'storage_type': storageType,
+      'drive_letter': driveLetter,
+      if (ftpHost != null) 'ftp_host': ftpHost,
+      if (ftpPort != null) 'ftp_port': ftpPort,
+      if (ftpUsername != null) 'ftp_username': ftpUsername,
+      if (ftpPassword != null) 'ftp_password': ftpPassword,
+      if (ftpRemotePath != null) 'ftp_remote_path': ftpRemotePath,
+    };
+  }
+}
+
 abstract class VaultRepository {
   /// Check if the vault has already been set up/created on this device.
   bool get isVaultCreated;
@@ -154,4 +207,31 @@ abstract class VaultRepository {
 
   /// Performs TPM/Windows Hello biometric verification to recover the master key.
   Future<Uint8List?> unlockWithTpm();
+
+  /// Gets the list of all remembered vault profiles.
+  Future<List<VaultProfile>> getRememberedVaults();
+
+  /// Adds a vault profile to the list of remembered vaults.
+  Future<void> addRememberedVault(VaultProfile profile);
+
+  /// Removes a vault profile from the list of remembered vaults.
+  Future<void> removeRememberedVault(String path);
+
+  /// Exports the vaults history to a file.
+  Future<void> exportVaultsHistory(String destinationFilePath);
+
+  /// Imports the vaults history from a file.
+  Future<void> importVaultsHistory(String sourceFilePath);
+
+  /// Selects/Switches the active vault.
+  Future<void> selectVault(VaultProfile profile);
+
+  /// Verifies and imports an existing vault folder.
+  /// Returns true if the vault is valid and the password is correct (Master Key verified).
+  Future<bool> verifyAndAddExistingVault({
+    required String name,
+    required String path,
+    required String password,
+    required String driveLetter,
+  });
 }

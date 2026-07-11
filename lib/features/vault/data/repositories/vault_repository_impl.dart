@@ -34,7 +34,22 @@ class VaultRepositoryImpl implements VaultRepository {
     required CryptoService cryptoService,
     required this._prefs,
   })  : _cryptoService = cryptoService,
-        _webDavServer = WebDavServer(cryptoService);
+        _webDavServer = WebDavServer(cryptoService) {
+    _initVaultFromHistory();
+  }
+
+  void _initVaultFromHistory() async {
+    try {
+      final currentPath = _prefs.getString('vault_path');
+      final currentStorage = _prefs.getString('vault_storage_type');
+      if (currentPath == null || currentPath.isEmpty) {
+        final list = await getRememberedVaults();
+        if (list.isNotEmpty) {
+          await selectVault(list.first);
+        }
+      }
+    } catch (_) {}
+  }
 
   @override
   int? get webDavPort => _webDavServer.isRunning ? _webDavServer.port : null;
@@ -139,6 +154,14 @@ class VaultRepositoryImpl implements VaultRepository {
 
     // 8. Cache master key
     _cachedMasterKey = masterKey;
+
+    // Save to remembered vaults
+    await addRememberedVault(VaultProfile(
+      name: p.basename(vaultPath),
+      path: vaultPath,
+      storageType: 'local',
+      driveLetter: getDriveLetter(),
+    ));
 
     await _startServerAndMount(masterKey);
 
@@ -270,13 +293,12 @@ class VaultRepositoryImpl implements VaultRepository {
       // Ensure rclone is available
       final rclonePath = await _ensureRclone();
       
-      // Safely kill any existing rclone process or delete drive letter
+      // Safely kill any existing rclone process
       try {
         if (_rcloneProcess != null) {
           _rcloneProcess!.kill();
           _rcloneProcess = null;
         }
-        await Process.run('cmd.exe', ['/c', 'net use $driveLetter /delete /y']);
       } catch (_) {}
 
       // Launch silent rclone.exe mount process
@@ -388,11 +410,6 @@ class VaultRepositoryImpl implements VaultRepository {
       }
       try {
         await Process.run('taskkill.exe', ['/f', '/im', 'rclone.exe']);
-      } catch (_) {}
-
-      // Safe clean net use
-      try {
-        await Process.run('cmd.exe', ['/c', 'net use $driveLetter /delete /y']);
       } catch (_) {}
 
       try {
@@ -537,6 +554,14 @@ class VaultRepositoryImpl implements VaultRepository {
     await _prefs.setString('vault_path', path);
     await _prefs.setString('drive_letter', driveLetter);
     
+    // Save to remembered vaults
+    await addRememberedVault(VaultProfile(
+      name: p.basename(path),
+      path: path,
+      storageType: 'local',
+      driveLetter: driveLetter,
+    ));
+    
     if (isCurrentlyUnlocked && masterKey != null) {
       await _startServerAndMount(masterKey);
     }
@@ -602,9 +627,9 @@ class VaultRepositoryImpl implements VaultRepository {
       }
       final entries = await client.listDirectoryContent();
       return entries
-          .where((entry) => entry.type == FTPEntryType.FOLDER)
+          .where((entry) => entry.type == FTPEntryType.dir)
           .map((entry) => entry.name)
-          .where((name) => name != null && name.isNotEmpty && name != '.' && name != '..')
+          .where((name) => name.isNotEmpty && name != '.' && name != '..')
           .cast<String>()
           .toList();
     } catch (e) {
@@ -668,6 +693,19 @@ class VaultRepositoryImpl implements VaultRepository {
     await _prefs.setString('ftp_password', pass);
     await _prefs.setString('ftp_remote_path', path);
     await _prefs.setString('drive_letter', driveLetter);
+    
+    // Save to remembered vaults
+    await addRememberedVault(VaultProfile(
+      name: 'FTP: $host$path',
+      path: path,
+      storageType: 'ftp',
+      driveLetter: driveLetter,
+      ftpHost: host,
+      ftpPort: port,
+      ftpUsername: user,
+      ftpPassword: pass,
+      ftpRemotePath: path,
+    ));
     
     if (isCurrentlyUnlocked && masterKey != null) {
       await _startServerAndMount(masterKey);
@@ -759,6 +797,20 @@ class VaultRepositoryImpl implements VaultRepository {
 
     // 7. Cache master key and mount
     _cachedMasterKey = masterKey;
+
+    // Save to remembered vaults
+    await addRememberedVault(VaultProfile(
+      name: 'FTP: $host$path',
+      path: path,
+      storageType: 'ftp',
+      driveLetter: driveLetter,
+      ftpHost: host,
+      ftpPort: port,
+      ftpUsername: user,
+      ftpPassword: pass,
+      ftpRemotePath: path,
+    ));
+
     await _startServerAndMount(masterKey);
 
     return recoveryMnemonics;
@@ -841,6 +893,20 @@ class VaultRepositoryImpl implements VaultRepository {
 
       // 4. Cache master key and mount
       _cachedMasterKey = recoveredMasterKey;
+
+      // Save to remembered vaults
+      await addRememberedVault(VaultProfile(
+        name: 'FTP: $host$path',
+        path: path,
+        storageType: 'ftp',
+        driveLetter: driveLetter,
+        ftpHost: host,
+        ftpPort: port,
+        ftpUsername: user,
+        ftpPassword: pass,
+        ftpRemotePath: path,
+      ));
+
       await _startServerAndMount(recoveredMasterKey);
       return true;
     } catch (_) {
@@ -1093,6 +1159,282 @@ class VaultRepositoryImpl implements VaultRepository {
       return null;
     } catch (_) {
       return null;
+    }
+  }
+
+  Future<File> _getHistoryFile() async {
+    final supportDir = await getApplicationSupportDirectory();
+    return File(p.join(supportDir.path, 'vaults.json'));
+  }
+
+  Future<void> _saveRememberedVaults(List<VaultProfile> profiles) async {
+    try {
+      final file = await _getHistoryFile();
+      final data = {
+        'last_active_path': getVaultPath(),
+        'vaults': profiles.map((p) => p.toJson()).toList(),
+      };
+      await file.writeAsString(json.encode(data), flush: true);
+    } catch (_) {}
+  }
+
+  @override
+  Future<List<VaultProfile>> getRememberedVaults() async {
+    try {
+      final file = await _getHistoryFile();
+      if (!await file.exists()) return [];
+      final content = await file.readAsString();
+      final data = json.decode(content);
+      if (data is Map && data.containsKey('vaults')) {
+        final list = data['vaults'] as List;
+        return list.map((item) => VaultProfile.fromJson(item as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  @override
+  Future<void> addRememberedVault(VaultProfile profile) async {
+    final list = await getRememberedVaults();
+    final index = list.indexWhere((p) => p.path == profile.path);
+    if (index != -1) {
+      list[index] = profile;
+    } else {
+      list.add(profile);
+    }
+    await _saveRememberedVaults(list);
+  }
+
+  @override
+  Future<void> removeRememberedVault(String path) async {
+    final list = await getRememberedVaults();
+    list.removeWhere((p) => p.path == path);
+    await _saveRememberedVaults(list);
+    
+    // If the removed vault was the active one, clear active settings or switch
+    if (getVaultPath() == path || (storageType == 'ftp' && _prefs.getString('ftp_remote_path') == path)) {
+      if (list.isNotEmpty) {
+        await selectVault(list.first);
+      } else {
+        // Clear all vault settings
+        await _prefs.remove('vault_storage_type');
+        await _prefs.remove('vault_path');
+        await _prefs.remove('drive_letter');
+        await _prefs.remove('ftp_host');
+        await _prefs.remove('ftp_port');
+        await _prefs.remove('ftp_username');
+        await _prefs.remove('ftp_password');
+        await _prefs.remove('ftp_remote_path');
+        await _prefs.remove('password_salt');
+        await _prefs.remove('encrypted_password_share');
+        await _prefs.remove('auth_level');
+        await _prefs.remove('vault_created');
+      }
+    }
+  }
+
+  @override
+  Future<void> exportVaultsHistory(String destinationFilePath) async {
+    try {
+      final file = await _getHistoryFile();
+      if (await file.exists()) {
+        final destFile = File(destinationFilePath);
+        await destFile.create(recursive: true);
+        await file.copy(destFile.path);
+      } else {
+        final destFile = File(destinationFilePath);
+        await destFile.create(recursive: true);
+        final emptyData = {
+          'last_active_path': '',
+          'vaults': [],
+        };
+        await destFile.writeAsString(json.encode(emptyData), flush: true);
+      }
+    } catch (_) {}
+  }
+
+  @override
+  Future<void> importVaultsHistory(String sourceFilePath) async {
+    try {
+      final srcFile = File(sourceFilePath);
+      if (await srcFile.exists()) {
+        final content = await srcFile.readAsString();
+        final data = json.decode(content);
+        if (data is Map && data.containsKey('vaults')) {
+          final list = data['vaults'] as List;
+          final profiles = list.map((item) => VaultProfile.fromJson(item as Map<String, dynamic>)).toList();
+          await _saveRememberedVaults(profiles);
+          if (profiles.isNotEmpty) {
+            await selectVault(profiles.first);
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  @override
+  Future<void> selectVault(VaultProfile profile) async {
+    final isCurrentlyUnlocked = isUnlocked;
+    final masterKey = _cachedMasterKey;
+    
+    if (isCurrentlyUnlocked && masterKey != null) {
+      await _stopServerAndUnmount();
+    }
+    
+    // Clear old prefs
+    await _prefs.remove('vault_storage_type');
+    await _prefs.remove('vault_path');
+    await _prefs.remove('drive_letter');
+    await _prefs.remove('ftp_host');
+    await _prefs.remove('ftp_port');
+    await _prefs.remove('ftp_username');
+    await _prefs.remove('ftp_password');
+    await _prefs.remove('ftp_remote_path');
+    await _prefs.remove('password_salt');
+    await _prefs.remove('encrypted_password_share');
+    await _prefs.remove('auth_level');
+    await _prefs.remove('vault_created');
+    for (final key in _kFactorKeys) {
+      await _prefs.remove(key);
+    }
+    
+    // Save new configuration
+    await _prefs.setString('vault_storage_type', profile.storageType);
+    await _prefs.setString('drive_letter', profile.driveLetter);
+    
+    if (profile.storageType == 'ftp') {
+      await _prefs.setString('ftp_host', profile.ftpHost ?? '');
+      await _prefs.setInt('ftp_port', profile.ftpPort ?? 21);
+      await _prefs.setString('ftp_username', profile.ftpUsername ?? '');
+      await _prefs.setString('ftp_password', profile.ftpPassword ?? '');
+      await _prefs.setString('ftp_remote_path', profile.path);
+    } else {
+      await _prefs.setString('vault_path', profile.path);
+    }
+    
+    // Attempt to load configurations from vault.json (local) or FTP to see if created
+    if (profile.storageType == 'local') {
+      final config = _loadVaultConfig();
+      if (config != null) {
+        await _prefs.setBool('vault_created', config['vault_created'] == true);
+        if (config.containsKey('auth_level')) {
+          await _prefs.setInt('auth_level', config['auth_level'] as int);
+        }
+        if (config.containsKey('password_salt')) {
+          await _prefs.setString('password_salt', config['password_salt'] as String);
+        }
+        if (config.containsKey('encrypted_password_share')) {
+          await _prefs.setString('encrypted_password_share', config['encrypted_password_share'] as String);
+        }
+        for (final key in _kFactorKeys) {
+          if (config.containsKey(key)) {
+            await _prefs.setString(key, config[key] as String);
+          }
+        }
+      }
+    } else {
+      // FTP - try to load vault.json
+      try {
+        final storage = FtpVaultStorage(
+          host: profile.ftpHost ?? '',
+          port: profile.ftpPort ?? 21,
+          username: profile.ftpUsername ?? '',
+          password: profile.ftpPassword ?? '',
+          remotePath: profile.path,
+        );
+        final exists = await storage.fileExists('vault.json');
+        if (exists) {
+          final configBytes = await storage.readFile('vault.json');
+          final configMap = json.decode(utf8.decode(configBytes)) as Map<String, dynamic>;
+          await _prefs.setBool('vault_created', configMap['vault_created'] == true);
+          if (configMap.containsKey('auth_level')) {
+            await _prefs.setInt('auth_level', configMap['auth_level'] as int);
+          }
+          if (configMap.containsKey('password_salt')) {
+            await _prefs.setString('password_salt', configMap['password_salt'] as String);
+          }
+          if (configMap.containsKey('encrypted_password_share')) {
+            await _prefs.setString('encrypted_password_share', configMap['encrypted_password_share'] as String);
+          }
+          for (final key in _kFactorKeys) {
+            if (configMap.containsKey(key)) {
+              await _prefs.setString(key, configMap[key] as String);
+            }
+          }
+        }
+      } catch (_) {}
+    }
+    
+    // Save last active vault state
+    await _prefs.setBool('vault_created', isVaultCreated);
+    
+    if (isCurrentlyUnlocked && masterKey != null) {
+      await _startServerAndMount(masterKey);
+    }
+  }
+
+  @override
+  Future<bool> verifyAndAddExistingVault({
+    required String name,
+    required String path,
+    required String password,
+    required String driveLetter,
+  }) async {
+    try {
+      final configFile = File(p.join(path, 'vault.json'));
+      if (!await configFile.exists()) return false;
+
+      final config = json.decode(await configFile.readAsString()) as Map<String, dynamic>;
+      final String? saltBase64 = config['password_salt'];
+      final String? encryptedShareBase64 = config['encrypted_password_share'];
+      if (saltBase64 == null || encryptedShareBase64 == null) return false;
+
+      final salt = base64Decode(saltBase64);
+      final encryptedPasswordShare = base64Decode(encryptedShareBase64);
+
+      // 1. Derive key from password and decrypt the password share
+      final derivedKey = await _cryptoService.deriveKey(password, salt);
+      final decryptedBytes = await _cryptoService.decryptData(encryptedPasswordShare, derivedKey);
+      final passwordShare = utf8.decode(decryptedBytes);
+
+      // 2. Collect other shares from config
+      final List<String> sharesToReconstruct = [passwordShare];
+      final actualLevel = config['auth_level'] as int? ?? 1;
+
+      for (int i = 1; i < actualLevel; i++) {
+        final shareBase64 = config[_kFactorKeys[i]];
+        if (shareBase64 == null) return false;
+        sharesToReconstruct.add(utf8.decode(base64Decode(shareBase64)));
+      }
+
+      // 3. Reconstruct master key
+      final passphrase = "ampcrypt-secure-passphrase";
+      final recoveredMasterKey = _cryptoService.recoverSecret(
+        sharesToReconstruct,
+        passphrase: passphrase,
+      );
+
+      // 4. Read and decrypt metadata.json.enc to verify the Master Key
+      final indexFile = File(p.join(path, 'metadata.json.enc'));
+      if (await indexFile.exists()) {
+        final encryptedMetadata = await indexFile.readAsBytes();
+        final decryptedMetadataBytes = await _cryptoService.decryptData(encryptedMetadata, recoveredMasterKey);
+        final jsonString = utf8.decode(decryptedMetadataBytes);
+        json.decode(jsonString);
+      }
+
+      // If we got here, verification succeeded! Add to remembered vaults
+      final profile = VaultProfile(
+        name: name.isNotEmpty ? name : p.basename(path),
+        path: path,
+        storageType: 'local',
+        driveLetter: driveLetter,
+      );
+      await addRememberedVault(profile);
+      await selectVault(profile);
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 }
