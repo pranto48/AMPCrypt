@@ -302,7 +302,12 @@ class VaultRepositoryImpl implements VaultRepository {
       } catch (_) {}
 
       // Launch silent rclone.exe mount process
-      // --vfs-cache-mode off disables WebDAV caches on C: drive.
+      // Redirect cache dir to E:\crypt\.amp_cache (local) or application support directory (FTP) to prevent C: drive usage.
+      final supportDir = await getApplicationSupportDirectory();
+      final cachePath = storageType == 'ftp'
+          ? p.join(supportDir.path, '.amp_cache_ftp')
+          : p.join(vaultPath, '.amp_cache');
+
       _rcloneProcess = await Process.start(
         rclonePath,
         [
@@ -310,14 +315,18 @@ class VaultRepositoryImpl implements VaultRepository {
           ':webdav:',
           driveLetter,
           '--webdav-url',
-          'http://localhost:$port',
+          'http://127.0.0.1:$port',
           '--vfs-cache-mode',
-          'off',
+          'writes',
+          '--cache-dir',
+          cachePath,
           '--network-mode=false',
+          '--no-checksum',
+          '--no-modtime',
           '--volname',
           'AMPCrypt',
         ],
-        runInShell: true,
+        runInShell: false,
       );
 
       // Wait a moment for rclone to initialize mount
@@ -462,6 +471,24 @@ class VaultRepositoryImpl implements VaultRepository {
       } catch (_) {}
     }
     await _webDavServer.stop();
+
+    // Silently delete .amp_cache directory in background after unmount
+    Future.delayed(const Duration(milliseconds: 1000), () async {
+      try {
+        final vaultPath = getVaultPath();
+        final localCache = Directory(p.join(vaultPath, '.amp_cache'));
+        if (await localCache.exists()) {
+          await localCache.delete(recursive: true);
+        }
+      } catch (_) {}
+      try {
+        final supportDir = await getApplicationSupportDirectory();
+        final ftpCache = Directory(p.join(supportDir.path, '.amp_cache_ftp'));
+        if (await ftpCache.exists()) {
+          await ftpCache.delete(recursive: true);
+        }
+      } catch (_) {}
+    });
   }
 
   @override
