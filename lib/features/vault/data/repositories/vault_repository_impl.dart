@@ -152,8 +152,6 @@ class VaultRepositoryImpl implements VaultRepository {
 
     // 9. Windows-specific: Extract pre-formatted VHDX container template
     if (Platform.isWindows) {
-      final driveLetter = getDriveLetter();
-      final letterOnly = driveLetter.replaceAll(':', '');
       final vhdxPath = p.join(vaultPath, 'vault.vhdx');
       final vhdxEncPath = p.join(vaultPath, 'vault.vhdx.enc');
       final tempZipPath = p.join(vaultPath, 'vault_template.zip');
@@ -305,57 +303,258 @@ class VaultRepositoryImpl implements VaultRepository {
       final vhdxPath = p.join(vaultPath, 'vault.vhdx');
       final vhdxEncPath = p.join(vaultPath, 'vault.vhdx.enc');
 
-      // 1. Decrypt vault.vhdx.enc to vault.vhdx
       final vhdxFile = File(vhdxPath);
       final vhdxEncFile = File(vhdxEncPath);
-      if (vhdxEncFile.existsSync()) {
+
+      // ── LEGACY VAULT MIGRATION ──────────────────────────────────────────
+      // Older vaults have only a data/ folder and no vault.vhdx.enc.
+      // Detect this case and migrate transparently on first unlock.
+      if (!vhdxEncFile.existsSync()) {
+        // Extract pre-formatted VHDX template from bundled assets
+        final tempZipPath = p.join(vaultPath, 'vault_template.zip');
+        try {
+          final byteData = await rootBundle.load('assets/vault_template.zip');
+          final buffer = byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes);
+          await File(tempZipPath).writeAsBytes(buffer, flush: true);
+
+          // Decompress with standard user privileges via PowerShell
+          await Process.run('powershell.exe', [
+            '-Command',
+            "Expand-Archive -Path '$tempZipPath' -DestinationPath '$vaultPath' -Force"
+          ]);
+          try { await File(tempZipPath).delete(); } catch (_) {}
+
+          // Rename template to standard vault name
+          final templateFile = File(p.join(vaultPath, 'vault_template.vhdx'));
+          if (templateFile.existsSync()) {
+            await templateFile.rename(vhdxPath);
+          }
+        } catch (_) {}
+
+        // Mount the fresh VHDX temporarily so we can copy legacy data/ into it
+        if (vhdxFile.existsSync()) {
+          final preferredLetter = driveLetter.replaceAll(':', '');
+          final tempMountScript = """
+            Mount-DiskImage -ImagePath '$vhdxPath'
+            Start-Sleep -Seconds 2
+            \$disk = Get-DiskImage -ImagePath '$vhdxPath' | Get-Disk
+            if (\$disk.IsOffline) { Set-Disk -Number \$disk.Number -IsOffline \$false }
+            Set-Disk -Number \$disk.Number -IsReadOnly \$false
+            \$part = Get-Partition -DiskNumber \$disk.Number | Where-Object { \$_.Type -eq 'Basic' -or \$_.PartitionNumber -ge 1 } | Select-Object -First 1
+            if (\$part -and -not \$part.DriveLetter) {
+              try {
+                Set-Partition -DiskNumber \$disk.Number -PartitionNumber \$part.PartitionNumber -NewDriveLetter $preferredLetter
+              } catch {
+                \$free = (3..25 | ForEach-Object { [char](\$_ + 65) } | Where-Object { -not (Get-PSDrive -Name \$_ -ErrorAction SilentlyContinue) }) | Select-Object -First 1
+                if (\$free) { Set-Partition -DiskNumber \$disk.Number -PartitionNumber \$part.PartitionNumber -NewDriveLetter \$free }
+              }
+            }
+          """;
+          await Process.run('powershell.exe', ['-Command', tempMountScript]);
+          await Future.delayed(const Duration(milliseconds: 2500));
+
+          // Detect the letter assigned to the newly mounted VHDX
+          final detectTemp = await Process.run('powershell.exe', [
+            '-Command',
+            "(Get-DiskImage -ImagePath '$vhdxPath' | Get-Disk | Get-Partition | Where-Object { \$_.DriveLetter -and \$_.Type -ne 'Reserved' } | Select-Object -First 1).DriveLetter"
+          ]);
+          final tempLetter = detectTemp.stdout.toString().trim();
+
+          // Copy legacy data/ folder contents into the mounted VHDX
+          if (tempLetter.isNotEmpty && tempLetter.length == 1) {
+            final legacyDataDir = Directory(p.join(vaultPath, 'data'));
+            if (legacyDataDir.existsSync()) {
+              try {
+                await Process.run('powershell.exe', [
+                  '-Command',
+                  "Copy-Item -Path '${legacyDataDir.path}\\*' -Destination '${tempLetter}:\\' -Recurse -Force -ErrorAction SilentlyContinue"
+                ]);
+              } catch (_) {}
+            }
+
+            // Dismount after migration copy
+            await Process.run('powershell.exe', [
+              '-Command',
+              "Dismount-DiskImage -ImagePath '$vhdxPath'"
+            ]);
+            await Future.delayed(const Duration(milliseconds: 1500));
+          } else {
+            // Could not detect letter — dismount and fall through to encrypt anyway
+            await Process.run('powershell.exe', [
+              '-Command',
+              "Dismount-DiskImage -ImagePath '$vhdxPath'"
+            ]);
+            await Future.delayed(const Duration(milliseconds: 1500));
+          }
+
+          // Encrypt the VHDX (now containing migrated data) with master key
+          if (vhdxFile.existsSync()) {
+            await _encryptFile(vhdxFile, vhdxEncFile, masterKey);
+            try { vhdxFile.deleteSync(); } catch (_) {}
+          }
+        }
+      }
+
+      // ── NORMAL UNLOCK: DECRYPT ──────────────────────────────────────────
+      if (vhdxEncFile.existsSync() && !vhdxFile.existsSync()) {
         await _decryptFile(vhdxEncFile, vhdxFile, masterKey);
       }
 
       final letterOnly = driveLetter.replaceAll(':', '');
 
-      // 2. Mount and configure VHDX
-      final mountScript = """
-        Mount-DiskImage -ImagePath '$vhdxPath'
-        Start-Sleep -Seconds 2
-        \$disk = Get-DiskImage -ImagePath '$vhdxPath' | Get-Disk
-        if (\$disk.IsOffline) {
-          Set-Disk -Number \$disk.Number -IsOffline \$false
-        }
-        Set-Disk -Number \$disk.Number -IsReadOnly \$false
-        \$partitions = Get-Partition -DiskNumber \$disk.Number
-        \$dataPartition = \$partitions | Where-Object { \$_.Type -eq "Basic" -or \$_.PartitionNumber -eq 2 -or \$_.PartitionNumber -eq 1 } | Select-Object -First 1
-        if (\$dataPartition -and -not \$dataPartition.DriveLetter) {
-          try {
-            Set-Partition -DiskNumber \$disk.Number -PartitionNumber \$dataPartition.PartitionNumber -NewDriveLetter $letterOnly
-          } catch {
-            \$freeLetter = (3..25 | ForEach-Object { [char](\$_ + 65) } | Where-Object { -not (Get-Volume -DriveLetter \$_ -ErrorAction SilentlyContinue) }) | Select-Object -First 1
-            if (\$freeLetter) {
-              Set-Partition -DiskNumber \$disk.Number -PartitionNumber \$dataPartition.PartitionNumber -NewDriveLetter \$freeLetter
-            }
-          }
-        }
-      """;
 
-      await Process.run('powershell.exe', ['-Command', mountScript]);
 
-      // Wait a moment for mount initialization to settle
-      await Future.delayed(const Duration(milliseconds: 2000));
+      // 2. Mount VHDX — guard: only proceed if decryption succeeded
 
-      // 3. Dynamically detect drive letter
-      final detectResult = await Process.run('powershell.exe', [
-        '-Command',
-        "Get-Partition -DiskNumber (Get-DiskImage -ImagePath '$vhdxPath' | Get-Disk).Number | Where-Object { \$_.DriveLetter } | Select-Object -ExpandProperty DriveLetter"
+      if (!vhdxFile.existsSync()) {
+
+        // vault.vhdx was not produced — decryption failed or enc file missing
+
+        return;
+
+      }
+
+
+
+      // Write mount script to support dir to avoid PowerShell string-escaping issues
+
+      final supportDir2 = await getApplicationSupportDirectory();
+
+      final mountPs1 = p.join(supportDir2.path, 'mount_vault.ps1');
+
+      final detectPs1 = p.join(supportDir2.path, 'detect_drive.ps1');
+
+
+
+
+      await File(mountPs1).writeAsString(
+
+          'param([string]\$VhdxPath, [string]\$Letter)\n'
+
+          'Mount-DiskImage -ImagePath \$VhdxPath -ErrorAction Stop\n'
+
+          'Start-Sleep -Seconds 3\n'
+
+          '\$disk = Get-DiskImage -ImagePath \$VhdxPath | Get-Disk\n'
+
+          'if (\$disk -and \$disk.IsOffline) { Set-Disk -Number \$disk.Number -IsOffline \$false }\n'
+
+          'if (\$disk) {\n'
+
+          '  Set-Disk -Number \$disk.Number -IsReadOnly \$false\n'
+
+          '  \$pt = Get-Partition -DiskNumber \$disk.Number -EA SilentlyContinue | Where-Object { \$_.Size -gt 10MB } | Select-Object -First 1\n'
+
+          '  if (\$pt -ne \$null -and [int][char]\$pt.DriveLetter -lt 65) {\n'
+
+          '    try { Set-Partition -DiskNumber \$disk.Number -PartitionNumber \$pt.PartitionNumber -NewDriveLetter \$Letter -EA Stop }\n'
+
+          '    catch {\n'
+
+          '      \$fl = @("G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z") | Where-Object { -not (Get-PSDrive -Name \$_ -EA SilentlyContinue) } | Select-Object -First 1\n'
+
+          '      if (\$fl) { try { Set-Partition -DiskNumber \$disk.Number -PartitionNumber \$pt.PartitionNumber -NewDriveLetter \$fl -EA Stop } catch {} }\n'
+
+          '    }\n'
+
+          '  }\n'
+
+          '}\n'
+
+      );
+
+
+
+      await File(detectPs1).writeAsString(
+
+          'param([string]\$VhdxPath)\n'
+
+          'try {\n'
+
+          '  \$img = Get-DiskImage -ImagePath \$VhdxPath -EA Stop\n'
+
+          '  \$dn = (\$img | Get-Disk -EA Stop).Number\n'
+
+          '  \$letter = (Get-Partition -DiskNumber \$dn -EA Stop | Where-Object { [int][char]\$_.DriveLetter -ge 65 } | Select-Object -First 1).DriveLetter\n'
+
+          '  Write-Output \$letter\n'
+
+          '} catch { Write-Output "" }\n'
+
+      );
+
+
+
+      await Process.run('powershell.exe', [
+
+        '-ExecutionPolicy', 'Bypass', '-File', mountPs1,
+
+        '-VhdxPath', vhdxPath, '-Letter', letterOnly,
+
       ]);
-      final detected = detectResult.stdout.toString().trim();
-      final activeDriveLetter = detected.isNotEmpty ? '$detected:' : driveLetter;
 
-      // Update active drive letter in memory/prefs for locking registry cleanup
+
+
+      // Wait for Windows shell to register the newly mounted volume
+
+      await Future.delayed(const Duration(milliseconds: 3500));
+
+
+
+      // 3. Detect actual drive letter via two fallback strategies
+
+      String activeDriveLetter = driveLetter; // safe fallback
+
+
+
+      // Strategy A: query the specific disk image's partitions
+
+      final detectA = await Process.run('powershell.exe', [
+
+        '-ExecutionPolicy', 'Bypass', '-File', detectPs1, '-VhdxPath', vhdxPath,
+
+      ]);
+
+      final detectedA = detectA.stdout.toString().trim();
+
+      if (detectedA.length == 1 && detectedA.codeUnitAt(0) >= 65) {
+
+        activeDriveLetter = '${detectedA}:';
+
+      } else {
+
+        // Strategy B: find volume by filesystem label 'AMPCrypt'
+
+        final detectB = await Process.run('powershell.exe', ['-Command',
+
+          "(Get-Volume -EA SilentlyContinue | Where-Object { \$_.FileSystemLabel -eq 'AMPCrypt' } | Select-Object -First 1).DriveLetter"
+
+        ]);
+
+        final detectedB = detectB.stdout.toString().trim();
+
+        if (detectedB.length == 1 && detectedB.codeUnitAt(0) >= 65) {
+
+          activeDriveLetter = '${detectedB}:';
+
+        }
+
+      }
+
+
+
+      // Persist detected drive letter for lock/unmount/registry cleanup
+
       await _prefs.setString('drive_letter', activeDriveLetter);
 
-      // 4. Inject transparent custom icon
+
+
+      // 4. Inject custom drive icon using the ACTIVE drive letter
+
+      final activeLetter = activeDriveLetter.replaceAll(':', '');
+
       try {
-        final letterOnly = activeDriveLetter.replaceAll(':', '');
+
         final systemRoot = Platform.environment['SystemRoot'] ?? r'C:\Windows';
         final supportDir = await getApplicationSupportDirectory();
         final iconFile = File(p.join(supportDir.path, 'vault_drive.ico'));
@@ -376,7 +575,7 @@ class VaultRepositoryImpl implements VaultRepository {
         try {
           await Process.run('powershell.exe', [
             '-Command',
-            'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon" -Value "$securityIcon"; New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultLabel" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultLabel" -Value "AMPCrypt Vault"'
+            'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$activeLetter\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$activeLetter\\DefaultIcon" -Value "$securityIcon"; New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$activeLetter\\DefaultLabel" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$activeLetter\\DefaultLabel" -Value "AMPCrypt Vault"'
           ]);
         } catch (_) {}
 
@@ -384,7 +583,7 @@ class VaultRepositoryImpl implements VaultRepository {
         try {
           await Process.run('reg.exe', [
             'add',
-            'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon',
+            'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$activeLetter\\DefaultIcon',
             '/ve',
             '/d',
             securityIcon,
@@ -392,7 +591,7 @@ class VaultRepositoryImpl implements VaultRepository {
           ]);
           await Process.run('reg.exe', [
             'add',
-            'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultLabel',
+            'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$activeLetter\\DefaultLabel',
             '/ve',
             '/d',
             'AMPCrypt Vault',
@@ -404,7 +603,7 @@ class VaultRepositoryImpl implements VaultRepository {
         try {
           await Process.run('reg.exe', [
             'add',
-            'HKCU\\Software\\Classes\\Applications\\Explorer.exe\\Drives\\$letterOnly\\DefaultIcon',
+            'HKCU\\Software\\Classes\\Applications\\Explorer.exe\\Drives\\$activeLetter\\DefaultIcon',
             '/ve',
             '/d',
             securityIcon,
@@ -412,7 +611,7 @@ class VaultRepositoryImpl implements VaultRepository {
           ]);
           await Process.run('reg.exe', [
             'add',
-            'HKCU\\Software\\Classes\\Applications\\Explorer.exe\\Drives\\$letterOnly\\DefaultLabel',
+            'HKCU\\Software\\Classes\\Applications\\Explorer.exe\\Drives\\$activeLetter\\DefaultLabel',
             '/ve',
             '/d',
             'AMPCrypt Vault',

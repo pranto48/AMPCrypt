@@ -3828,8 +3828,25 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                     fontSize: 10,
                                   ),
                                 ),
-                                onPressed: () {
-                                  Process.run('explorer.exe', [driveLetter]);
+                                onPressed: () async {
+                                  // Re-read drive letter at click time
+                                  // (mount detection updates prefs async after build() ran)
+                                  final liveLetter = repository.getDriveLetter();
+                                  if (liveLetter.isNotEmpty && liveLetter != 'Z:') {
+                                    Process.run('explorer.exe', [liveLetter]);
+                                  } else {
+                                    // Fallback: scan for 'AMPCrypt' volume label
+                                    final res = await Process.run('powershell.exe', [
+                                      '-Command',
+                                      "(Get-Volume -EA SilentlyContinue | Where-Object { \$_.FileSystemLabel -eq 'AMPCrypt' } | Select-Object -First 1).DriveLetter"
+                                    ]);
+                                    final sl = res.stdout.toString().trim();
+                                    if (sl.length == 1 && sl.codeUnitAt(0) >= 65) {
+                                      Process.run('explorer.exe', ['\${sl}:']);
+                                    } else {
+                                      Process.run('explorer.exe', [liveLetter]);
+                                    }
+                                  }
                                 },
                               ),
                             ],
