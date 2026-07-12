@@ -15,8 +15,11 @@ import 'features/vault/presentation/pages/vault_page.dart';
 import 'features/ransomware_monitor/data/datasources/directory_watcher_service.dart';
 import 'features/ransomware_monitor/presentation/bloc/monitor_bloc.dart';
 
+import 'core/portable_state_sync.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await PortableStateSync.init();
 
   // Initialize Desktop Window Manager & Auto-Start
   if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {

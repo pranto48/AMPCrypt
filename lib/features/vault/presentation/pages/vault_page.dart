@@ -18,6 +18,7 @@ import 'package:tray_manager/tray_manager.dart';
 import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:ampcrypt/core/version.dart';
+import 'package:ampcrypt/core/portable_state_sync.dart';
 import 'package:http/http.dart' as http_pkg;
 
 import '../bloc/vault_bloc.dart';
@@ -254,6 +255,15 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
   }
 
   Future<void> _quitApp() async {
+    // 1. Force lock all vaults (triggers unmount & registry cleanup)
+    context.read<VaultBloc>().add(LockVaultEvent());
+    
+    // 2. Sync SharedPreferences and settings to the portable data directory
+    await PortableStateSync.syncToPortable();
+    
+    // 3. Give processes and file operations a brief moment to finish
+    await Future.delayed(const Duration(milliseconds: 1500));
+    
     await windowManager.setPreventClose(false);
     await windowManager.close();
   }
