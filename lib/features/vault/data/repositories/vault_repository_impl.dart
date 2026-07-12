@@ -150,30 +150,37 @@ class VaultRepositoryImpl implements VaultRepository {
     // 8. Cache master key
     _cachedMasterKey = masterKey;
 
-    // 9. Windows-specific: Create and initialize VHDX container
+    // 9. Windows-specific: Extract pre-formatted VHDX container template
     if (Platform.isWindows) {
       final driveLetter = getDriveLetter();
       final letterOnly = driveLetter.replaceAll(':', '');
       final vhdxPath = p.join(vaultPath, 'vault.vhdx');
       final vhdxEncPath = p.join(vaultPath, 'vault.vhdx.enc');
+      final tempZipPath = p.join(vaultPath, 'vault_template.zip');
 
-      // Create dynamically expanding VHDX of 100GB
-      await Process.run('powershell.exe', [
-        '-Command',
-        "New-VHD -Path '$vhdxPath' -SizeBytes 100GB -Dynamic -BlockSizeBytes 2MB"
-      ]);
+      // Extract compressed pre-formatted VHDX from assets to local vault folder
+      try {
+        final byteData = await rootBundle.load('assets/vault_template.zip');
+        final buffer = byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes);
+        await File(tempZipPath).writeAsBytes(buffer, flush: true);
 
-      // Initialize, partition and format VHDX
-      final formatScript = """
-        Mount-DiskImage -ImagePath '$vhdxPath'
-        Start-Sleep -Seconds 2
-        \$disk = Get-DiskImage -ImagePath '$vhdxPath' | Get-Disk
-        Initialize-Disk -Number \$disk.Number -PartitionStyle GPT
-        \$partition = New-Partition -DiskNumber \$disk.Number -UseMaximumSize -DriveLetter $letterOnly
-        Format-Volume -Partition \$partition -FileSystem NTFS -NewFileSystemLabel "AMPCrypt" -Confirm:\$false
-        Dismount-DiskImage -ImagePath '$vhdxPath'
-      """;
-      await Process.run('powershell.exe', ['-Command', formatScript]);
+        // Decompress using native PowerShell Expand-Archive (runs under standard privileges)
+        await Process.run('powershell.exe', [
+          '-Command',
+          "Expand-Archive -Path '$tempZipPath' -DestinationPath '$vaultPath' -Force"
+        ]);
+
+        // Cleanup temporary zip file
+        try {
+          await File(tempZipPath).delete();
+        } catch (_) {}
+
+        // Rename template to standard vault name
+        final templateFile = File(p.join(vaultPath, 'vault_template.vhdx'));
+        if (templateFile.existsSync()) {
+          await templateFile.rename(vhdxPath);
+        }
+      } catch (_) {}
 
       // Encrypt container using the master key
       final vhdxFile = File(vhdxPath);
@@ -305,19 +312,40 @@ class VaultRepositoryImpl implements VaultRepository {
         await _decryptFile(vhdxEncFile, vhdxFile, masterKey);
       }
 
-      // 2. Mount VHDX Disk Image
-      await Process.run('powershell.exe', [
-        '-Command',
-        "Mount-DiskImage -ImagePath '$vhdxPath'"
-      ]);
+      final letterOnly = driveLetter.replaceAll(':', '');
 
-      // Wait a moment for mount initialization
+      // 2. Mount and configure VHDX
+      final mountScript = """
+        Mount-DiskImage -ImagePath '$vhdxPath'
+        Start-Sleep -Seconds 2
+        \$disk = Get-DiskImage -ImagePath '$vhdxPath' | Get-Disk
+        if (\$disk.IsOffline) {
+          Set-Disk -Number \$disk.Number -IsOffline \$false
+        }
+        Set-Disk -Number \$disk.Number -IsReadOnly \$false
+        \$partitions = Get-Partition -DiskNumber \$disk.Number
+        \$dataPartition = \$partitions | Where-Object { \$_.Type -eq "Basic" -or \$_.PartitionNumber -eq 2 -or \$_.PartitionNumber -eq 1 } | Select-Object -First 1
+        if (\$dataPartition -and -not \$dataPartition.DriveLetter) {
+          try {
+            Set-Partition -DiskNumber \$disk.Number -PartitionNumber \$dataPartition.PartitionNumber -NewDriveLetter $letterOnly
+          } catch {
+            \$freeLetter = (3..25 | ForEach-Object { [char](\$_ + 65) } | Where-Object { -not (Get-Volume -DriveLetter \$_ -ErrorAction SilentlyContinue) }) | Select-Object -First 1
+            if (\$freeLetter) {
+              Set-Partition -DiskNumber \$disk.Number -PartitionNumber \$dataPartition.PartitionNumber -NewDriveLetter \$freeLetter
+            }
+          }
+        }
+      """;
+
+      await Process.run('powershell.exe', ['-Command', mountScript]);
+
+      // Wait a moment for mount initialization to settle
       await Future.delayed(const Duration(milliseconds: 2000));
 
       // 3. Dynamically detect drive letter
       final detectResult = await Process.run('powershell.exe', [
         '-Command',
-        "Get-Volume -DiskImage (Get-DiskImage -ImagePath '$vhdxPath') | Select-Object -ExpandProperty DriveLetter"
+        "Get-Partition -DiskNumber (Get-DiskImage -ImagePath '$vhdxPath' | Get-Disk).Number | Where-Object { \$_.DriveLetter } | Select-Object -ExpandProperty DriveLetter"
       ]);
       final detected = detectResult.stdout.toString().trim();
       final activeDriveLetter = detected.isNotEmpty ? '$detected:' : driveLetter;
