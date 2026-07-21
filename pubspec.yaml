@@ -124,8 +124,9 @@ msix_config:
   msix_version: 1.0.0.0
   logo_path: macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png
   capabilities: internetClient
-  install_certificate: true
-  certificate_subject: CN=IT Support BD, O=IT Support BD, L=Dhaka, S=Dhaka, C=BD
+  install_certificate: false
+  certificate_path: ampcrypt_cert.pfx
+  certificate_password: AMPCrypt2024!
   sign_msix: true
 
 inno_bundle:
