@@ -23,7 +23,7 @@ apply_standard_settings(${BINARY_NAME})
 
 if(WIN32)
   set_target_properties(${BINARY_NAME} PROPERTIES
-    LINK_FLAGS "/MANIFESTUAC:\"level='requireAdministrator' uiAccess='false'\""
+    LINK_FLAGS "/MANIFESTUAC:\"level='asInvoker' uiAccess='false'\""
   )
 endif()
 

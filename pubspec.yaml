@@ -133,5 +133,6 @@ inno_bundle:
   id: 4e8dd1a0-63ba-11f1-83ab-d7eb17d52ca0
   publisher: IT Support BD
   installer_icon: assets/app_icon.ico
+  admin: true
   languages:
     - english
