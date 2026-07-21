@@ -166,7 +166,8 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
     super.dispose();
   }
 
-  Future<void> _initSystemTray() async {
+  /// Rebuilds the system tray context menu to reflect the current vault lock state.
+  Future<void> _initSystemTray({bool isVaultUnlocked = false}) async {
     if (kIsWeb || (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux)) return;
 
     try {
@@ -176,12 +177,20 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
             : 'macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png'
       );
       
+      // Build tray tooltip to show vault status
+      await trayManager.setToolTip(
+        isVaultUnlocked ? 'AMPCrypt — Vault Unlocked 🔓' : 'AMPCrypt — Vault Locked 🔒'
+      );
+
       final menu = Menu(
         items: [
-          MenuItem(key: 'open', label: 'Open Dashboard'),
-          MenuItem(key: 'lock', label: 'Lock All Vaults'),
+          MenuItem(key: 'open', label: 'Open AMPCrypt'),
+          MenuItem(
+            key: 'lock',
+            label: isVaultUnlocked ? '🔒  Lock Vault Now' : '🔒  Vault is Locked',
+          ),
           MenuItem.separator(),
-          MenuItem(key: 'quit', label: 'Quit'),
+          MenuItem(key: 'quit', label: 'Exit AMPCrypt'),
         ],
       );
       await trayManager.setContextMenu(menu);
@@ -189,6 +198,11 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
     } catch (e) {
       debugPrint('Failed to initialize system tray: $e');
     }
+  }
+
+  /// Call this after vault state changes to keep the tray menu in sync.
+  Future<void> _updateTrayMenu(bool isUnlocked) async {
+    await _initSystemTray(isVaultUnlocked: isUnlocked);
   }
 
   // --- WindowListener overrides ---
@@ -545,6 +559,8 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                 ),
                 BlocConsumer<VaultBloc, VaultState>(
                   listener: (context, state) {
+                    // Keep tray menu in sync with vault lock state
+                    _updateTrayMenu(state is VaultUnlockedState);
                     if (state is VaultFailureState) {
                       if (state.errorMessage == 'WINFSP_MISSING') {
                         _showWinFspMissingDialog();
@@ -3861,34 +3877,16 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            repository.storageType == 'ftp'
-                                ? 'Files in $driveLetter\\ are encrypted on remote FTP server ${repository.getFtpHost()} and synced in real-time.'
-                                : 'Files in $driveLetter\\ are encrypted on $vaultPath and synced in real-time.',
-                            style: GoogleFonts.outfit(
-                              color: const Color(0xFF94A3B8),
-                              fontSize: 11,
-                            ),
-                          ),
                           const SizedBox(height: 6),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(Icons.info_outline, color: kPrimaryColor, size: 12),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  "Note: Windows WebDAV natively displays the C: drive capacity. Your files are securely stored on your original vault path.",
-                                  style: GoogleFonts.outfit(
-                                    color: const Color(0xFF64748B),
-                                    fontSize: 10,
-                                    height: 1.3,
-                                  ),
-                                ),
-                              ),
-                            ],
+                          // Vault data path — clearly shows which physical drive is used
+                          _VaultDataPathRow(
+                            vaultPath: vaultPath,
+                            storageType: repository.storageType,
+                            ftpHost: repository.getFtpHost(),
                           ),
+                          const SizedBox(height: 8),
+                          // Real disk usage bar
+                          _RealDiskUsageBar(vaultPath: vaultPath),
                         ],
                       ),
                     ),
@@ -8024,3 +8022,189 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Drive Status Widgets — Added by AMPCrypt Super Dev Team
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Shows the real physical vault data path with drive letter badge.
+class _VaultDataPathRow extends StatelessWidget {
+  final String vaultPath;
+  final String storageType;
+  final String? ftpHost;
+
+  const _VaultDataPathRow({
+    required this.vaultPath,
+    required this.storageType,
+    this.ftpHost,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isLocal = storageType == 'local';
+    final driveRoot = isLocal && vaultPath.length >= 2
+        ? vaultPath.substring(0, 2).toUpperCase()
+        : null;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        if (driveRoot != null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            decoration: BoxDecoration(
+              color: kPrimaryColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(5),
+              border: Border.all(color: kPrimaryColor.withValues(alpha: 0.3)),
+            ),
+            child: Text(
+              driveRoot,
+              style: GoogleFonts.shareTechMono(
+                color: kPrimaryColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 11,
+              ),
+            ),
+          ),
+        if (driveRoot != null) const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            isLocal ? 'Data path: $vaultPath' : 'FTP: $ftpHost$vaultPath',
+            style: GoogleFonts.outfit(
+              color: const Color(0xFF94A3B8),
+              fontSize: 11,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Fetches and renders a real disk usage bar using the getDiskSpace method channel.
+class _RealDiskUsageBar extends StatefulWidget {
+  final String vaultPath;
+  const _RealDiskUsageBar({required this.vaultPath});
+
+  @override
+  State<_RealDiskUsageBar> createState() => _RealDiskUsageBarState();
+}
+
+class _RealDiskUsageBarState extends State<_RealDiskUsageBar> {
+  static const _channel = MethodChannel('ampcrypt/winfsp');
+
+  int? _totalBytes;
+  int? _freeBytes;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDiskStats();
+  }
+
+  Future<void> _fetchDiskStats() async {
+    if (!Platform.isWindows) {
+      setState(() => _loading = false);
+      return;
+    }
+    try {
+      final result = await _channel.invokeMapMethod<String, dynamic>(
+        'getDiskSpace',
+        widget.vaultPath,
+      );
+      if (result != null && mounted) {
+        setState(() {
+          _totalBytes = (result['total'] as int?) ?? 0;
+          _freeBytes = (result['free'] as int?) ?? 0;
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  String _fmt(int bytes) {
+    if (bytes >= 1024 * 1024 * 1024 * 1024) {
+      return '${(bytes / (1024.0 * 1024 * 1024 * 1024)).toStringAsFixed(1)} TB';
+    } else if (bytes >= 1024 * 1024 * 1024) {
+      return '${(bytes / (1024.0 * 1024 * 1024)).toStringAsFixed(1)} GB';
+    } else if (bytes >= 1024 * 1024) {
+      return '${(bytes / (1024.0 * 1024)).toStringAsFixed(1)} MB';
+    } else {
+      return '${bytes ~/ 1024} KB';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return Row(
+        children: [
+          const SizedBox(
+            width: 12,
+            height: 12,
+            child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF16A34A)),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Reading disk stats…',
+            style: GoogleFonts.outfit(fontSize: 10, color: const Color(0xFF64748B)),
+          ),
+        ],
+      );
+    }
+
+    if (_totalBytes == null || _totalBytes == 0) return const SizedBox.shrink();
+
+    final usedBytes = _totalBytes! - _freeBytes!;
+    final usedRatio = usedBytes / _totalBytes!;
+    Color barColor;
+    if (usedRatio < 0.7) {
+      barColor = kSuccessColor;
+    } else if (usedRatio < 0.9) {
+      barColor = Colors.orange;
+    } else {
+      barColor = kErrorColor;
+    }
+
+    final driveLabel = widget.vaultPath.length >= 2
+        ? widget.vaultPath.substring(0, 2).toUpperCase()
+        : '';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'DISK USAGE ($driveLabel)',
+              style: GoogleFonts.outfit(
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.8,
+                color: const Color(0xFF64748B),
+              ),
+            ),
+            Text(
+              '${_fmt(usedBytes)} used  ·  ${_fmt(_freeBytes!)} free  /  ${_fmt(_totalBytes!)}',
+              style: GoogleFonts.outfit(fontSize: 9, color: const Color(0xFF94A3B8)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: usedRatio.clamp(0.0, 1.0),
+            minHeight: 5,
+            backgroundColor: const Color(0xFF1E293B),
+            valueColor: AlwaysStoppedAnimation<Color>(barColor),
+          ),
+        ),
+      ],
+    );
+  }
+}

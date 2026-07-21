@@ -12,3 +12,7 @@ std::vector<uint8_t> DecryptKekWithTpm(const std::vector<uint8_t>& encryptedKek,
 // WinFsp Mount Helper Functions
 bool MountWinFspDrive(const std::wstring& driveLetter, int webDavPort);
 bool UnmountWinFspDrive(const std::wstring& driveLetter);
+
+/// Sets the vault root path used to query real disk statistics (e.g., L"E:\\").
+/// Call this before or after MountWinFspDrive.
+void SetVaultRootPath(const std::wstring& rootPath);

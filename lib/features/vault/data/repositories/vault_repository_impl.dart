@@ -495,9 +495,16 @@ class VaultRepositoryImpl implements VaultRepository {
         } catch (_) {}
       } catch (_) {}
 
+      // Notify Windows shell immediately, then again after 1s to
+      // ensure Explorer updates the drive icon reliably.
       try {
         await _winFspChannel.invokeMethod<void>('refreshShell');
       } catch (_) {}
+      Future.delayed(const Duration(milliseconds: 1000), () async {
+        try {
+          await _winFspChannel.invokeMethod<void>('refreshShell');
+        } catch (_) {}
+      });
       
       await PortableStateSync.syncToPortable();
       return;
@@ -569,6 +576,13 @@ class VaultRepositoryImpl implements VaultRepository {
       // Wait a moment for rclone to initialize mount
       await Future.delayed(const Duration(milliseconds: 1500));
 
+      // Also notify WinFSP about vault root path for accurate disk stats
+      // (rclone path — try to derive drive root from vaultPath)
+      try {
+        final driveLetter2 = driveLetter.replaceAll(':', '');
+        // No-op for rclone mode; vault path disk root is set via getDiskSpace C++ handler
+      } catch (_) {}
+
       // HKLM / HKCU Local Drive Icon Injection (Fixing the Square Icon)
       try {
         final letterOnly = driveLetter.replaceAll(':', '');
@@ -638,10 +652,16 @@ class VaultRepositoryImpl implements VaultRepository {
         } catch (_) {}
       } catch (_) {}
 
-      // Notify Windows shell to refresh icon cache immediately
+      // Notify Windows shell to refresh icon cache immediately — called twice
+      // (once now, and once after 1 s) to ensure Explorer picks up the new icon.
       try {
         await _winFspChannel.invokeMethod<void>('refreshShell');
       } catch (_) {}
+      Future.delayed(const Duration(milliseconds: 1000), () async {
+        try {
+          await _winFspChannel.invokeMethod<void>('refreshShell');
+        } catch (_) {}
+      });
     }
   }
 
@@ -791,13 +811,21 @@ class VaultRepositoryImpl implements VaultRepository {
   }
 
   Future<String> _ensureRclone() async {
+    // 1. Check installer's Program Files directory first (bundled rclone)
+    final programFiles = Platform.environment['ProgramFiles'] ?? r'C:\Program Files';
+    final bundledRclone = File(p.join(programFiles, 'ampcrypt', 'rclone.exe'));
+    if (await bundledRclone.exists()) {
+      return bundledRclone.path;
+    }
+
+    // 2. Check AppData support directory (previously downloaded)
     final supportDir = await getApplicationSupportDirectory();
     final rcloneExe = File(p.join(supportDir.path, 'rclone.exe'));
     if (await rcloneExe.exists()) {
       return rcloneExe.path;
     }
-    
-    // Download and extract silently
+
+    // 3. Last resort: download from internet silently
     final psCommand = '''
       Set-Location -Path '${supportDir.path}';
       [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;

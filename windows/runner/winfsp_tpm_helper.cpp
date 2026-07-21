@@ -129,6 +129,7 @@ static FSP_FILE_SYSTEM *g_FileSystem = nullptr;
 static std::wstring g_DriveLetter;
 static int g_WebDavPort = 0;
 static std::thread g_DispatcherThread;
+static std::wstring g_VaultRootPath; // e.g. L"E:\\"
 
 bool LoadWinFsp() {
     if (hWinFspDll != nullptr) return true;
@@ -168,8 +169,24 @@ bool LoadWinFsp() {
 // Forward requests to localhost WebDAV server via HTTP using WinHTTP
 
 static NTSTATUS FspGetVolumeInfo(FSP_FILE_SYSTEM *FileSystem, FSP_FSCTL_VOLUME_INFO *VolumeInfo) {
-    VolumeInfo->TotalSize = 100ULL * 1024 * 1024 * 1024; // 100 GB
-    VolumeInfo->FreeSize = 50ULL * 1024 * 1024 * 1024;   // 50 GB
+    // Default fallback values
+    UINT64 totalSize = 100ULL * 1024 * 1024 * 1024; // 100 GB
+    UINT64 freeSize  =  50ULL * 1024 * 1024 * 1024; //  50 GB
+
+    // Query real disk stats from the vault's host drive
+    if (!g_VaultRootPath.empty()) {
+        ULARGE_INTEGER freeBytesAvailable, totalBytes, totalFreeBytes;
+        if (GetDiskFreeSpaceExW(g_VaultRootPath.c_str(),
+                                &freeBytesAvailable,
+                                &totalBytes,
+                                &totalFreeBytes)) {
+            totalSize = totalBytes.QuadPart;
+            freeSize  = freeBytesAvailable.QuadPart;
+        }
+    }
+
+    VolumeInfo->TotalSize = totalSize;
+    VolumeInfo->FreeSize  = freeSize;
     VolumeInfo->VolumeLabelLength = 16;
     memcpy(VolumeInfo->VolumeLabel, L"AMPCrypt", 16);
     return STATUS_SUCCESS;
@@ -368,5 +385,10 @@ bool UnmountWinFspDrive(const std::wstring& driveLetter) {
     pfnFspFileSystemRemoveMountPoint(g_FileSystem);
     pfnFspFileSystemDelete(g_FileSystem);
     g_FileSystem = nullptr;
+    g_VaultRootPath.clear();
     return true;
+}
+
+void SetVaultRootPath(const std::wstring& rootPath) {
+    g_VaultRootPath = rootPath;
 }

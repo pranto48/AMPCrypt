@@ -145,15 +145,31 @@ bool FlutterWindow::OnCreate() {
           }
           auto drive_it = args_map->find(flutter::EncodableValue("driveLetter"));
           auto port_it = args_map->find(flutter::EncodableValue("port"));
+          auto path_it = args_map->find(flutter::EncodableValue("vaultPath"));
           if (drive_it == args_map->end() || port_it == args_map->end()) {
             result->Error("INVALID_ARGUMENTS", "Missing driveLetter or port.");
             return;
           }
           std::string drive = std::get<std::string>(drive_it->second);
           int port = std::get<int>(port_it->second);
-          
+
+          // Extract vault path to compute real drive root for disk stat queries
+          std::wstring rootPath;
+          if (path_it != args_map->end()) {
+            const auto* path_str = std::get_if<std::string>(&path_it->second);
+            if (path_str && path_str->size() >= 2) {
+              // Convert e.g. "E:\Data" -> L"E:\\"
+              std::wstring wp(path_str->begin(), path_str->end());
+              if ((wp[1] == L':')) {
+                rootPath = wp.substr(0, 2) + L"\\";
+              }
+            }
+          }
+
           std::wstring wdrive(drive.begin(), drive.end());
-          std::thread([result, wdrive, port]() {
+          std::thread([result, wdrive, port, rootPath]() {
+            // Set vault root path before mounting so FspGetVolumeInfo can report real stats
+            SetVaultRootPath(rootPath);
             bool success = MountWinFspDrive(wdrive, port);
             result->Success(flutter::EncodableValue(success));
           }).detach();
