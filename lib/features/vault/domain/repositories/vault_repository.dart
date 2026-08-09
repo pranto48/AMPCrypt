@@ -111,8 +111,11 @@ abstract class VaultRepository {
   /// Verifies if the provided password matches the vault master password.
   Future<bool> verifyVaultPassword(String password);
 
-  /// Deletes vault files after verifying master password.
-  Future<bool> deleteVaultDataWithPassword(String password);
+  /// Removes vault profile entry from AMPCrypt UI list without deleting files on disk.
+  Future<void> removeVaultFromApp(String vaultPath);
+
+  /// Force deletes vault files on disk after verifying master password.
+  Future<bool> forceDeleteVaultDataWithPassword(String password, String vaultPath);
 
   /// Gets simulated device status information for display.
   Future<Map<String, dynamic>> getDeviceStatus();

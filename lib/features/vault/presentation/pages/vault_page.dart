@@ -532,32 +532,42 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
 
   void _showDeleteVaultDialog(BuildContext context) {
     final repo = context.read<VaultBloc>().repository;
-    String rawName = p.basename(repo.getVaultPath()).replaceAll('.ampcrypt_vault_', '');
+    final vaultPath = repo.getVaultPath();
+    String rawName = p.basename(vaultPath).replaceAll('.ampcrypt_vault_', '');
     if (rawName.isEmpty || rawName == '.' || rawName == '/') rawName = 'Forestsong';
 
     showDialog<bool>(
       context: context,
       builder: (dialogContext) => DeleteVaultDialog(
         vaultName: rawName,
-        onDeleteConfirm: (password) async {
-          final repo = context.read<VaultBloc>().repository;
-          final success = await repo.deleteVaultDataWithPassword(password);
-          if (success && context.mounted) {
+        vaultPath: vaultPath,
+        onRemoveFromApp: () async {
+          await repo.removeVaultFromApp(vaultPath);
+          if (mounted) {
             context.read<VaultBloc>().add(ResetToUninitializedEvent());
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: kPrimaryColor,
+                content: Text('Vault removed from app list. Files on disk remain safe.', style: GoogleFonts.outfit()),
+              ),
+            );
+          }
+        },
+        onForceDeleteConfirm: (password) async {
+          final success = await repo.forceDeleteVaultDataWithPassword(password, vaultPath);
+          if (success && mounted) {
+            context.read<VaultBloc>().add(ResetToUninitializedEvent());
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: kErrorColor,
+                content: Text('Vault and all physical files deleted from disk.', style: GoogleFonts.outfit()),
+              ),
+            );
           }
           return success;
         },
       ),
-    ).then((deleted) {
-      if (deleted == true && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: kErrorColor,
-            content: Text('Vault profile and data deleted.', style: GoogleFonts.outfit()),
-          ),
-        );
-      }
-    });
+    );
   }
 
   void _showPreferencesDialog(BuildContext context, {int initialTab = 0}) {

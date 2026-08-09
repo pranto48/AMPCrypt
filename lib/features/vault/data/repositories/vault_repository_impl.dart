@@ -337,17 +337,40 @@ class VaultRepositoryImpl implements VaultRepository {
   }
 
   @override
-  Future<bool> deleteVaultDataWithPassword(String password) async {
+  Future<void> removeVaultFromApp(String targetPath) async {
+    lockVault();
+    final target = targetPath.isNotEmpty ? targetPath : getVaultPath();
+    await removeRememberedVault(target);
+    if (getVaultPath() == target) {
+      await _prefs.setBool('vault_created', false);
+    }
+  }
+
+  @override
+  Future<bool> forceDeleteVaultDataWithPassword(String password, String targetPath) async {
     final isVerified = await verifyVaultPassword(password);
     if (!isVerified) return false;
 
     lockVault();
-    await clearVaultData();
 
-    final currentPath = getVaultPath();
-    await removeRememberedVault(currentPath);
-    await _prefs.setBool('vault_created', false);
+    final target = targetPath.isNotEmpty ? targetPath : getVaultPath();
+
+    try {
+      final dir = Directory(target);
+      if (dir.existsSync()) {
+        dir.deleteSync(recursive: true);
+      }
+    } catch (_) {
+      await clearVaultData();
+    }
+
+    await removeVaultFromApp(target);
     return true;
+  }
+
+  @override
+  Future<bool> deleteVaultDataWithPassword(String password) async {
+    return forceDeleteVaultDataWithPassword(password, getVaultPath());
   }
 
   // ─── MOUNT HELPERS ───────────────────────────────────────────────────────────
