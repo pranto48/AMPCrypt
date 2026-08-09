@@ -567,15 +567,67 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
     );
   }
 
-  void _openDriveInExplorer(String driveLetter) async {
+  void _showLocateVaultDialog(BuildContext context) async {
     try {
-      await launchUrl(Uri.file('$driveLetter\\'));
+      final selectedPath = await FilePicker.getDirectoryPath();
+      if (selectedPath != null && mounted) {
+        final repo = context.read<VaultBloc>().repository;
+        final isValid = repo.isVaultPathValid(selectedPath);
+        if (isValid) {
+          await repo.relocateVaultFolder(selectedPath);
+          if (mounted) {
+            setState(() {});
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: kSuccessColor,
+                content: Text('Vault reconnected to: $selectedPath', style: GoogleFonts.outfit()),
+              ),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: kErrorColor,
+                content: Text(
+                  'Selected folder does not contain AMPCrypt vault files.',
+                  style: GoogleFonts.outfit(),
+                ),
+              ),
+            );
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  void _openDriveInExplorer(String driveLetter) async {
+    final cleanLetter = driveLetter.replaceAll(':', '');
+    final driveDir = Directory('$cleanLetter:\\');
+
+    if (!driveDir.existsSync()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFFEAB308),
+            content: Text(
+              'Virtual drive $cleanLetter: is not mounted or ready.',
+              style: GoogleFonts.outfit(color: Colors.black, fontWeight: FontWeight.bold),
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      await launchUrl(Uri.file('$cleanLetter:\\'));
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: kPrimaryColor,
-            content: Text('Drive path: $driveLetter (Mount target active)', style: GoogleFonts.outfit()),
+            content: Text('Drive path: $cleanLetter:\\ (Mount active)', style: GoogleFonts.outfit()),
           ),
         );
       }
@@ -697,6 +749,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                         onDecryptFileName: () {
                           CipherToolsDialog.showDecryptFileNameDialog(context);
                         },
+                        onLocateVault: () => _showLocateVaultDialog(context),
                         onRecoveryTap: () {
                           _showSecurityRecoveryDialog(context);
                         },

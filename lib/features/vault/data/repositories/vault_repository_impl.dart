@@ -203,10 +203,42 @@ class VaultRepositoryImpl implements VaultRepository {
     return recoveryMnemonics;
   }
 
+  @override
+  bool isVaultPathValid(String? path) {
+    if (path == null || path.isEmpty) return false;
+    final dir = Directory(path);
+    if (!dir.existsSync()) return false;
+    final masterkey = File(p.join(path, 'masterkey.ampcrypt'));
+    final vault = File(p.join(path, 'vault.ampcrypt'));
+    return masterkey.existsSync() || vault.existsSync();
+  }
+
+  @override
+  Future<bool> relocateVaultFolder(String newPath) async {
+    if (!isVaultPathValid(newPath)) return false;
+    await _prefs.setString('vault_path', newPath);
+    final profiles = await getRememberedVaults();
+    if (profiles.isNotEmpty) {
+      final old = profiles.first;
+      profiles[0] = VaultProfile(
+        name: old.name,
+        path: newPath,
+        storageType: old.storageType,
+        driveLetter: old.driveLetter,
+      );
+      await _saveRememberedVaults(profiles);
+    }
+    return true;
+  }
+
   // ─── UNLOCK VAULT ────────────────────────────────────────────────────────────
 
   @override
   Future<bool> unlockVault(String password) async {
+    final vPath = getVaultPath();
+    if (!Directory(vPath).existsSync()) {
+      throw Exception('Vault directory not found at "$vPath". Please relocate vault folder.');
+    }
     try {
       final config = _loadVaultConfig();
       final String? saltBase64 = config != null ? config['password_salt'] : _prefs.getString('password_salt');

@@ -126,6 +126,12 @@ abstract class VaultRepository {
   /// Gets the vault folder path.
   String getVaultPath();
 
+  /// Checks if the vault path exists on disk and contains vault metadata.
+  bool isVaultPathValid(String? path);
+
+  /// Updates the vault path to a new location (e.g. after folder rename/move).
+  Future<bool> relocateVaultFolder(String newPath);
+
   /// Gets the FTP host if active.
   String? getFtpHost();
 
