@@ -530,11 +530,11 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
     );
   }
 
-  void _showDeleteVaultDialog(BuildContext context) {
+  void _showDeleteVaultDialog(BuildContext context, [String? targetPath]) {
     final repo = context.read<VaultBloc>().repository;
-    final vaultPath = repo.getVaultPath();
+    final vaultPath = (targetPath != null && targetPath.isNotEmpty) ? targetPath : repo.getVaultPath();
     String rawName = p.basename(vaultPath).replaceAll('.ampcrypt_vault_', '');
-    if (rawName.isEmpty || rawName == '.' || rawName == '/') rawName = 'Forestsong';
+    if (rawName.isEmpty || rawName == '.' || rawName == '/') rawName = 'Data';
 
     showDialog<bool>(
       context: context,
@@ -544,6 +544,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
         onRemoveFromApp: () async {
           context.read<VaultBloc>().add(RemoveVaultFromAppEvent(vaultPath));
           if (mounted) {
+            setState(() {});
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 backgroundColor: kPrimaryColor,
@@ -556,6 +557,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
           final isVerified = await repo.verifyVaultPassword(password);
           if (isVerified && mounted) {
             context.read<VaultBloc>().add(ForceDeleteVaultEvent(password, vaultPath));
+            setState(() {});
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 backgroundColor: kErrorColor,
@@ -574,6 +576,80 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
     showDialog(
       context: context,
       builder: (dialogContext) => PreferencesDialog(initialTabIndex: initialTab),
+    );
+  }
+
+  Widget _buildEmptyVaultsView(BuildContext context, bool isDark) {
+    final bg = isDark ? const Color(0xFF0B101D) : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF1E293B);
+    final subtitleColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+
+    return Container(
+      color: bg,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              ),
+              child: const Icon(
+                Icons.security_rounded,
+                size: 48,
+                color: Color(0xFF22C55E),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'No Vaults Available',
+              style: GoogleFonts.outfit(
+                color: textColor,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Create a new vault or open an existing vault on your computer.',
+              style: GoogleFonts.outfit(
+                color: subtitleColor,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF22C55E),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: Text('Create New Vault', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13)),
+                  onPressed: () => _showCreateVaultDialog(context),
+                ),
+                const SizedBox(width: 14),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: textColor,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.folder_open_rounded, size: 18),
+                  label: Text('Open Existing Vault', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 13)),
+                  onPressed: () => _showOpenVaultDialog(context),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -704,33 +780,51 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                 final isUnlocked = state is VaultUnlockedState;
                 final isLoading = state is VaultLoadingState;
                 final loadingMessage = state is VaultLoadingState ? state.message : null;
-                
+
+                final rememberedVaults = repo.getRememberedVaults();
+                final sidebarVaults = rememberedVaults.map((v) => VaultSidebarItem(
+                  id: v.path,
+                  name: v.name,
+                  path: v.path,
+                  isUnlocked: isUnlocked && repo.getVaultPath() == v.path,
+                )).toList();
+
+                if (state is VaultUninitializedState || sidebarVaults.isEmpty || !repo.isVaultCreated) {
+                  return Row(
+                    children: [
+                      VaultSidebar(
+                        vaults: sidebarVaults,
+                        selectedVaultId: null,
+                        onSelectVault: (id) {},
+                        onCreateVault: () => _showCreateVaultDialog(context),
+                        onOpenVault: () => _showOpenVaultDialog(context),
+                        onAddFtpDrive: () => _showAddFtpDriveDialog(context),
+                        onOpenAlerts: () => _showSecurityRecoveryDialog(context),
+                        onOpenPreferences: () => _showPreferencesDialog(context),
+                        onDeleteVault: (id) => _showDeleteVaultDialog(context),
+                      ),
+                      Expanded(
+                        child: _buildEmptyVaultsView(context, isDark),
+                      ),
+                    ],
+                  );
+                }
+
                 String rawName = p.basename(repo.getVaultPath()).replaceAll('.ampcrypt_vault_', '');
-                if (rawName.isEmpty || rawName == '.' || rawName == '/') rawName = 'Forestsong';
+                if (rawName.isEmpty || rawName == '.' || rawName == '/') rawName = 'Data';
                 final vaultName = rawName;
-
-                final vaultPath = repo.getVaultPath().isNotEmpty 
-                    ? repo.getVaultPath() 
-                    : 'F:\\OneDrive - arifmahmud\\Forestsong';
-                final driveLetter = repo.getDriveLetter().isNotEmpty 
-                    ? repo.getDriveLetter() 
-                    : 'G:';
-
-                final sidebarVaults = [
-                  VaultSidebarItem(
-                    id: 'primary',
-                    name: vaultName,
-                    path: vaultPath,
-                    isUnlocked: isUnlocked,
-                  ),
-                ];
+                final vaultPath = repo.getVaultPath();
+                final driveLetter = repo.getDriveLetter().isNotEmpty ? repo.getDriveLetter() : 'G:';
 
                 return Row(
                   children: [
                     VaultSidebar(
                       vaults: sidebarVaults,
-                      selectedVaultId: 'primary',
-                      onSelectVault: (id) {},
+                      selectedVaultId: vaultPath,
+                      onSelectVault: (id) async {
+                        await repo.relocateVaultFolder(id);
+                        setState(() {});
+                      },
                       onCreateVault: () => _showCreateVaultDialog(context),
                       onOpenVault: () => _showOpenVaultDialog(context),
                       onAddFtpDrive: () => _showAddFtpDriveDialog(context),

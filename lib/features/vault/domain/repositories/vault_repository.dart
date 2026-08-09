@@ -135,6 +135,12 @@ abstract class VaultRepository {
   /// Updates the vault path to a new location (e.g. after folder rename/move).
   Future<bool> relocateVaultFolder(String newPath);
 
+  /// Gets the list of remembered vault profiles.
+  List<VaultProfile> getRememberedVaults();
+
+  /// Saves the list of remembered vault profiles.
+  Future<void> saveRememberedVaults(List<VaultProfile> profiles);
+
   /// Gets the FTP host if active.
   String? getFtpHost();
 

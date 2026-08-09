@@ -217,18 +217,27 @@ class VaultRepositoryImpl implements VaultRepository {
   Future<bool> relocateVaultFolder(String newPath) async {
     if (!isVaultPathValid(newPath)) return false;
     await _prefs.setString('vault_path', newPath);
-    final profiles = await getRememberedVaults();
+    final profiles = getRememberedVaults();
     if (profiles.isNotEmpty) {
       final old = profiles.first;
+      String name = p.basename(newPath).replaceAll('.ampcrypt_vault_', '');
+      if (name.isEmpty || name == '.' || name == '/') name = 'Data';
       profiles[0] = VaultProfile(
-        name: old.name,
+        name: name,
         path: newPath,
         storageType: old.storageType,
         driveLetter: old.driveLetter,
       );
-      await _saveRememberedVaults(profiles);
+      await saveRememberedVaults(profiles);
     }
     return true;
+  }
+
+  Future<void> addRememberedVault(VaultProfile profile) async {
+    final profiles = getRememberedVaults();
+    profiles.removeWhere((p) => p.path == profile.path);
+    profiles.insert(0, profile);
+    await saveRememberedVaults(profiles);
   }
 
   // ─── UNLOCK VAULT ────────────────────────────────────────────────────────────
@@ -337,11 +346,55 @@ class VaultRepositoryImpl implements VaultRepository {
   }
 
   @override
+  List<VaultProfile> getRememberedVaults() {
+    try {
+      final jsonString = _prefs.getString('remembered_vaults');
+      if (jsonString != null && jsonString.isNotEmpty) {
+        final List<dynamic> list = json.decode(jsonString);
+        return list.map((e) => VaultProfile.fromJson(e as Map<String, dynamic>)).toList();
+      }
+    } catch (_) {}
+
+    final currentPath = _prefs.getString('vault_path');
+    final isCreated = _prefs.getBool('vault_created') ?? false;
+    if (isCreated && currentPath != null && currentPath.isNotEmpty) {
+      String name = p.basename(currentPath).replaceAll('.ampcrypt_vault_', '');
+      if (name.isEmpty || name == '.' || name == '/') name = 'Data';
+      final driveLetter = _prefs.getString('drive_letter') ?? 'G:';
+      return [
+        VaultProfile(
+          name: name,
+          path: currentPath,
+          storageType: 'local',
+          driveLetter: driveLetter,
+        ),
+      ];
+    }
+    return [];
+  }
+
+  @override
+  Future<void> saveRememberedVaults(List<VaultProfile> profiles) async {
+    final listMap = profiles.map((p) => p.toJson()).toList();
+    await _prefs.setString('remembered_vaults', json.encode(listMap));
+  }
+
+  @override
   Future<void> removeVaultFromApp(String targetPath) async {
     lockVault();
     final target = targetPath.isNotEmpty ? targetPath : getVaultPath();
-    await removeRememberedVault(target);
-    if (getVaultPath() == target) {
+    final profiles = getRememberedVaults();
+
+    profiles.removeWhere((p) => p.path == target || p.path == targetPath);
+    await saveRememberedVaults(profiles);
+
+    if (profiles.isNotEmpty) {
+      final next = profiles.first;
+      await _prefs.setString('vault_path', next.path);
+      await _prefs.setString('drive_letter', next.driveLetter);
+      await _prefs.setBool('vault_created', true);
+    } else {
+      await _prefs.remove('vault_path');
       await _prefs.setBool('vault_created', false);
     }
   }
