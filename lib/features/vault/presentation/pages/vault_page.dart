@@ -28,6 +28,7 @@ import '../widgets/cryptomator_title_bar.dart';
 import '../widgets/cryptomator_banners.dart';
 import '../widgets/preferences_dialog.dart';
 import '../widgets/cipher_tools_dialog.dart';
+import '../widgets/backup_restore_dialog.dart';
 import '../widgets/vault_sidebar.dart';
 import '../widgets/vault_main_content.dart';
 import '../../../biometrics/data/datasources/face_verification_service.dart';
@@ -499,62 +500,27 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
   }
 
   void _showSecurityRecoveryDialog(BuildContext context) {
-    final phrasesController = TextEditingController();
+    final repo = context.read<VaultBloc>().repository;
+    final vaultPath = repo.getVaultPath().isNotEmpty
+        ? repo.getVaultPath()
+        : 'F:\\OneDrive - arifmahmud\\Forestsong';
+
     showDialog(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: kSurfaceColor,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: Text(
-            'SLIP-39 Security Recovery',
-            style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Enter 2 of 3 SLIP-39 mnemonic recovery phrases separated by commas or line breaks:',
-                style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: phrasesController,
-                maxLines: 4,
-                style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 12),
-                decoration: const InputDecoration(
-                  hintText: 'share-1 phrase...\nshare-2 phrase...',
-                  hintStyle: TextStyle(color: Color(0xFF64748B)),
-                  filled: true,
-                  fillColor: Color(0xFF0F172A),
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text('Cancel', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8))),
+      builder: (dialogContext) => BackupRestoreDialog(
+        vaultPath: vaultPath,
+        onRecoverSLIP39: (phrases) {
+          context.read<VaultBloc>().add(RecoverVaultEvent(phrases));
+        },
+        onRestoreBackupFile: (restoredPath) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: kSuccessColor,
+              content: Text('Backup configuration restored.', style: GoogleFonts.outfit()),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: kPrimaryColor,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                final text = phrasesController.text.trim();
-                if (text.isNotEmpty) {
-                  final phrases = text.split(RegExp(r'[,\n]')).map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-                  Navigator.of(dialogContext).pop();
-                  context.read<VaultBloc>().add(RecoverVaultEvent(phrases));
-                }
-              },
-              child: Text('Recover Vault', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-            ),
-          ],
-        );
-      },
+          );
+        },
+      ),
     );
   }
 

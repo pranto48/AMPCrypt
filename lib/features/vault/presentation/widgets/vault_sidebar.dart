@@ -164,16 +164,16 @@ class VaultSidebar extends StatelessWidget {
                     onSelected: (value) {
                       if (value == 'new') onCreateVault();
                       if (value == 'open') onOpenVault();
-                      if (value == 'ftp') onAddFtpDrive();
+                      if (value == 'recover') onOpenAlerts(); // launches Recovery & Backup
                     },
                     itemBuilder: (context) => [
                       PopupMenuItem(
                         value: 'new',
                         child: Row(
                           children: [
-                            const Icon(Icons.add_circle_outline, color: Color(0xFF22C55E), size: 16),
+                            const Icon(Icons.add, color: Color(0xFF1E293B), size: 16),
                             const SizedBox(width: 8),
-                            Text('Create New Vault', style: GoogleFonts.outfit(fontSize: 12)),
+                            Text('Create New Vault...', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w500)),
                           ],
                         ),
                       ),
@@ -181,19 +181,19 @@ class VaultSidebar extends StatelessWidget {
                         value: 'open',
                         child: Row(
                           children: [
-                            const Icon(Icons.folder_open_outlined, color: Color(0xFF22C55E), size: 16),
+                            const Icon(Icons.folder_outlined, color: Color(0xFF1E293B), size: 16),
                             const SizedBox(width: 8),
-                            Text('Open Existing Vault', style: GoogleFonts.outfit(fontSize: 12)),
+                            Text('Open Existing Vault...', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w500)),
                           ],
                         ),
                       ),
                       PopupMenuItem(
-                        value: 'ftp',
+                        value: 'recover',
                         child: Row(
                           children: [
-                            const Icon(Icons.cloud_queue_outlined, color: Color(0xFF22C55E), size: 16),
+                            const Icon(Icons.sync_rounded, color: Color(0xFF1E293B), size: 16),
                             const SizedBox(width: 8),
-                            Text('Add FTP Drive', style: GoogleFonts.outfit(fontSize: 12)),
+                            Text('Recover Existing Vault...', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w500)),
                           ],
                         ),
                       ),

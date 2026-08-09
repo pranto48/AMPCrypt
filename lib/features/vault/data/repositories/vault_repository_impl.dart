@@ -1339,6 +1339,28 @@ class VaultRepositoryImpl implements VaultRepository {
 
     await metadataFile.writeAsString(json.encode(metadata), flush: true);
     await masterkeyFile.writeAsString(json.encode(masterkey), flush: true);
+
+    // Auto-generate backup .bkup files matching Cryptomator format
+    try {
+      final hash = DateTime.now().millisecondsSinceEpoch.toRadixString(16).toUpperCase().padLeft(8, '0').substring(0, 8);
+      final masterkeyBkup = File(p.join(vaultPath, 'masterkey.ampcrypt.$hash.bkup'));
+      final vaultBkup = File(p.join(vaultPath, 'vault.ampcrypt.$hash.bkup'));
+      await masterkeyBkup.writeAsString(json.encode(masterkey), flush: true);
+      await vaultBkup.writeAsString(json.encode(metadata), flush: true);
+
+      // Create encrypted data directory 'd'
+      Directory(p.join(vaultPath, 'd')).createSync(recursive: true);
+
+      // Create IMPORTANT.rtf instruction file
+      final importantFile = File(p.join(vaultPath, 'IMPORTANT.rtf'));
+      if (!importantFile.existsSync()) {
+        await importantFile.writeAsString(
+          r'{\rtf1\ansi\deff0 {\fonttbl{\f0 Arial;}}\f0\fs20 THIS FOLDER CONTAINS AN AMPCRYPT ENCRYPTED VAULT.\par DO NOT MODIFY OR DELETE ANY FILES OR THE "d" DIRECTORY.}',
+          flush: true,
+        );
+      }
+    } catch (_) {}
+
     await PortableStateSync.syncToPortable();
   }
 
