@@ -29,6 +29,7 @@ import '../widgets/cryptomator_banners.dart';
 import '../widgets/preferences_dialog.dart';
 import '../widgets/cipher_tools_dialog.dart';
 import '../widgets/backup_restore_dialog.dart';
+import '../widgets/delete_vault_dialog.dart';
 import '../widgets/vault_sidebar.dart';
 import '../widgets/vault_main_content.dart';
 import '../../../biometrics/data/datasources/face_verification_service.dart';
@@ -529,6 +530,36 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
     );
   }
 
+  void _showDeleteVaultDialog(BuildContext context) {
+    final repo = context.read<VaultBloc>().repository;
+    String rawName = p.basename(repo.getVaultPath()).replaceAll('.ampcrypt_vault_', '');
+    if (rawName.isEmpty || rawName == '.' || rawName == '/') rawName = 'Forestsong';
+
+    showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => DeleteVaultDialog(
+        vaultName: rawName,
+        onDeleteConfirm: (password) async {
+          final repo = context.read<VaultBloc>().repository;
+          final success = await repo.deleteVaultDataWithPassword(password);
+          if (success && context.mounted) {
+            context.read<VaultBloc>().add(ResetToUninitializedEvent());
+          }
+          return success;
+        },
+      ),
+    ).then((deleted) {
+      if (deleted == true && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: kErrorColor,
+            content: Text('Vault profile and data deleted.', style: GoogleFonts.outfit()),
+          ),
+        );
+      }
+    });
+  }
+
   void _showPreferencesDialog(BuildContext context, {int initialTab = 0}) {
     showDialog(
       context: context,
@@ -643,6 +674,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                       onAddFtpDrive: () => _showAddFtpDriveDialog(context),
                       onOpenAlerts: () => _showSecurityRecoveryDialog(context),
                       onOpenPreferences: () => _showPreferencesDialog(context),
+                      onDeleteVault: (id) => _showDeleteVaultDialog(context),
                     ),
                     Expanded(
                       child: VaultMainContent(

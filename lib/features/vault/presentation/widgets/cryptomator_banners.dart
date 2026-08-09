@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/version_check_service.dart';
 
 class CryptomatorBanners extends StatefulWidget {
   final VoidCallback? onUpdateTap;
@@ -16,8 +17,23 @@ class CryptomatorBanners extends StatefulWidget {
 }
 
 class _CryptomatorBannersState extends State<CryptomatorBanners> {
-  bool _showUpdateBanner = true;
+  bool _showUpdateBanner = false;
   bool _showSupportBanner = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkOnlineUpdates();
+  }
+
+  Future<void> _checkOnlineUpdates() async {
+    final updateAvailable = await VersionCheckService.isUpdateAvailable();
+    if (mounted) {
+      setState(() {
+        _showUpdateBanner = updateAvailable;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,11 +55,11 @@ class _CryptomatorBannersState extends State<CryptomatorBanners> {
                 children: [
                   const Spacer(),
                   Text(
-                    'Update is available.',
+                    'Update is available from https://ampcrypt.itsupport.com.bd/desktop',
                     style: GoogleFonts.outfit(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                      fontSize: 13,
                     ),
                   ),
                   const Spacer(),

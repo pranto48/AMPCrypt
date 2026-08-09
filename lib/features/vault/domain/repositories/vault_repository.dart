@@ -108,6 +108,12 @@ abstract class VaultRepository {
   /// Locks the vault, clearing the master key from memory.
   void lockVault();
 
+  /// Verifies if the provided password matches the vault master password.
+  Future<bool> verifyVaultPassword(String password);
+
+  /// Deletes vault files after verifying master password.
+  Future<bool> deleteVaultDataWithPassword(String password);
+
   /// Gets simulated device status information for display.
   Future<Map<String, dynamic>> getDeviceStatus();
 

@@ -284,6 +284,40 @@ class VaultRepositoryImpl implements VaultRepository {
     _stopServerAndUnmount();
   }
 
+  @override
+  Future<bool> verifyVaultPassword(String password) async {
+    try {
+      final config = _loadVaultConfig();
+      final String? saltBase64 = config != null ? config['password_salt'] : _prefs.getString('password_salt');
+      final String? encryptedShareBase64 = config != null ? config['encrypted_password_share'] : _prefs.getString('encrypted_password_share');
+      if (saltBase64 == null || encryptedShareBase64 == null) return false;
+
+      final salt = base64Decode(saltBase64);
+      final encryptedPasswordShare = base64Decode(encryptedShareBase64);
+
+      final derivedKey = await _cryptoService.deriveKey(password, salt);
+      final decryptedBytes = await _cryptoService.decryptData(encryptedPasswordShare, derivedKey);
+      final passwordShare = utf8.decode(decryptedBytes);
+      return passwordShare.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<bool> deleteVaultDataWithPassword(String password) async {
+    final isVerified = await verifyVaultPassword(password);
+    if (!isVerified) return false;
+
+    lockVault();
+    await clearVaultData();
+
+    final currentPath = getVaultPath();
+    await removeRememberedVault(currentPath);
+    await _prefs.setBool('vault_created', false);
+    return true;
+  }
+
   // ─── MOUNT HELPERS ───────────────────────────────────────────────────────────
 
   String _getHomeDir() {

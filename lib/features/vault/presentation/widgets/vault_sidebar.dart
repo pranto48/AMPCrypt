@@ -24,6 +24,7 @@ class VaultSidebar extends StatelessWidget {
   final VoidCallback onAddFtpDrive;
   final VoidCallback onOpenAlerts;
   final VoidCallback onOpenPreferences;
+  final Function(String vaultId)? onDeleteVault;
 
   const VaultSidebar({
     super.key,
@@ -35,6 +36,7 @@ class VaultSidebar extends StatelessWidget {
     required this.onAddFtpDrive,
     required this.onOpenAlerts,
     required this.onOpenPreferences,
+    this.onDeleteVault,
   });
 
   @override
@@ -137,6 +139,13 @@ class VaultSidebar extends StatelessWidget {
                                   ],
                                 ),
                               ),
+                              if (onDeleteVault != null)
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline_rounded, size: 16),
+                                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                  tooltip: 'Delete Vault',
+                                  onPressed: () => onDeleteVault!(item.id),
+                                ),
                             ],
                           ),
                         ),
