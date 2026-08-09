@@ -24,6 +24,12 @@ import 'package:http/http.dart' as http_pkg;
 import '../bloc/vault_bloc.dart';
 import '../bloc/vault_event.dart';
 import '../bloc/vault_state.dart';
+import '../widgets/cryptomator_title_bar.dart';
+import '../widgets/cryptomator_banners.dart';
+import '../widgets/preferences_dialog.dart';
+import '../widgets/cipher_tools_dialog.dart';
+import '../widgets/vault_sidebar.dart';
+import '../widgets/vault_main_content.dart';
 import '../../../biometrics/data/datasources/face_verification_service.dart';
 import '../../../biometrics/data/datasources/fingerprint_verification_service.dart';
 import '../../../biometrics/data/datasources/voice_verification_service.dart';
@@ -492,121 +498,150 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
     );
   }
 
+  void _showPreferencesDialog(BuildContext context, {int initialTab = 0}) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => PreferencesDialog(initialTabIndex: initialTab),
+    );
+  }
+
+  void _openDriveInExplorer(String driveLetter) async {
+    try {
+      await launchUrl(Uri.file('$driveLetter\\'));
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: kPrimaryColor,
+            content: Text('Drive path: $driveLetter (Mount target active)', style: GoogleFonts.outfit()),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (kIsWeb) {
       return const WebLandingPage();
     }
     final showCustomTitleBar = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: kScaffoldBackgroundColor,
+      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       body: Column(
         children: [
-          if (showCustomTitleBar) _buildCustomTitleBar(),
+          if (showCustomTitleBar)
+            CryptomatorTitleBar(
+              isDark: isDark,
+              onClose: () => onWindowClose(),
+            ),
+          CryptomatorBanners(
+            onUpdateTap: () => _showPreferencesDialog(context, initialTab: 3),
+            onSupportTap: () => _showPreferencesDialog(context, initialTab: 4),
+          ),
           Expanded(
-            child: Stack(
-              children: [
-                // Glowing glassmorphic blobs behind
-                Positioned.fill(
-                  child: Container(
-                    color: const Color(0xFF070B08),
-                  ),
-                ),
-                Positioned(
-                  top: -120,
-                  left: -120,
-                  child: Container(
-                    width: 380,
-                    height: 380,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: kPrimaryColor.withValues(alpha: 0.16),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: -150,
-                  right: -80,
-                  child: Container(
-                    width: 480,
-                    height: 480,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFF0EA5E9).withValues(alpha: 0.12),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 180,
-                  right: 250,
-                  child: Container(
-                    width: 280,
-                    height: 280,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.06),
-                    ),
-                  ),
-                ),
-                // Frosted glass blur overlay
-                Positioned.fill(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 55.0, sigmaY: 55.0),
-                    child: Container(
-                      color: const Color(0xFF090D0A).withValues(alpha: 0.78),
-                    ),
-                  ),
-                ),
-                BlocConsumer<VaultBloc, VaultState>(
-                  listener: (context, state) {
-                    // Keep tray menu in sync with vault lock state
-                    _updateTrayMenu(state is VaultUnlockedState);
-                    if (state is VaultFailureState) {
-                      if (state.errorMessage == 'WINFSP_MISSING') {
-                        _showWinFspMissingDialog();
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            backgroundColor: const Color(0xFF3F0B24),
-                            content: Row(
-                              children: [
-                                const Icon(Icons.error_outline, color: Color(0xFFFF4D88)),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    state.errorMessage,
-                                    style: GoogleFonts.outfit(color: Colors.white),
-                                  ),
-                                ),
-                              ],
+            child: BlocConsumer<VaultBloc, VaultState>(
+              listener: (context, state) {
+                _updateTrayMenu(state is VaultUnlockedState);
+                if (state is VaultFailureState) {
+                  if (state.errorMessage == 'WINFSP_MISSING') {
+                    _showWinFspMissingDialog();
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: const Color(0xFF3F0B24),
+                        content: Row(
+                          children: [
+                            const Icon(Icons.error_outline, color: Color(0xFFFF4D88)),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                state.errorMessage,
+                                style: GoogleFonts.outfit(color: Colors.white),
+                              ),
                             ),
-                            duration: const Duration(seconds: 4),
-                            action: SnackBarAction(
-                              label: 'Dismiss',
-                              textColor: const Color(0xFFFF4D88),
-                              onPressed: () {},
-                            ),
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  builder: (context, state) {
-                    return Row(
-                      children: [
-                        _buildSidebar(context, state),
-                        Container(
-                          width: 1,
-                          color: Colors.white.withValues(alpha: 0.08),
+                          ],
                         ),
-                        Expanded(
-                          child: _buildDesktopMainContent(context, state),
+                        duration: const Duration(seconds: 4),
+                        action: SnackBarAction(
+                          label: 'Dismiss',
+                          textColor: const Color(0xFFFF4D88),
+                          onPressed: () {},
                         ),
-                      ],
+                      ),
                     );
-                  },
-                ),
-              ],
+                  }
+                }
+              },
+              builder: (context, state) {
+                final repo = context.read<VaultBloc>().repository;
+                final isUnlocked = state is VaultUnlockedState;
+                final isLoading = state is VaultLoadingState;
+                final loadingMessage = state is VaultLoadingState ? state.message : null;
+                
+                String rawName = p.basename(repo.getVaultPath()).replaceAll('.ampcrypt_vault_', '');
+                if (rawName.isEmpty || rawName == '.' || rawName == '/') rawName = 'Forestsong';
+                final vaultName = rawName;
+
+                final vaultPath = repo.getVaultPath().isNotEmpty 
+                    ? repo.getVaultPath() 
+                    : 'F:\\OneDrive - arifmahmud\\Forestsong';
+                final driveLetter = repo.getDriveLetter().isNotEmpty 
+                    ? repo.getDriveLetter() 
+                    : 'G:';
+
+                final sidebarVaults = [
+                  VaultSidebarItem(
+                    id: 'primary',
+                    name: vaultName,
+                    path: vaultPath,
+                    isUnlocked: isUnlocked,
+                  ),
+                ];
+
+                return Row(
+                  children: [
+                    VaultSidebar(
+                      vaults: sidebarVaults,
+                      selectedVaultId: 'primary',
+                      onSelectVault: (id) {},
+                      onCreateVault: () => _showCreateVaultDialog(context),
+                      onOpenVault: () => _showOpenVaultDialog(context),
+                      onAddFtpDrive: () => _showAddFtpDriveDialog(context),
+                      onOpenAlerts: () => _showSecurityRecoveryDialog(context),
+                      onOpenPreferences: () => _showPreferencesDialog(context),
+                    ),
+                    Expanded(
+                      child: VaultMainContent(
+                        vaultName: vaultName,
+                        vaultPath: vaultPath,
+                        driveLetter: driveLetter,
+                        isUnlocked: isUnlocked,
+                        isLoading: isLoading,
+                        loadingMessage: loadingMessage,
+                        onRevealDrive: () => _openDriveInExplorer(driveLetter),
+                        onLock: () {
+                          context.read<VaultBloc>().add(LockVaultEvent());
+                        },
+                        onUnlock: (password) {
+                          context.read<VaultBloc>().add(UnlockVaultEvent(password: password));
+                        },
+                        onLocateEncryptedFile: () {
+                          CipherToolsDialog.showLocateEncryptedFileDialog(context, vaultPath);
+                        },
+                        onDecryptFileName: () {
+                          CipherToolsDialog.showDecryptFileNameDialog(context);
+                        },
+                        onRecoveryTap: () {
+                          _showSecurityRecoveryDialog(context);
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
           BlocBuilder<MonitorBloc, MonitorState>(
