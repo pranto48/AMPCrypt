@@ -229,9 +229,6 @@ abstract class VaultRepository {
   /// Performs TPM/Windows Hello biometric verification to recover the master key.
   Future<Uint8List?> unlockWithTpm();
 
-  /// Gets the list of all remembered vault profiles.
-  Future<List<VaultProfile>> getRememberedVaults();
-
   /// Adds a vault profile to the list of remembered vaults.
   Future<void> addRememberedVault(VaultProfile profile);
 

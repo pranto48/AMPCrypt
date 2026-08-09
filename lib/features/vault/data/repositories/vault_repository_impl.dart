@@ -1753,58 +1753,8 @@ class VaultRepositoryImpl implements VaultRepository {
   }
 
   @override
-  Future<List<VaultProfile>> getRememberedVaults() async {
-    try {
-      final file = await _getHistoryFile();
-      if (!await file.exists()) return [];
-      final content = await file.readAsString();
-      final data = json.decode(content);
-      if (data is Map && data.containsKey('vaults')) {
-        final list = data['vaults'] as List;
-        return list.map((item) => VaultProfile.fromJson(item as Map<String, dynamic>)).toList();
-      }
-    } catch (_) {}
-    return [];
-  }
-
-  @override
-  Future<void> addRememberedVault(VaultProfile profile) async {
-    final list = await getRememberedVaults();
-    final index = list.indexWhere((p) => p.path == profile.path);
-    if (index != -1) {
-      list[index] = profile;
-    } else {
-      list.add(profile);
-    }
-    await _saveRememberedVaults(list);
-  }
-
-  @override
   Future<void> removeRememberedVault(String path) async {
-    final list = await getRememberedVaults();
-    list.removeWhere((p) => p.path == path);
-    await _saveRememberedVaults(list);
-    
-    // If the removed vault was the active one, clear active settings or switch
-    if (getVaultPath() == path || (storageType == 'ftp' && _prefs.getString('ftp_remote_path') == path)) {
-      if (list.isNotEmpty) {
-        await selectVault(list.first);
-      } else {
-        // Clear all vault settings
-        await _prefs.remove('vault_storage_type');
-        await _prefs.remove('vault_path');
-        await _prefs.remove('drive_letter');
-        await _prefs.remove('ftp_host');
-        await _prefs.remove('ftp_port');
-        await _prefs.remove('ftp_username');
-        await _prefs.remove('ftp_password');
-        await _prefs.remove('ftp_remote_path');
-        await _prefs.remove('password_salt');
-        await _prefs.remove('encrypted_password_share');
-        await _prefs.remove('auth_level');
-        await _prefs.remove('vault_created');
-      }
-    }
+    await removeVaultFromApp(path);
   }
 
   @override

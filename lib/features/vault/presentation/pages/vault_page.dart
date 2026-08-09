@@ -7769,7 +7769,7 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
     setState(() => _isLoading = true);
     try {
       final repo = context.read<VaultBloc>().repository;
-      final list = await repo.getRememberedVaults();
+      final list = repo.getRememberedVaults();
       if (mounted) {
         setState(() {
           _vaults = list;
