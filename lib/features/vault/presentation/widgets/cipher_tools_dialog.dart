@@ -65,9 +65,8 @@ class CipherToolsDialog {
                             foregroundColor: Colors.white,
                           ),
                           onPressed: () async {
-                            final result = await FilePicker.platform.pickFiles();
-                            if (result != null && result.files.single.path != null) {
-                              final path = result.files.single.path!;
+                            final path = await FilePicker.getDirectoryPath();
+                            if (path != null) {
                               final name = p.basename(path);
                               setDialogState(() {
                                 selectedFile = path;
