@@ -9,7 +9,7 @@ enum DeleteVaultAction {
 class DeleteVaultDialog extends StatefulWidget {
   final String vaultName;
   final String vaultPath;
-  final VoidCallback onRemoveFromApp;
+  final Future<void> Function() onRemoveFromApp;
   final Future<bool> Function(String password) onForceDeleteConfirm;
 
   const DeleteVaultDialog({
@@ -32,8 +32,11 @@ class _DeleteVaultDialogState extends State<DeleteVaultDialog> {
 
   Future<void> _handleConfirm() async {
     if (_selectedAction == DeleteVaultAction.removeFromApp) {
-      widget.onRemoveFromApp();
-      Navigator.of(context).pop(true);
+      setState(() => _isProcessing = true);
+      await widget.onRemoveFromApp();
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
       return;
     }
 

@@ -542,9 +542,8 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
         vaultName: rawName,
         vaultPath: vaultPath,
         onRemoveFromApp: () async {
-          await repo.removeVaultFromApp(vaultPath);
+          context.read<VaultBloc>().add(RemoveVaultFromAppEvent(vaultPath));
           if (mounted) {
-            context.read<VaultBloc>().add(ResetToUninitializedEvent());
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 backgroundColor: kPrimaryColor,
@@ -554,17 +553,18 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
           }
         },
         onForceDeleteConfirm: (password) async {
-          final success = await repo.forceDeleteVaultDataWithPassword(password, vaultPath);
-          if (success && mounted) {
-            context.read<VaultBloc>().add(ResetToUninitializedEvent());
+          final isVerified = await repo.verifyVaultPassword(password);
+          if (isVerified && mounted) {
+            context.read<VaultBloc>().add(ForceDeleteVaultEvent(password, vaultPath));
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 backgroundColor: kErrorColor,
                 content: Text('Vault and all physical files deleted from disk.', style: GoogleFonts.outfit()),
               ),
             );
+            return true;
           }
-          return success;
+          return false;
         },
       ),
     );

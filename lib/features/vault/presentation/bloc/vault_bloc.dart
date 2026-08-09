@@ -21,6 +21,8 @@ class VaultBloc extends Bloc<VaultEvent, VaultState> {
     on<LockVaultEvent>(_onLockVault);
     on<ResetToUninitializedEvent>(_onResetToUninitialized);
     on<UnlockWithMasterKeyEvent>(_onUnlockWithMasterKey);
+    on<RemoveVaultFromAppEvent>(_onRemoveVaultFromApp);
+    on<ForceDeleteVaultEvent>(_onForceDeleteVault);
   }
 
   void _onCheckVaultStatus(CheckVaultStatusEvent event, Emitter<VaultState> emit) {
@@ -197,6 +199,34 @@ class VaultBloc extends Bloc<VaultEvent, VaultState> {
       emit(VaultFailureState(
         errorMessage: 'An unexpected error occurred during direct unlock: ${e.toString()}',
         previousState: VaultLockedState(),
+      ));
+    }
+  }
+
+  Future<void> _onRemoveVaultFromApp(RemoveVaultFromAppEvent event, Emitter<VaultState> emit) async {
+    _stopAutoLockTimer();
+    _vaultRepository.lockVault();
+    await _vaultRepository.removeVaultFromApp(event.vaultPath);
+    if (_vaultRepository.isVaultCreated) {
+      emit(VaultLockedState());
+    } else {
+      emit(VaultUninitializedState());
+    }
+  }
+
+  Future<void> _onForceDeleteVault(ForceDeleteVaultEvent event, Emitter<VaultState> emit) async {
+    _stopAutoLockTimer();
+    final success = await _vaultRepository.forceDeleteVaultDataWithPassword(event.password, event.vaultPath);
+    if (success) {
+      if (_vaultRepository.isVaultCreated) {
+        emit(VaultLockedState());
+      } else {
+        emit(VaultUninitializedState());
+      }
+    } else {
+      emit(VaultFailureState(
+        errorMessage: 'Incorrect master password. Force delete aborted.',
+        previousState: state,
       ));
     }
   }

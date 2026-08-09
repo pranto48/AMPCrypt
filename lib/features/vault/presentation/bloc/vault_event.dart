@@ -49,3 +49,22 @@ class UnlockWithMasterKeyEvent extends VaultEvent {
   @override
   List<Object?> get props => [masterKey];
 }
+
+class RemoveVaultFromAppEvent extends VaultEvent {
+  final String vaultPath;
+
+  const RemoveVaultFromAppEvent(this.vaultPath);
+
+  @override
+  List<Object?> get props => [vaultPath];
+}
+
+class ForceDeleteVaultEvent extends VaultEvent {
+  final String password;
+  final String vaultPath;
+
+  const ForceDeleteVaultEvent(this.password, this.vaultPath);
+
+  @override
+  List<Object?> get props => [password, vaultPath];
+}
