@@ -21,6 +21,10 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await PortableStateSync.init();
 
+  // Initialize SharedPreferences
+  final prefs = await SharedPreferences.getInstance();
+  final hideOnStart = prefs.getBool('hide_on_start') ?? false;
+
   // Initialize Desktop Window Manager & Auto-Start
   if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
     await windowManager.ensureInitialized();
@@ -33,8 +37,10 @@ void main() async {
       titleBarStyle: TitleBarStyle.hidden,
     );
     await windowManager.waitUntilReadyToShow(windowOptions, () async {
-      await windowManager.show();
-      await windowManager.focus();
+      if (!hideOnStart) {
+        await windowManager.show();
+        await windowManager.focus();
+      }
       await windowManager.setPreventClose(true);
     });
 
@@ -46,9 +52,6 @@ void main() async {
       );
     } catch (_) {}
   }
-  
-  // Initialize SharedPreferences
-  final prefs = await SharedPreferences.getInstance();
   
   // Initialize Core Services & Repositories
   final cryptoService = CryptoServiceImpl();
@@ -62,44 +65,76 @@ void main() async {
   runApp(MyApp(
     vaultRepository: vaultRepository,
     watcherService: watcherService,
+    prefs: prefs,
   ));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   final VaultRepositoryImpl vaultRepository;
   final DirectoryWatcherService watcherService;
+  final SharedPreferences prefs;
   
   const MyApp({
     super.key,
     required this.vaultRepository,
     required this.watcherService,
+    required this.prefs,
   });
 
   @override
-  Widget build(BuildContext context) {
+  State<MyApp> createState() => MyAppState();
 
+  static MyAppState? of(BuildContext context) =>
+      context.findAncestorStateOfType<MyAppState>();
+}
+
+class MyAppState extends State<MyApp> {
+  late ThemeMode _themeMode;
+
+  @override
+  void initState() {
+    super.initState();
+    final lookAndFeel = widget.prefs.getString('look_and_feel') ?? 'Light';
+    if (lookAndFeel == 'Light') {
+      _themeMode = ThemeMode.light;
+    } else if (lookAndFeel == 'Dark') {
+      _themeMode = ThemeMode.dark;
+    } else {
+      _themeMode = ThemeMode.system;
+    }
+  }
+
+  void setThemeMode(ThemeMode mode) {
+    setState(() {
+      _themeMode = mode;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
         BlocProvider<VaultBloc>(
-          create: (context) => VaultBloc(vaultRepository: vaultRepository),
+          create: (context) => VaultBloc(vaultRepository: widget.vaultRepository),
         ),
       ],
       child: BlocProvider<MonitorBloc>(
         create: (context) => MonitorBloc(
-          watcherService: watcherService,
+          watcherService: widget.watcherService,
           vaultBloc: context.read<VaultBloc>(),
-          vaultRepository: vaultRepository,
+          vaultRepository: widget.vaultRepository,
         ),
         child: MaterialApp(
           title: 'AMPCrypt Zero-Trust Vault',
           debugShowCheckedModeBanner: false,
+          themeMode: _themeMode,
           theme: ThemeData(
             brightness: Brightness.light,
-            primaryColor: const Color(0xFF16A34A),
-            scaffoldBackgroundColor: const Color(0xFFF0FDF4),
+            primaryColor: const Color(0xFF22C55E),
+            scaffoldBackgroundColor: const Color(0xFFF8FAFC),
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF16A34A),
-              secondary: Color(0xFF15803D),
+              primary: Color(0xFF22C55E),
+              secondary: Color(0xFF16A34A),
               surface: Colors.white,
               error: Color(0xFFE06C75),
             ),
@@ -110,12 +145,12 @@ class MyApp extends StatelessWidget {
           ),
           darkTheme: ThemeData(
             brightness: Brightness.dark,
-            primaryColor: const Color(0xFF16A34A),
-            scaffoldBackgroundColor: const Color(0xFF0F1613),
+            primaryColor: const Color(0xFF22C55E),
+            scaffoldBackgroundColor: const Color(0xFF0F172A),
             colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF16A34A),
-              secondary: Color(0xFF15803D),
-              surface: Color(0xFF111915),
+              primary: Color(0xFF22C55E),
+              secondary: Color(0xFF16A34A),
+              surface: Color(0xFF1E293B),
               error: Color(0xFFE06C75),
             ),
             textTheme: GoogleFonts.outfitTextTheme(
@@ -123,7 +158,6 @@ class MyApp extends StatelessWidget {
             ),
             useMaterial3: true,
           ),
-          themeMode: ThemeMode.system,
           home: const VaultPage(),
         ),
       ),

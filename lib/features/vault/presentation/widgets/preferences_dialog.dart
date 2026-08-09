@@ -1,8 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:launch_at_startup/launch_at_startup.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
+import '../../../../main.dart';
 
 class PreferencesDialog extends StatefulWidget {
   final int initialTabIndex;
@@ -102,7 +107,7 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: borderColor, width: 1),
       ),
-      child: Container(
+      child: SizedBox(
         width: 720,
         height: 480,
         child: Column(
@@ -197,7 +202,7 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
   Widget _buildTabItem(int index, IconData icon, String label) {
     final isSelected = _activeTabIndex == index;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final activeColor = const Color(0xFF22C55E); // Cryptomator Green
+    const activeColor = Color(0xFF22C55E); // Cryptomator Green
     final inactiveColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
 
     return Expanded(
@@ -249,9 +254,17 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
           _checkboxRow(
             'Launch AMPCrypt on system start',
             _launchOnStart,
-            (val) {
-              setState(() => _launchOnStart = val!);
-              _saveBoolPref('launch_on_start', val!);
+            (val) async {
+              final enabled = val ?? false;
+              setState(() => _launchOnStart = enabled);
+              await _saveBoolPref('launch_on_start', enabled);
+              try {
+                if (enabled) {
+                  await launchAtStartup.enable();
+                } else {
+                  await launchAtStartup.disable();
+                }
+              } catch (_) {}
             },
             textColor,
           ),
@@ -260,8 +273,9 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
             'Hide window when starting AMPCrypt',
             _hideOnStart,
             (val) {
-              setState(() => _hideOnStart = val!);
-              _saveBoolPref('hide_on_start', val!);
+              final enabled = val ?? false;
+              setState(() => _hideOnStart = enabled);
+              _saveBoolPref('hide_on_start', enabled);
             },
             textColor,
           ),
@@ -270,8 +284,9 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
             'Lock vaults without asking when quitting application',
             _lockOnQuit,
             (val) {
-              setState(() => _lockOnQuit = val!);
-              _saveBoolPref('lock_on_quit', val!);
+              final enabled = val ?? false;
+              setState(() => _lockOnQuit = enabled);
+              _saveBoolPref('lock_on_quit', enabled);
             },
             textColor,
           ),
@@ -282,8 +297,9 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
                 value: _storePasswords,
                 activeColor: const Color(0xFF22C55E),
                 onChanged: (val) {
-                  setState(() => _storePasswords = val!);
-                  _saveBoolPref('store_passwords', val!);
+                  final enabled = val ?? false;
+                  setState(() => _storePasswords = enabled);
+                  _saveBoolPref('store_passwords', enabled);
                 },
               ),
               Text(
@@ -323,8 +339,9 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
                 value: _addToQuickAccess,
                 activeColor: const Color(0xFF22C55E),
                 onChanged: (val) {
-                  setState(() => _addToQuickAccess = val!);
-                  _saveBoolPref('add_to_quick_access', val!);
+                  final enabled = val ?? false;
+                  setState(() => _addToQuickAccess = enabled);
+                  _saveBoolPref('add_to_quick_access', enabled);
                 },
               ),
               Text(
@@ -364,10 +381,21 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             ),
-            onPressed: () {},
+            onPressed: () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.remove('trusted_hosts');
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: const Color(0xFF22C55E),
+                    content: Text('Trusted hosts reset.', style: GoogleFonts.outfit()),
+                  ),
+                );
+              }
+            },
             child: Text(
               'Reset trusted hosts',
-              style: GoogleFonts.outfit(color: subtitleColor, fontSize: 12),
+              style: GoogleFonts.outfit(color: textColor, fontSize: 12),
             ),
           ),
           const SizedBox(height: 24),
@@ -377,8 +405,9 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
                 value: _debugLogging,
                 activeColor: const Color(0xFF22C55E),
                 onChanged: (val) {
-                  setState(() => _debugLogging = val!);
-                  _saveBoolPref('debug_logging', val!);
+                  final enabled = val ?? false;
+                  setState(() => _debugLogging = enabled);
+                  _saveBoolPref('debug_logging', enabled);
                 },
               ),
               Text(
@@ -389,7 +418,12 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
               InkWell(
                 onTap: () async {
                   try {
-                    await launchUrl(Uri.parse('file://./build_windows.log'));
+                    final dir = await getApplicationSupportDirectory();
+                    final logFile = File(p.join(dir.path, 'ampcrypt_debug.log'));
+                    if (!await logFile.exists()) {
+                      await logFile.writeAsString('=== AMPCrypt Debug Log ===\nInitialized at ${DateTime.now()}\n');
+                    }
+                    await launchUrl(Uri.file(logFile.path));
                   } catch (_) {}
                 },
                 child: Text(
@@ -441,11 +475,13 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
                       if (val != null) {
                         setState(() => _lookAndFeel = val);
                         _saveStringPref('look_and_feel', val);
+                        ThemeMode mode = ThemeMode.system;
+                        if (val == 'Light') mode = ThemeMode.light;
+                        if (val == 'Dark') mode = ThemeMode.dark;
                         if (widget.onThemeChanged != null) {
-                          if (val == 'Light') widget.onThemeChanged!(ThemeMode.light);
-                          if (val == 'Dark') widget.onThemeChanged!(ThemeMode.dark);
-                          if (val == 'System Default') widget.onThemeChanged!(ThemeMode.system);
+                          widget.onThemeChanged!(mode);
                         }
+                        MyApp.of(context)?.setThemeMode(mode);
                       }
                     },
                   ),
@@ -453,7 +489,11 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
               ),
               const SizedBox(width: 16),
               InkWell(
-                onTap: () {},
+                onTap: () {
+                  setState(() => _lookAndFeel = 'Dark');
+                  _saveStringPref('look_and_feel', 'Dark');
+                  MyApp.of(context)?.setThemeMode(ThemeMode.dark);
+                },
                 child: Text(
                   'Unlock dark mode',
                   style: GoogleFonts.outfit(
@@ -515,8 +555,10 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
                 groupValue: _orientation,
                 activeColor: const Color(0xFF22C55E),
                 onChanged: (val) {
-                  setState(() => _orientation = val!);
-                  _saveStringPref('orientation', val!);
+                  if (val != null) {
+                    setState(() => _orientation = val);
+                    _saveStringPref('orientation', val);
+                  }
                 },
               ),
               Text('Left to Right', style: GoogleFonts.outfit(color: textColor, fontSize: 13)),
@@ -526,8 +568,10 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
                 groupValue: _orientation,
                 activeColor: const Color(0xFF22C55E),
                 onChanged: (val) {
-                  setState(() => _orientation = val!);
-                  _saveStringPref('orientation', val!);
+                  if (val != null) {
+                    setState(() => _orientation = val);
+                    _saveStringPref('orientation', val);
+                  }
                 },
               ),
               Text('Right to Left', style: GoogleFonts.outfit(color: textColor, fontSize: 13)),
@@ -538,8 +582,9 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
             'Show tray icon (requires restart)',
             _showTrayIcon,
             (val) {
-              setState(() => _showTrayIcon = val!);
-              _saveBoolPref('show_tray_icon', val!);
+              final enabled = val ?? false;
+              setState(() => _showTrayIcon = enabled);
+              _saveBoolPref('show_tray_icon', enabled);
             },
             textColor,
           ),
@@ -548,8 +593,9 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
             'Enable compact vault list',
             _compactVaultList,
             (val) {
-              setState(() => _compactVaultList = val!);
-              _saveBoolPref('compact_vault_list', val!);
+              final enabled = val ?? false;
+              setState(() => _compactVaultList = enabled);
+              _saveBoolPref('compact_vault_list', enabled);
             },
             textColor,
           ),
@@ -648,8 +694,9 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
                 value: _autoCheckUpdates,
                 activeColor: const Color(0xFF22C55E),
                 onChanged: (val) {
-                  setState(() => _autoCheckUpdates = val!);
-                  _saveBoolPref('auto_check_updates', val!);
+                  final enabled = val ?? false;
+                  setState(() => _autoCheckUpdates = enabled);
+                  _saveBoolPref('auto_check_updates', enabled);
                 },
               ),
               Text(
@@ -660,7 +707,7 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
           ),
           const SizedBox(height: 28),
           Text(
-            'Update to version 0.66.0 available.',
+            'AMPCrypt is up to date (Version $_appVersion).',
             style: GoogleFonts.outfit(color: subtitleColor, fontSize: 13),
           ),
           const SizedBox(height: 14),

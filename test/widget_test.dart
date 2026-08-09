@@ -31,6 +31,7 @@ void main() {
     await tester.pumpWidget(MyApp(
       vaultRepository: vaultRepository,
       watcherService: watcherService,
+      prefs: prefs,
     ));
     await tester.pumpAndSettle();
 

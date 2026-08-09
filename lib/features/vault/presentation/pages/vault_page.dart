@@ -215,6 +215,11 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
   // --- WindowListener overrides ---
   @override
   void onWindowClose() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lockOnQuit = prefs.getBool('lock_on_quit') ?? false;
+    if (lockOnQuit && mounted) {
+      context.read<VaultBloc>().add(LockVaultEvent());
+    }
     final isPreventClose = await windowManager.isPreventClose();
     if (isPreventClose) {
       if (_minimizeToTray) {
