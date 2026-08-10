@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) IT Support BD (https://itsupport.com.bd). All rights reserved.
+ * This file is part of AMPCrypt.
+ This program is free software but it under the terms of the GNU Affero General Public License.
+ * (This project website link: https://ampcrypt.itsupport.com.bd)
+ */
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:window_manager/window_manager.dart';
@@ -14,14 +21,21 @@ class CryptomatorTitleBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
-    final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
-    final textColor = isDark ? const Color(0xFFF8FAFC) : const Color(0xFF334155);
+    final bgColor = isDark ? const Color(0xFF0B132B) : const Color(0xFFE2E8F0);
+    final borderColor = isDark ? const Color(0x3300F0FF) : const Color(0xFFCBD5E1);
+    final textColor = isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A);
 
     return Container(
       height: 38,
       decoration: BoxDecoration(
-        color: bgColor,
+        gradient: isDark
+            ? const LinearGradient(
+                colors: [Color(0xFF0B132B), Color(0xFF0F172A)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              )
+            : null,
+        color: isDark ? null : bgColor,
         border: Border(
           bottom: BorderSide(color: borderColor, width: 1.0),
         ),
@@ -42,7 +56,7 @@ class CryptomatorTitleBar extends StatelessWidget {
                         padding: const EdgeInsets.all(3),
                         decoration: const BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Color(0xFF22C55E),
+                          gradient: LinearGradient(colors: [Color(0xFF0072FF), Color(0xFF00F0FF)]),
                         ),
                         child: const Icon(
                           Icons.security_rounded,

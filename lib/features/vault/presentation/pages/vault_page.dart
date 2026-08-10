@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) IT Support BD (https://itsupport.com.bd). All rights reserved.
+ * This file is part of AMPCrypt.
+ This program is free software but it under the terms of the GNU Affero General Public License.
+ * (This project website link: https://ampcrypt.itsupport.com.bd)
+ */
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -47,14 +54,14 @@ bool get isSystemDark {
   }
 }
 
-// ─── Security Green Palette ───────────────────────────────────────────────────
-Color get kPrimaryColor => const Color(0xFF16A34A);       // Emerald green — security / vault
-Color get kPrimaryHoverColor => const Color(0xFF22C55E);  // Bright green on hover
-Color get kScaffoldBackgroundColor => isSystemDark ? const Color(0xFF0F1613) : const Color(0xFFF0FDF4);
-Color get kSurfaceColor => const Color(0xFF111915);       // Deep vault-dark surface
-Color get kSidebarBackgroundColor => isSystemDark ? const Color(0xFF0A1009) : const Color(0xFF111915);
-Color get kSuccessColor => const Color(0xFF4ADE80);        // Soft bright green — unlocked / OK
-Color get kErrorColor => const Color(0xFFE06C75);          // Red — warnings / errors
+// ─── Liquid Blue Glass Palette ───────────────────────────────────────────────
+Color get kPrimaryColor => const Color(0xFF0284C7);       // Azure Cyan Liquid Blue
+Color get kPrimaryHoverColor => const Color(0xFF38BDF8);  // Electric Sky Blue Hover
+Color get kScaffoldBackgroundColor => isSystemDark ? const Color(0xFF070D1E) : const Color(0xFFF0F7FF);
+Color get kSurfaceColor => const Color(0xFF0F172A);       // Liquid Sapphire Surface
+Color get kSidebarBackgroundColor => isSystemDark ? const Color(0xFF0B132B) : const Color(0xFFE2E8F0);
+Color get kSuccessColor => const Color(0xFF38BDF8);        // Soft Electric Cyan — unlocked / OK
+Color get kErrorColor => const Color(0xFFF43F5E);          // Rose Red — warnings / errors
 
 class VaultPage extends StatefulWidget {
   const VaultPage({super.key});
@@ -580,8 +587,8 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
   }
 
   Widget _buildEmptyVaultsView(BuildContext context, bool isDark) {
-    final bg = isDark ? const Color(0xFF0B101D) : Colors.white;
-    final textColor = isDark ? Colors.white : const Color(0xFF1E293B);
+    final bg = isDark ? const Color(0xFF070D1E) : const Color(0xFFF0F7FF);
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
     final subtitleColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
 
     return Container(
@@ -591,23 +598,34 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0072FF), Color(0xFF00F0FF)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF00F0FF).withValues(alpha: 0.35),
+                    blurRadius: 24,
+                    spreadRadius: 4,
+                  ),
+                ],
               ),
               child: const Icon(
-                Icons.security_rounded,
+                Icons.shield_outlined,
                 size: 48,
-                color: Color(0xFF22C55E),
+                color: Colors.white,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 22),
             Text(
               'No Vaults Available',
               style: GoogleFonts.outfit(
                 color: textColor,
-                fontSize: 20,
+                fontSize: 22,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -619,26 +637,43 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                 fontSize: 13,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 26),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF22C55E),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF0072FF), Color(0xFF00F0FF)],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF0072FF).withValues(alpha: 0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: Text('Create New Vault', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13)),
-                  onPressed: () => _showCreateVaultDialog(context),
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: Text('Create New Vault', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13)),
+                    onPressed: () => _showCreateVaultDialog(context),
+                  ),
                 ),
                 const SizedBox(width: 14),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     foregroundColor: textColor,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    side: BorderSide(color: isDark ? const Color(0x3300F0FF) : const Color(0xFFCBD5E1), width: 1.2),
+                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   icon: const Icon(Icons.folder_open_rounded, size: 18),
@@ -4109,25 +4144,44 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                     fontSize: 10,
                                   ),
                                 ),
-                                onPressed: () async {
-                                  // Re-read drive letter at click time
-                                  // (mount detection updates prefs async after build() ran)
-                                  final liveLetter = repository.getDriveLetter();
-                                  if (liveLetter.isNotEmpty && liveLetter != 'Z:') {
-                                    Process.run('explorer.exe', [liveLetter]);
-                                  } else {
-                                    // Fallback: scan for 'AMPCrypt' volume label
-                                    final res = await Process.run('powershell.exe', [
-                                      '-Command',
-                                      "(Get-Volume -EA SilentlyContinue | Where-Object { \$_.FileSystemLabel -eq 'AMPCrypt' } | Select-Object -First 1).DriveLetter"
-                                    ]);
-                                    final sl = res.stdout.toString().trim();
-                                    if (sl.length == 1 && sl.codeUnitAt(0) >= 65) {
-                                      Process.run('explorer.exe', ['\${sl}:']);
-                                    } else {
-                                      Process.run('explorer.exe', [liveLetter]);
-                                    }
-                                  }
+                                onPressed: () async {
+
+                                  // Re-read drive letter at click time
+
+                                  // (mount detection updates prefs async after build() ran)
+
+                                  final liveLetter = repository.getDriveLetter();
+
+                                  if (liveLetter.isNotEmpty && liveLetter != 'Z:') {
+
+                                    Process.run('explorer.exe', [liveLetter]);
+
+                                  } else {
+
+                                    // Fallback: scan for 'AMPCrypt' volume label
+
+                                    final res = await Process.run('powershell.exe', [
+
+                                      '-Command',
+
+                                      "(Get-Volume -EA SilentlyContinue | Where-Object { \$_.FileSystemLabel -eq 'AMPCrypt' } | Select-Object -First 1).DriveLetter"
+
+                                    ]);
+
+                                    final sl = res.stdout.toString().trim();
+
+                                    if (sl.length == 1 && sl.codeUnitAt(0) >= 65) {
+
+                                      Process.run('explorer.exe', ['\${sl}:']);
+
+                                    } else {
+
+                                      Process.run('explorer.exe', [liveLetter]);
+
+                                    }
+
+                                  }
+
                                 },
                               ),
                             ],

@@ -1,9 +1,16 @@
+/*
+ * Copyright (c) IT Support BD (https://itsupport.com.bd). All rights reserved.
+ * This file is part of AMPCrypt.
+ This program is free software but it under the terms of the GNU Affero General Public License.
+ * (This project website link: https://ampcrypt.itsupport.com.bd)
+ */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --background: #0A0A0A;
+  --background: #070D1E;
   --foreground: #ededed;
 }
 
@@ -15,5 +22,22 @@ body {
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  .liquid-glass-20 {
+    background: rgba(15, 23, 42, 0.20);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(0, 240, 255, 0.25);
+  }
+
+  .liquid-glass-hover {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .liquid-glass-hover:hover {
+    transform: translateY(-2px) scale(1.02);
+    border-color: rgba(0, 240, 255, 0.60);
+    box-shadow: 0 0 25px rgba(0, 240, 255, 0.30);
   }
 }

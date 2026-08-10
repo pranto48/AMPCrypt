@@ -1,4 +1,12 @@
+/*
+ * Copyright (c) IT Support BD (https://itsupport.com.bd). All rights reserved.
+ * This file is part of AMPCrypt.
+ This program is free software but it under the terms of the GNU Affero General Public License.
+ * (This project website link: https://ampcrypt.itsupport.com.bd)
+ */
+
 import 'dart:io';
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -37,10 +45,10 @@ class VaultMainContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF0B101D) : Colors.white;
-    final textColor = isDark ? Colors.white : const Color(0xFF1E293B);
+    final bg = isDark ? const Color(0xFF070D1E) : const Color(0xFFF0F7FF);
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
     final subtitleColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-    final borderColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
+    final borderColor = isDark ? const Color(0x3300F0FF) : const Color(0xFFE2E8F0);
 
     final passwordController = TextEditingController();
     final isDirectoryMissing = !Directory(vaultPath).existsSync();
@@ -51,25 +59,12 @@ class VaultMainContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Section
+          // Header Section with Animated Pulsing Sphere Icon
           Row(
             children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isDirectoryMissing
-                      ? const Color(0xFFE11D48)
-                      : (isUnlocked ? const Color(0xFF388E3C) : const Color(0xFF388E3C)),
-                ),
-                child: Icon(
-                  isDirectoryMissing
-                      ? Icons.folder_off_rounded
-                      : (isUnlocked ? Icons.lock_open_rounded : Icons.lock_rounded),
-                  color: Colors.white,
-                  size: 28,
-                ),
+              _PulsingVaultIcon(
+                isUnlocked: isUnlocked,
+                isDirectoryMissing: isDirectoryMissing,
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -89,7 +84,7 @@ class VaultMainContent extends StatelessWidget {
                       vaultPath,
                       style: GoogleFonts.outfit(
                         fontSize: 13,
-                        color: isDirectoryMissing ? const Color(0xFFE11D48) : subtitleColor,
+                        color: isDirectoryMissing ? const Color(0xFFF43F5E) : subtitleColor,
                         fontWeight: isDirectoryMissing ? FontWeight.w600 : FontWeight.normal,
                       ),
                       maxLines: 1,
@@ -98,14 +93,26 @@ class VaultMainContent extends StatelessWidget {
                   ],
                 ),
               ),
-              // Status Pill Badge Top Right
+              // Status Pill Badge Top Right with 20% Liquid Glass Effect
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
                   color: isDirectoryMissing
-                      ? const Color(0xFFE11D48)
-                      : (isUnlocked ? const Color(0xFF388E3C) : (isDark ? const Color(0xFF334155) : const Color(0xFF94A3B8))),
+                      ? const Color(0xFFF43F5E)
+                      : (isUnlocked ? const Color.fromRGBO(2, 132, 199, 0.85) : (isDark ? const Color.fromRGBO(15, 23, 42, 0.60) : const Color(0xFF94A3B8))),
                   borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isDark ? const Color.fromRGBO(0, 240, 255, 0.40) : Colors.transparent,
+                    width: 1.0,
+                  ),
+                  boxShadow: isUnlocked
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFF00F0FF).withValues(alpha: 0.25),
+                            blurRadius: 10,
+                          ),
+                        ]
+                      : null,
                 ),
                 child: Text(
                   isDirectoryMissing ? 'MISSING' : (isUnlocked ? 'UNLOCKED' : 'LOCKED'),
@@ -128,7 +135,7 @@ class VaultMainContent extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const CircularProgressIndicator(color: Color(0xFF388E3C)),
+                  const CircularProgressIndicator(color: Color(0xFF00F0FF)),
                   const SizedBox(height: 16),
                   Text(
                     loadingMessage ?? 'Processing cryptography operation...',
@@ -143,14 +150,14 @@ class VaultMainContent extends StatelessWidget {
                 width: 440,
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E1B2E) : const Color(0xFFFFF1F2),
+                  color: isDark ? const Color.fromRGBO(30, 27, 46, 0.60) : const Color(0xFFFFF1F2),
                   border: Border.all(color: isDark ? const Color(0xFF881337) : const Color(0xFFFECDD3)),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.warning_amber_rounded, color: Color(0xFFE11D48), size: 40),
+                    const Icon(Icons.warning_amber_rounded, color: Color(0xFFF43F5E), size: 40),
                     const SizedBox(height: 12),
                     Text(
                       'Vault Folder Not Found',
@@ -173,10 +180,10 @@ class VaultMainContent extends StatelessWidget {
                     const SizedBox(height: 20),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE11D48),
+                        backgroundColor: const Color(0xFFF43F5E),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                       icon: const Icon(Icons.folder_open_rounded, size: 18),
                       label: Text(
@@ -190,7 +197,7 @@ class VaultMainContent extends StatelessWidget {
               ),
             )
           else if (isUnlocked) ...[
-            // Vault Unlocked Content View
+            // Vault Unlocked View with 20% Translucent Liquid Glass Reveal Drive Button
             Center(
               child: Column(
                 children: [
@@ -204,22 +211,15 @@ class VaultMainContent extends StatelessWidget {
                   ),
                   const SizedBox(height: 18),
 
-                  // Big Action Button: Reveal Drive
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF388E3C),
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(220, 64),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      elevation: 2,
-                    ),
+                  _LiquidGlassButton(
                     onPressed: onRevealDrive,
+                    minWidth: 240,
+                    minHeight: 64,
+                    gradientColors: const [Color(0xFF0072FF), Color(0xFF00F0FF)],
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.dns_rounded, size: 28),
+                        const Icon(Icons.dns_rounded, size: 28, color: Colors.white),
                         const SizedBox(width: 14),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -230,13 +230,14 @@ class VaultMainContent extends StatelessWidget {
                               style: GoogleFonts.outfit(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
+                                color: Colors.white,
                               ),
                             ),
                             Text(
                               driveLetter,
                               style: GoogleFonts.outfit(
                                 fontSize: 12,
-                                color: Colors.white.withValues(alpha: 0.85),
+                                color: Colors.white.withValues(alpha: 0.9),
                               ),
                             ),
                           ],
@@ -246,31 +247,20 @@ class VaultMainContent extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
 
-                  // Lock Button
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: textColor,
-                      side: BorderSide(color: borderColor, width: 1.2),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-                    ),
-                    icon: const Icon(Icons.vpn_key_outlined, size: 16),
-                    label: Text(
-                      'Lock',
-                      style: GoogleFonts.outfit(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
+                  // Lock Button with Micro-Animation
+                  _LiquidGlassOutlineButton(
                     onPressed: onLock,
+                    label: 'Lock',
+                    icon: Icons.vpn_key_outlined,
+                    isDark: isDark,
+                    textColor: textColor,
+                    borderColor: borderColor,
                   ),
                 ],
               ),
             ),
           ] else ...[
-            // Vault Locked View
+            // Vault Locked View with 20% Liquid Glass Input & Button
             Center(
               child: SizedBox(
                 width: 360,
@@ -293,40 +283,36 @@ class VaultMainContent extends StatelessWidget {
                       decoration: InputDecoration(
                         hintText: 'Master Password',
                         hintStyle: GoogleFonts.outfit(color: subtitleColor, fontSize: 13),
-                        prefixIcon: const Icon(Icons.lock_outline, size: 18),
+                        prefixIcon: const Icon(Icons.lock_outline, size: 18, color: Color(0xFF00F0FF)),
                         filled: true,
-                        fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                        fillColor: isDark ? const Color.fromRGBO(15, 23, 42, 0.40) : const Color(0xFFF8FAFC),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           borderSide: BorderSide(color: borderColor),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           borderSide: BorderSide(color: borderColor),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Color(0xFF388E3C), width: 1.5),
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFF00F0FF), width: 1.8),
                         ),
                       ),
                       onSubmitted: (val) => onUnlock(val),
                     ),
                     const SizedBox(height: 16),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF388E3C),
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 44),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
+                    _LiquidGlassButton(
                       onPressed: () => onUnlock(passwordController.text),
+                      minWidth: double.infinity,
+                      minHeight: 46,
+                      gradientColors: const [Color(0xFF0072FF), Color(0xFF00F0FF)],
                       child: Text(
                         'Unlock Vault',
                         style: GoogleFonts.outfit(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -336,7 +322,7 @@ class VaultMainContent extends StatelessWidget {
                       child: Text(
                         'SLIP-39 Recovery Mnemonics',
                         style: GoogleFonts.outfit(
-                          color: const Color(0xFF2563EB),
+                          color: const Color(0xFF38BDF8),
                           fontSize: 12,
                           decoration: TextDecoration.underline,
                         ),
@@ -350,32 +336,28 @@ class VaultMainContent extends StatelessWidget {
 
           const Spacer(),
 
-          // Bottom Action Tools Bar
+          // Bottom Action Tools Bar with 20% Liquid Glass Translucent Effect
           Row(
             children: [
               Expanded(
-                child: _buildToolCard(
-                  context,
+                child: _LiquidGlassToolCard(
                   title: 'abc ➔ 101010',
                   subtitle: 'Locate Encrypted File',
                   icon: Icons.search_rounded,
                   onTap: onLocateEncryptedFile,
                   isDark: isDark,
-                  borderColor: borderColor,
                   textColor: textColor,
                   subtitleColor: subtitleColor,
                 ),
               ),
               const SizedBox(width: 14),
               Expanded(
-                child: _buildToolCard(
-                  context,
+                child: _LiquidGlassToolCard(
                   title: '101010 ➔ abc',
                   subtitle: 'Decrypt File Name',
                   icon: Icons.font_download_outlined,
                   onTap: onDecryptFileName,
                   isDark: isDark,
-                  borderColor: borderColor,
                   textColor: textColor,
                   subtitleColor: subtitleColor,
                 ),
@@ -386,55 +368,321 @@ class VaultMainContent extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildToolCard(
-    BuildContext context, {
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required VoidCallback onTap,
-    required bool isDark,
-    required Color borderColor,
-    required Color textColor,
-    required Color subtitleColor,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: borderColor),
-        ),
-        child: Row(
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: GoogleFonts.outfit(
-                    fontSize: 11,
-                    color: subtitleColor,
-                  ),
+// ─── Pulsing Vault Icon Animation Widget ────────────────────────────────────
+class _PulsingVaultIcon extends StatefulWidget {
+  final bool isUnlocked;
+  final bool isDirectoryMissing;
+
+  const _PulsingVaultIcon({
+    required this.isUnlocked,
+    required this.isDirectoryMissing,
+  });
+
+  @override
+  State<_PulsingVaultIcon> createState() => _PulsingVaultIconState();
+}
+
+class _PulsingVaultIconState extends State<_PulsingVaultIcon> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _glowAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat(reverse: true);
+
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+    _glowAnimation = Tween<double>(begin: 14.0, end: 24.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scaleAnimation.value,
+          child: Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: widget.isDirectoryMissing
+                  ? const LinearGradient(colors: [Color(0xFFF43F5E), Color(0xFFE11D48)])
+                  : const LinearGradient(colors: [Color(0xFF0072FF), Color(0xFF00F0FF)]),
+              boxShadow: [
+                BoxShadow(
+                  color: widget.isDirectoryMissing
+                      ? const Color(0xFFF43F5E).withValues(alpha: 0.35)
+                      : const Color(0xFF00F0FF).withValues(alpha: 0.40),
+                  blurRadius: _glowAnimation.value,
+                  spreadRadius: 2,
                 ),
               ],
             ),
-            const Spacer(),
-            Icon(icon, size: 18, color: subtitleColor),
-          ],
+            child: Icon(
+              widget.isDirectoryMissing
+                  ? Icons.folder_off_rounded
+                  : (widget.isUnlocked ? Icons.lock_open_rounded : Icons.lock_rounded),
+              color: Colors.white,
+              size: 28,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ─── Liquid Glass Button with Micro-Animation ────────────────────────────────
+class _LiquidGlassButton extends StatefulWidget {
+  final VoidCallback onPressed;
+  final Widget child;
+  final double minWidth;
+  final double minHeight;
+  final List<Color> gradientColors;
+
+  const _LiquidGlassButton({
+    required this.onPressed,
+    required this.child,
+    this.minWidth = 200,
+    this.minHeight = 48,
+    required this.gradientColors,
+  });
+
+  @override
+  State<_LiquidGlassButton> createState() => _LiquidGlassButtonState();
+}
+
+class _LiquidGlassButtonState extends State<_LiquidGlassButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedScale(
+        scale: _isHovered ? 1.03 : 1.0,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: widget.minWidth == double.infinity ? double.infinity : null,
+          height: widget.minHeight,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            gradient: LinearGradient(colors: widget.gradientColors),
+            boxShadow: [
+              BoxShadow(
+                color: widget.gradientColors.last.withValues(alpha: _isHovered ? 0.50 : 0.30),
+                blurRadius: _isHovered ? 20 : 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              minimumSize: Size(widget.minWidth, widget.minHeight),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: widget.onPressed,
+            child: widget.child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Liquid Glass Outline Button with Micro-Animation ────────────────────────
+class _LiquidGlassOutlineButton extends StatefulWidget {
+  final VoidCallback onPressed;
+  final String label;
+  final IconData icon;
+  final bool isDark;
+  final Color textColor;
+  final Color borderColor;
+
+  const _LiquidGlassOutlineButton({
+    required this.onPressed,
+    required this.label,
+    required this.icon,
+    required this.isDark,
+    required this.textColor,
+    required this.borderColor,
+  });
+
+  @override
+  State<_LiquidGlassOutlineButton> createState() => _LiquidGlassOutlineButtonState();
+}
+
+class _LiquidGlassOutlineButtonState extends State<_LiquidGlassOutlineButton> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedScale(
+        scale: _isHovered ? 1.03 : 1.0,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        child: OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: widget.textColor,
+            backgroundColor: _isHovered
+                ? (widget.isDark ? const Color.fromRGBO(0, 240, 255, 0.15) : const Color.fromRGBO(2, 132, 199, 0.10))
+                : Colors.transparent,
+            side: BorderSide(
+              color: _isHovered ? const Color(0xFF00F0FF) : widget.borderColor,
+              width: 1.2,
+            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          ),
+          icon: Icon(widget.icon, size: 16, color: _isHovered ? const Color(0xFF00F0FF) : widget.textColor),
+          label: Text(
+            widget.label,
+            style: GoogleFonts.outfit(
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              color: _isHovered ? const Color(0xFF00F0FF) : widget.textColor,
+            ),
+          ),
+          onPressed: widget.onPressed,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── 20% Liquid Glass Tool Card with Hover Animations ────────────────────────
+class _LiquidGlassToolCard extends StatefulWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool isDark;
+  final Color textColor;
+  final Color subtitleColor;
+
+  const _LiquidGlassToolCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+    required this.isDark,
+    required this.textColor,
+    required this.subtitleColor,
+  });
+
+  @override
+  State<_LiquidGlassToolCard> createState() => _LiquidGlassToolCardState();
+}
+
+class _LiquidGlassToolCardState extends State<_LiquidGlassToolCard> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final glassBg = widget.isDark
+        ? (_isHovered ? const Color.fromRGBO(15, 23, 42, 0.45) : const Color.fromRGBO(15, 23, 42, 0.20))
+        : (_isHovered ? const Color.fromRGBO(255, 255, 255, 0.90) : const Color.fromRGBO(248, 250, 252, 0.70));
+
+    final borderColor = _isHovered
+        ? const Color.fromRGBO(0, 240, 255, 0.60)
+        : (widget.isDark ? const Color.fromRGBO(0, 240, 255, 0.20) : const Color(0xFFCBD5E1));
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedScale(
+        scale: _isHovered ? 1.03 : 1.0,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: InkWell(
+              onTap: widget.onTap,
+              borderRadius: BorderRadius.circular(12),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                decoration: BoxDecoration(
+                  color: glassBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: borderColor, width: 1.2),
+                  boxShadow: _isHovered
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFF00F0FF).withValues(alpha: 0.25),
+                            blurRadius: 16,
+                            spreadRadius: 1,
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Row(
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          widget.title,
+                          style: GoogleFonts.outfit(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: widget.textColor,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          widget.subtitle,
+                          style: GoogleFonts.outfit(
+                            fontSize: 11,
+                            color: widget.subtitleColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    AnimatedScale(
+                      scale: _isHovered ? 1.2 : 1.0,
+                      duration: const Duration(milliseconds: 180),
+                      child: Icon(
+                        widget.icon,
+                        size: 18,
+                        color: _isHovered ? const Color(0xFF00F0FF) : widget.subtitleColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

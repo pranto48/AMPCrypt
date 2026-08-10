@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) IT Support BD (https://itsupport.com.bd). All rights reserved.
+ * This file is part of AMPCrypt.
+ This program is free software but it under the terms of the GNU Affero General Public License.
+ * (This project website link: https://ampcrypt.itsupport.com.bd)
+ */
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -42,8 +49,8 @@ class VaultSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final sidebarBg = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC);
-    final borderColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
+    final sidebarBg = isDark ? const Color(0xFF070D1E) : const Color(0xFFF1F5F9);
+    final borderColor = isDark ? const Color(0x3300F0FF) : const Color(0xFFE2E8F0);
 
     return Container(
       width: 280,
@@ -67,7 +74,7 @@ class VaultSidebar extends StatelessWidget {
                           Icon(
                             Icons.folder_open_outlined,
                             size: 36,
-                            color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                            color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF94A3B8),
                           ),
                           const SizedBox(height: 10),
                           Text(
@@ -88,77 +95,23 @@ class VaultSidebar extends StatelessWidget {
                     itemBuilder: (context, index) {
                       final item = vaults[index];
                       final isSelected = selectedVaultId == item.id;
-                      final selectedBg = isDark ? const Color(0xFF143823) : const Color(0xFFE8F5E9);
-                      final titleColor = isSelected 
-                          ? (isDark ? const Color(0xFF4ADE80) : const Color(0xFF22C55E))
-                          : (isDark ? Colors.white : const Color(0xFF1E293B));
-                      final subtitleColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
 
-                      return InkWell(
+                      return _LiquidGlassVaultItem(
+                        item: item,
+                        isSelected: isSelected,
+                        isDark: isDark,
                         onTap: () => onSelectVault(item.id),
-                        borderRadius: BorderRadius.circular(6),
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 4),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: isSelected ? selectedBg : Colors.transparent,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                item.isUnlocked ? Icons.lock_open_rounded : Icons.lock_rounded,
-                                color: const Color(0xFF22C55E),
-                                size: 22,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      item.name,
-                                      style: GoogleFonts.outfit(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                        color: titleColor,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      item.path,
-                                      style: GoogleFonts.outfit(
-                                        fontSize: 11,
-                                        color: subtitleColor,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (onDeleteVault != null)
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline_rounded, size: 16),
-                                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-                                  tooltip: 'Delete Vault',
-                                  onPressed: () => onDeleteVault!(item.id),
-                                ),
-                            ],
-                          ),
-                        ),
+                        onDelete: onDeleteVault != null ? () => onDeleteVault!(item.id) : null,
                       );
                     },
                   ),
           ),
 
-          // Bottom Action Dock Bar (Matching Screenshot 1 dock footer)
+          // Bottom Action Dock Bar
           Container(
             height: 44,
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              color: isDark ? const Color(0xFF0B132B) : Colors.white,
               border: Border(
                 top: BorderSide(color: borderColor, width: 1.0),
               ),
@@ -173,7 +126,7 @@ class VaultSidebar extends StatelessWidget {
                     onSelected: (value) {
                       if (value == 'new') onCreateVault();
                       if (value == 'open') onOpenVault();
-                      if (value == 'recover') onOpenAlerts(); // launches Recovery & Backup
+                      if (value == 'recover') onOpenAlerts();
                     },
                     itemBuilder: (context) => [
                       PopupMenuItem(
@@ -219,13 +172,13 @@ class VaultSidebar extends StatelessWidget {
                 ),
                 Container(width: 1, height: 24, color: borderColor),
 
-                // Blank / Spacer slot matching Screenshot 1
+                // Blank / Spacer slot
                 Expanded(
                   child: Container(),
                 ),
                 Container(width: 1, height: 24, color: borderColor),
 
-                // Ransomware Notification Bell Button
+                // Security Alerts Button
                 Expanded(
                   child: IconButton(
                     tooltip: 'Security Alerts',
@@ -255,6 +208,128 @@ class VaultSidebar extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LiquidGlassVaultItem extends StatefulWidget {
+  final VaultSidebarItem item;
+  final bool isSelected;
+  final bool isDark;
+  final VoidCallback onTap;
+  final VoidCallback? onDelete;
+
+  const _LiquidGlassVaultItem({
+    required this.item,
+    required this.isSelected,
+    required this.isDark,
+    required this.onTap,
+    this.onDelete,
+  });
+
+  @override
+  State<_LiquidGlassVaultItem> createState() => _LiquidGlassVaultItemState();
+}
+
+class _LiquidGlassVaultItemState extends State<_LiquidGlassVaultItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final titleColor = widget.isSelected
+        ? (widget.isDark ? const Color(0xFF00F0FF) : const Color(0xFF0284C7))
+        : (widget.isDark ? Colors.white : const Color(0xFF1E293B));
+    final subtitleColor = widget.isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+
+    final glassBg = widget.isSelected
+        ? (widget.isDark ? const Color.fromRGBO(0, 114, 255, 0.20) : const Color.fromRGBO(224, 242, 254, 0.70))
+        : (_isHovered
+            ? (widget.isDark ? const Color.fromRGBO(15, 23, 42, 0.40) : const Color.fromRGBO(241, 245, 249, 0.80))
+            : Colors.transparent);
+
+    final borderColor = (widget.isSelected || _isHovered) && widget.isDark
+        ? const Color.fromRGBO(0, 240, 255, 0.50)
+        : Colors.transparent;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedScale(
+        scale: _isHovered ? 1.02 : 1.0,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            margin: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: glassBg,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: borderColor, width: 1.2),
+              boxShadow: (widget.isSelected || _isHovered) && widget.isDark
+                  ? [
+                      BoxShadow(
+                        color: const Color(0xFF00F0FF).withValues(alpha: 0.20),
+                        blurRadius: 12,
+                        spreadRadius: 1,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              children: [
+                AnimatedScale(
+                  scale: _isHovered ? 1.15 : 1.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    widget.item.isUnlocked ? Icons.lock_open_rounded : Icons.lock_rounded,
+                    color: const Color(0xFF00F0FF),
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.item.name,
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: titleColor,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.item.path,
+                        style: GoogleFonts.outfit(
+                          fontSize: 11,
+                          color: subtitleColor,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                if (widget.onDelete != null)
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline_rounded, size: 16),
+                    color: widget.isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                    tooltip: 'Delete Vault',
+                    onPressed: widget.onDelete,
+                  ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

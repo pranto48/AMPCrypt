@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) IT Support BD (https://itsupport.com.bd). All rights reserved.
+ * This file is part of AMPCrypt.
+ This program is free software but it under the terms of the GNU Affero General Public License.
+ * (This project website link: https://ampcrypt.itsupport.com.bd)
+ */
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -130,13 +137,13 @@ class MyAppState extends State<MyApp> {
           themeMode: _themeMode,
           theme: ThemeData(
             brightness: Brightness.light,
-            primaryColor: const Color(0xFF22C55E),
-            scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+            primaryColor: const Color(0xFF0284C7),
+            scaffoldBackgroundColor: const Color(0xFFF0F7FF),
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF22C55E),
-              secondary: Color(0xFF16A34A),
+              primary: Color(0xFF0284C7),
+              secondary: Color(0xFF0072FF),
               surface: Colors.white,
-              error: Color(0xFFE06C75),
+              error: Color(0xFFF43F5E),
             ),
             textTheme: GoogleFonts.outfitTextTheme(
               ThemeData.light().textTheme,
@@ -145,13 +152,13 @@ class MyAppState extends State<MyApp> {
           ),
           darkTheme: ThemeData(
             brightness: Brightness.dark,
-            primaryColor: const Color(0xFF22C55E),
-            scaffoldBackgroundColor: const Color(0xFF0F172A),
+            primaryColor: const Color(0xFF00F0FF),
+            scaffoldBackgroundColor: const Color(0xFF070D1E),
             colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF22C55E),
-              secondary: Color(0xFF16A34A),
-              surface: Color(0xFF1E293B),
-              error: Color(0xFFE06C75),
+              primary: Color(0xFF00F0FF),
+              secondary: Color(0xFF0072FF),
+              surface: Color(0xFF0F172A),
+              error: Color(0xFFF43F5E),
             ),
             textTheme: GoogleFonts.outfitTextTheme(
               ThemeData.dark().textTheme,

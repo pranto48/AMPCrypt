@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) IT Support BD (https://itsupport.com.bd). All rights reserved.
+ * This file is part of AMPCrypt.
+ This program is free software but it under the terms of the GNU Affero General Public License.
+ * (This project website link: https://ampcrypt.itsupport.com.bd)
+ */
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -94,11 +101,11 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final dialogBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFFAFAFA);
+    final dialogBg = isDark ? const Color(0xFF070D1E) : const Color(0xFFF0F7FF);
     final cardBg = isDark ? const Color(0xFF0F172A) : Colors.white;
-    final textColor = isDark ? Colors.white : const Color(0xFF1E293B);
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
     final subtitleColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-    final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final borderColor = isDark ? const Color(0x3300F0FF) : const Color(0xFFCBD5E1);
 
     return Dialog(
       backgroundColor: dialogBg,
@@ -117,7 +124,10 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
               height: 38,
               padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                gradient: isDark
+                    ? const LinearGradient(colors: [Color(0xFF0B132B), Color(0xFF0F172A)])
+                    : null,
+                color: isDark ? null : const Color(0xFFE2E8F0),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(12),
                   topRight: Radius.circular(12),
@@ -132,7 +142,7 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
                     height: 16,
                     errorBuilder: (_, __, ___) => const Icon(
                       Icons.security_rounded,
-                      color: Color(0xFF22C55E),
+                      color: Color(0xFF00F0FF),
                       size: 16,
                     ),
                   ),
