@@ -37,6 +37,7 @@ import '../widgets/preferences_dialog.dart';
 import '../widgets/cipher_tools_dialog.dart';
 import '../widgets/backup_restore_dialog.dart';
 import '../widgets/delete_vault_dialog.dart';
+import '../widgets/create_vault_dialog.dart';
 import '../widgets/vault_sidebar.dart';
 import '../widgets/vault_main_content.dart';
 import '../../../biometrics/data/datasources/face_verification_service.dart';
@@ -397,6 +398,35 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
           ),
         ),
       ),
+    );
+  }
+
+  void _showCreateVaultDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return CreateVaultDialog(
+          onCreate: (password, authLevel, vaultName, vaultPath) async {
+            final repo = context.read<VaultBloc>().repository;
+            if (vaultPath != null && vaultPath.isNotEmpty) {
+              final targetDir = p.join(vaultPath, '.ampcrypt_vault_$vaultName');
+              await repo.relocateVaultFolder(targetDir);
+            }
+            if (context.mounted) {
+              context.read<VaultBloc>().add(
+                CreateVaultEvent(password, authLevel: authLevel),
+              );
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: kSuccessColor,
+                  content: Text('Initializing vault "$vaultName"...', style: GoogleFonts.outfit()),
+                ),
+              );
+            }
+          },
+        );
+      },
     );
   }
 
@@ -1204,145 +1234,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
     );
   }
 
-  void _showCreateVaultDialog(BuildContext context) {
-    final repository = context.read<VaultBloc>().repository;
-    final defaultPath = repository.getVaultPath();
-    final defaultDrive = repository.getDriveLetter();
 
-    final nameController = TextEditingController(text: 'Primary');
-    final pathController = TextEditingController(text: defaultPath);
-    String selectedDrive = defaultDrive;
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              backgroundColor: kSurfaceColor,
-              title: Text(
-                'Create New Vault',
-                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-              content: SizedBox(
-                width: 450,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: nameController,
-                      style: GoogleFonts.outfit(color: Colors.white),
-                      decoration: InputDecoration(
-                        labelText: 'Vault Name',
-                        labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
-                        enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                      ),
-                      onChanged: (val) {
-                        final cleanName = val.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_').toLowerCase();
-                        if (cleanName.isNotEmpty) {
-                          final parentDir = Directory(defaultPath).parent.path;
-                          setDialogState(() {
-                            pathController.text = p.join(parentDir, '.ampcrypt_vault_$cleanName');
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: pathController,
-                            style: GoogleFonts.outfit(color: Colors.white),
-                            decoration: InputDecoration(
-                              labelText: 'Vault Folder Path',
-                              labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
-                              enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: Icon(Icons.folder_open, color: kPrimaryColor),
-                          onPressed: () async {
-                            String? selectedDirectory = await FilePicker.getDirectoryPath();
-                            if (selectedDirectory != null) {
-                              setDialogState(() {
-                                pathController.text = selectedDirectory;
-                              });
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedDrive,
-                      dropdownColor: const Color(0xFF1E293B),
-                      decoration: InputDecoration(
-                        labelText: 'Virtual Drive Letter',
-                        labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
-                        enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                      ),
-                      style: GoogleFonts.outfit(color: Colors.white),
-                      items: ['D:', 'E:', 'F:', 'G:', 'H:', 'V:', 'W:', 'X:', 'Y:', 'Z:']
-                          .map((drive) => DropdownMenuItem(
-                                value: drive,
-                                child: Text(drive, style: GoogleFonts.outfit(color: Colors.white)),
-                              ))
-                          .toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          setDialogState(() {
-                            selectedDrive = val;
-                          });
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: Text('Cancel', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8))),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: kPrimaryColor,
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: () async {
-                    if (pathController.text.isNotEmpty) {
-                      final path = pathController.text;
-                      final drive = selectedDrive;
-                      Navigator.of(dialogContext).pop();
-                      
-                      await repository.updateVaultSettings(path, drive);
-                      
-                      if (context.mounted) {
-                        context.read<VaultBloc>().add(ResetToUninitializedEvent());
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            backgroundColor: kSuccessColor,
-                            content: Text(
-                              'Vault profile configured. Setup your security keys.',
-                              style: GoogleFonts.outfit(),
-                            ),
-                          ),
-                        );
-                      }
-                    }
-                  },
-                  child: Text('Create & Setup', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
 
   void _showAddFtpDriveDialog(BuildContext context) {
     final repository = context.read<VaultBloc>().repository;
