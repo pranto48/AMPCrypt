@@ -144,7 +144,7 @@ export default function Home() {
             <div className="p-4 rounded-xl liquid-glass-20 border border-[#00F0FF]/30 text-xs text-cyan-100 flex items-start gap-3">
               <CheckCircle className="w-5 h-5 text-[#00F0FF] shrink-0 mt-0.5" />
               <div>
-                <span className="font-bold text-white">Certificate Verification Tip (0x800B010A):</span> For MSIX double-click installation, run <code className="bg-slate-950/60 px-1.5 py-0.5 rounded text-[#00F0FF]">Install-AMPCrypt-MSIX.bat</code> included in the package to trust the publisher certificate automatically, or simply use <code className="bg-slate-950/60 px-1.5 py-0.5 rounded text-[#00F0FF]">AMPCrypt-Setup.exe</code> for instant 1-click setup.
+                <span className="font-bold text-white">Certificate Trust & Verification (Errors 0x800B010A / 0x800B0109):</span> For direct MSIX installation, run <code className="bg-slate-950/60 px-1.5 py-0.5 rounded text-[#00F0FF]">Install-AMPCrypt-MSIX.bat</code> included in the download package to automatically trust the publisher certificate in Windows Root Store, or simply run <code className="bg-slate-950/60 px-1.5 py-0.5 rounded text-[#00F0FF]">AMPCrypt-Setup.exe</code> for instant 1-click installation.
               </div>
             </div>
 
