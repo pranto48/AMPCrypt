@@ -37,6 +37,7 @@ import '../widgets/preferences_dialog.dart';
 import '../widgets/cipher_tools_dialog.dart';
 import '../widgets/backup_restore_dialog.dart';
 import '../widgets/delete_vault_dialog.dart';
+import '../widgets/create_vault_dialog.dart';
 import '../widgets/vault_sidebar.dart';
 import '../widgets/vault_main_content.dart';
 import '../../../biometrics/data/datasources/face_verification_service.dart';
@@ -397,6 +398,35 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
           ),
         ),
       ),
+    );
+  }
+
+  void _showCreateVaultDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return CreateVaultDialog(
+          onCreate: (password, authLevel, vaultName, vaultPath) async {
+            final repo = context.read<VaultBloc>().repository;
+            if (vaultPath != null && vaultPath.isNotEmpty) {
+              final targetDir = p.join(vaultPath, '.ampcrypt_vault_$vaultName');
+              await repo.relocateVaultFolder(targetDir);
+            }
+            if (context.mounted) {
+              context.read<VaultBloc>().add(
+                CreateVaultEvent(password, authLevel: authLevel),
+              );
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: kSuccessColor,
+                  content: Text('Initializing vault "$vaultName"...', style: GoogleFonts.outfit()),
+                ),
+              );
+            }
+          },
+        );
+      },
     );
   }
 
