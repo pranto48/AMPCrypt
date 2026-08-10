@@ -125,7 +125,7 @@ flutter:
 msix_config:
   display_name: AMPCrypt
   publisher_display_name: IT Support BD
-  publisher: "CN=IT Support BD, O=IT Support BD, C=BD"
+  publisher: "CN=IT Support BD"
   identity_name: com.itsupport.ampcrypt
   msix_version: 1.0.0.0
   logo_path: macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png
