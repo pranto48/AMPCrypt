@@ -445,289 +445,6 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
     );
   }
 
-  void showSecurityQuestionsRecoveryDialog(BuildContext context) {
-    final repo = context.read<VaultBloc>().repository;
-    final questions = repo.getQuestionsRecoveryQuestions() ?? [
-      'What was the name of your first pet?',
-      'In what city were you born?',
-      'What is your mother\'s maiden name?',
-    ];
-
-    final a1Controller = TextEditingController();
-    final a2Controller = TextEditingController();
-    final a3Controller = TextEditingController();
-
-    final newPassController = TextEditingController();
-    final confirmPassController = TextEditingController();
-
-    bool isVerified = false;
-    Uint8List? recoveredMasterKey;
-    bool obscureNewPass = true;
-    bool obscureConfirmPass = true;
-    String? errorMessage;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              backgroundColor: kSurfaceColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: const BorderSide(color: Color(0x4D00F0FF), width: 1.2),
-              ),
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0x2600F0FF),
-                      border: Border.all(color: const Color(0x6600F0FF)),
-                    ),
-                    child: const Icon(Icons.vpn_key_outlined, size: 20, color: Color(0xFF00F0FF)),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isVerified ? 'Reset Master Password' : 'Vault Password Recovery',
-                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        isVerified
-                            ? 'Enter a new primary password for your vault profile'
-                            : 'Answer your 3 security questions to recover your main password',
-                        style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              content: SizedBox(
-                width: 520,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (errorMessage != null) ...[
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            color: const Color(0x33FF4D88),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFFF4D88)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.error_outline, color: Color(0xFFFF4D88), size: 16),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  errorMessage!,
-                                  style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      if (!isVerified) ...[
-                        // Question 1
-                        Text(
-                          'QUESTION 1: ${questions[0]}',
-                          style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF00F0FF)),
-                        ),
-                        const SizedBox(height: 4),
-                        TextField(
-                          controller: a1Controller,
-                          style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
-                          decoration: InputDecoration(
-                            hintText: 'Enter answer 1',
-                            hintStyle: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 12),
-                            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00F0FF))),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        // Question 2
-                        Text(
-                          'QUESTION 2: ${questions[1]}',
-                          style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF00F0FF)),
-                        ),
-                        const SizedBox(height: 4),
-                        TextField(
-                          controller: a2Controller,
-                          style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
-                          decoration: InputDecoration(
-                            hintText: 'Enter answer 2',
-                            hintStyle: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 12),
-                            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00F0FF))),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        // Question 3
-                        Text(
-                          'QUESTION 3: ${questions[2]}',
-                          style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF00F0FF)),
-                        ),
-                        const SizedBox(height: 4),
-                        TextField(
-                          controller: a3Controller,
-                          style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
-                          decoration: InputDecoration(
-                            hintText: 'Enter answer 3',
-                            hintStyle: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 12),
-                            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00F0FF))),
-                          ),
-                        ),
-                      ] else ...[
-                        Text(
-                          'NEW PRIMARY MASTER PASSWORD',
-                          style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF00F0FF)),
-                        ),
-                        const SizedBox(height: 4),
-                        TextField(
-                          controller: newPassController,
-                          obscureText: obscureNewPass,
-                          style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
-                          decoration: InputDecoration(
-                            hintText: 'Enter new primary password (8+ chars)',
-                            hintStyle: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 12),
-                            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00F0FF))),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                obscureNewPass ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                                color: const Color(0xFF94A3B8),
-                                size: 18,
-                              ),
-                              onPressed: () => setDialogState(() => obscureNewPass = !obscureNewPass),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        Text(
-                          'CONFIRM NEW MASTER PASSWORD',
-                          style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF00F0FF)),
-                        ),
-                        const SizedBox(height: 4),
-                        TextField(
-                          controller: confirmPassController,
-                          obscureText: obscureConfirmPass,
-                          style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
-                          decoration: InputDecoration(
-                            hintText: 'Re-enter new primary password',
-                            hintStyle: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 12),
-                            enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00F0FF))),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                obscureConfirmPass ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                                color: const Color(0xFF94A3B8),
-                                size: 18,
-                              ),
-                              onPressed: () => setDialogState(() => obscureConfirmPass = !obscureConfirmPass),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: Text('Cancel', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8))),
-                ),
-                if (!isVerified)
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0072FF),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    icon: const Icon(Icons.verified_user_outlined, size: 16),
-                    label: Text('Verify Answers', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-                    onPressed: () async {
-                      final a1 = a1Controller.text.trim();
-                      final a2 = a2Controller.text.trim();
-                      final a3 = a3Controller.text.trim();
-
-                      if (a1.isEmpty || a2.isEmpty || a3.isEmpty) {
-                        setDialogState(() => errorMessage = 'Please answer all 3 security questions.');
-                        return;
-                      }
-
-                      final key = await repo.recoverWithQuestionsAndEmail([a1, a2, a3]);
-                      if (key == null) {
-                        setDialogState(() => errorMessage = 'Incorrect security answers! Recovery failed.');
-                      } else {
-                        setDialogState(() {
-                          isVerified = true;
-                          recoveredMasterKey = key;
-                          errorMessage = null;
-                        });
-                      }
-                    },
-                  )
-                else
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF10B981),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    icon: const Icon(Icons.check_circle_outline, size: 16),
-                    label: Text('Reset & Unlock Vault', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-                    onPressed: () async {
-                      final newPass = newPassController.text;
-                      final confirmPass = confirmPassController.text;
-
-                      if (newPass.length < 8) {
-                        setDialogState(() => errorMessage = 'Password must be at least 8 characters long.');
-                        return;
-                      }
-
-                      if (newPass != confirmPass) {
-                        setDialogState(() => errorMessage = 'Passwords do not match!');
-                        return;
-                      }
-
-                      if (recoveredMasterKey != null) {
-                        Navigator.of(dialogContext).pop();
-
-                        await repo.resetMasterPasswordWithKey(recoveredMasterKey!, newPass);
-                        await repo.unlockWithMasterKey(recoveredMasterKey!);
-
-                        if (context.mounted) {
-                          context.read<VaultBloc>().add(CheckVaultStatusEvent());
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              backgroundColor: kSuccessColor,
-                              content: Text('Master password successfully reset! Vault unlocked.', style: GoogleFonts.outfit()),
-                            ),
-                          );
-                        }
-                      }
-                    },
-                  ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
   void _showOpenVaultDialog(BuildContext context) async {
     String? selectedDirectory = await FilePicker.getDirectoryPath();
     if (selectedDirectory != null) {
@@ -8702,4 +8419,289 @@ class _RealDiskUsageBarState extends State<_RealDiskUsageBar> {
       ],
     );
   }
+}
+
+
+// Top-level Security Questions Recovery Dialog
+void showSecurityQuestionsRecoveryDialog(BuildContext context) {
+  final repo = context.read<VaultBloc>().repository;
+  final questions = repo.getQuestionsRecoveryQuestions() ?? [
+    'What was the name of your first pet?',
+    'In what city were you born?',
+    'What is your mother\'s maiden name?',
+  ];
+
+  final a1Controller = TextEditingController();
+  final a2Controller = TextEditingController();
+  final a3Controller = TextEditingController();
+
+  final newPassController = TextEditingController();
+  final confirmPassController = TextEditingController();
+
+  bool isVerified = false;
+  Uint8List? recoveredMasterKey;
+  bool obscureNewPass = true;
+  bool obscureConfirmPass = true;
+  String? errorMessage;
+
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            backgroundColor: kSurfaceColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: Color(0x4D00F0FF), width: 1.2),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0x2600F0FF),
+                    border: Border.all(color: const Color(0x6600F0FF)),
+                  ),
+                  child: const Icon(Icons.vpn_key_outlined, size: 20, color: Color(0xFF00F0FF)),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isVerified ? 'Reset Master Password' : 'Vault Password Recovery',
+                      style: GoogleFonts.outfit(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      isVerified
+                          ? 'Enter a new primary password for your vault profile'
+                          : 'Answer your 3 security questions to recover your main password',
+                      style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 520,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (errorMessage != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0x33FF4D88),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFF4D88)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.error_outline, color: Color(0xFFFF4D88), size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                errorMessage!,
+                                style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (!isVerified) ...[
+                      // Question 1
+                      Text(
+                        'QUESTION 1: ${questions[0]}',
+                        style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF00F0FF)),
+                      ),
+                      const SizedBox(height: 4),
+                      TextField(
+                        controller: a1Controller,
+                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: 'Enter answer 1',
+                          hintStyle: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 12),
+                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                          focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00F0FF))),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      // Question 2
+                      Text(
+                        'QUESTION 2: ${questions[1]}',
+                        style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF00F0FF)),
+                      ),
+                      const SizedBox(height: 4),
+                      TextField(
+                        controller: a2Controller,
+                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: 'Enter answer 2',
+                          hintStyle: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 12),
+                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                          focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00F0FF))),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      // Question 3
+                      Text(
+                        'QUESTION 3: ${questions[2]}',
+                        style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF00F0FF)),
+                      ),
+                      const SizedBox(height: 4),
+                      TextField(
+                        controller: a3Controller,
+                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: 'Enter answer 3',
+                          hintStyle: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 12),
+                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                          focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00F0FF))),
+                        ),
+                      ),
+                    ] else ...[
+                      Text(
+                        'NEW PRIMARY MASTER PASSWORD',
+                        style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF00F0FF)),
+                      ),
+                      const SizedBox(height: 4),
+                      TextField(
+                        controller: newPassController,
+                        obscureText: obscureNewPass,
+                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: 'Enter new primary password (8+ chars)',
+                          hintStyle: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 12),
+                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                          focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00F0FF))),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscureNewPass ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              color: const Color(0xFF94A3B8),
+                              size: 18,
+                            ),
+                            onPressed: () => setDialogState(() => obscureNewPass = !obscureNewPass),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'CONFIRM NEW MASTER PASSWORD',
+                        style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF00F0FF)),
+                      ),
+                      const SizedBox(height: 4),
+                      TextField(
+                        controller: confirmPassController,
+                        obscureText: obscureConfirmPass,
+                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: 'Re-enter new primary password',
+                          hintStyle: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 12),
+                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                          focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00F0FF))),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscureConfirmPass ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              color: const Color(0xFF94A3B8),
+                              size: 18,
+                            ),
+                            onPressed: () => setDialogState(() => obscureConfirmPass = !obscureConfirmPass),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: Text('Cancel', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8))),
+              ),
+              if (!isVerified)
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0072FF),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.verified_user_outlined, size: 16),
+                  label: Text('Verify Answers', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                  onPressed: () async {
+                    final a1 = a1Controller.text.trim();
+                    final a2 = a2Controller.text.trim();
+                    final a3 = a3Controller.text.trim();
+
+                    if (a1.isEmpty || a2.isEmpty || a3.isEmpty) {
+                      setDialogState(() => errorMessage = 'Please answer all 3 security questions.');
+                      return;
+                    }
+
+                    final key = await repo.recoverWithQuestionsAndEmail([a1, a2, a3]);
+                    if (key == null) {
+                      setDialogState(() => errorMessage = 'Incorrect security answers! Recovery failed.');
+                    } else {
+                      setDialogState(() {
+                        isVerified = true;
+                        recoveredMasterKey = key;
+                        errorMessage = null;
+                      });
+                    }
+                  },
+                )
+              else
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.check_circle_outline, size: 16),
+                  label: Text('Reset & Unlock Vault', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                  onPressed: () async {
+                    final newPass = newPassController.text;
+                    final confirmPass = confirmPassController.text;
+
+                    if (newPass.length < 8) {
+                      setDialogState(() => errorMessage = 'Password must be at least 8 characters long.');
+                      return;
+                    }
+
+                    if (newPass != confirmPass) {
+                      setDialogState(() => errorMessage = 'Passwords do not match!');
+                      return;
+                    }
+
+                    if (recoveredMasterKey != null) {
+                      Navigator.of(dialogContext).pop();
+
+                      await repo.resetMasterPasswordWithKey(recoveredMasterKey!, newPass);
+                      await repo.unlockWithMasterKey(recoveredMasterKey!);
+
+                      if (context.mounted) {
+                        context.read<VaultBloc>().add(CheckVaultStatusEvent());
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: kSuccessColor,
+                            content: Text('Master password successfully reset! Vault unlocked.', style: GoogleFonts.outfit()),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                ),
+            ],
+          );
+        },
+      );
+    },
+  );
 }
