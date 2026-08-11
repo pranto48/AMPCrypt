@@ -1675,6 +1675,46 @@ class VaultRepositoryImpl implements VaultRepository {
     return true;
   }
 
+  @override
+  Future<void> resetMasterPasswordWithKey(Uint8List masterKey, String newPassword) async {
+    final level = configuredAuthLevel;
+
+    // 1. Generate fresh Salt (16 bytes)
+    final salt = _cryptoService.generateSecureRandom(16);
+
+    // 2. Re-split Master Key via SLIP-39 using configured auth level
+    const passphrase = "ampcrypt-secure-passphrase";
+    final mnemonics = _cryptoService.splitSecret(
+      masterKey,
+      passphrase: passphrase,
+      authLevel: level,
+    );
+
+    final operationalShares = mnemonics.sublist(0, level);
+
+    // 3. Derive key from new password using Argon2id
+    final derivedKey = await _cryptoService.deriveKey(newPassword, salt);
+
+    // 4. Encrypt the password-bound share (Factor 0) with new derived key
+    final encryptedPasswordShare = await _cryptoService.encryptData(
+      Uint8List.fromList(utf8.encode(operationalShares[0])),
+      derivedKey,
+    );
+
+    // 5. Update vault config on disk
+    final config = _loadVaultConfig() ?? <String, dynamic>{};
+    config['password_salt'] = base64Encode(salt);
+    config['encrypted_password_share'] = base64Encode(encryptedPasswordShare);
+
+    await _saveVaultConfig(config);
+
+    // 6. Update local SharedPreferences
+    await _prefs.setString('password_salt', base64Encode(salt));
+    await _prefs.setString('encrypted_password_share', base64Encode(encryptedPasswordShare));
+
+    _cachedMasterKey = masterKey;
+  }
+
   String _generateMockDeviceFingerprint() {
     final random = Random();
     final chars = '0123456789ABCDEF';

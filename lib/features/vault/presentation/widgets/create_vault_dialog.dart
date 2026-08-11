@@ -12,7 +12,14 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 
 class CreateVaultDialog extends StatefulWidget {
-  final Function(String password, int authLevel, String vaultName, String? vaultPath) onCreate;
+  final Function(
+    String password,
+    int authLevel,
+    String vaultName,
+    String? vaultPath,
+    List<String> questions,
+    List<String> answers,
+  ) onCreate;
 
   const CreateVaultDialog({
     super.key,
@@ -29,6 +36,24 @@ class _CreateVaultDialogState extends State<CreateVaultDialog> {
   final _pathController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
+
+  // 3 Security Questions & Answers
+  final _q1Controller = TextEditingController(text: 'What was the name of your first pet?');
+  final _q2Controller = TextEditingController(text: 'In what city were you born?');
+  final _q3Controller = TextEditingController(text: 'What is your mother\'s maiden name?');
+
+  final _a1Controller = TextEditingController();
+  final _a2Controller = TextEditingController();
+  final _a3Controller = TextEditingController();
+
+  final List<String> _predefinedQuestions = [
+    'What was the name of your first pet?',
+    'In what city were you born?',
+    'What is your mother\'s maiden name?',
+    'What was the name of your first school?',
+    'What is the name of the street you grew up on?',
+    'What is your favorite book or movie?',
+  ];
 
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
@@ -56,6 +81,12 @@ class _CreateVaultDialogState extends State<CreateVaultDialog> {
     _pathController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
+    _q1Controller.dispose();
+    _q2Controller.dispose();
+    _q3Controller.dispose();
+    _a1Controller.dispose();
+    _a2Controller.dispose();
+    _a3Controller.dispose();
     super.dispose();
   }
 
@@ -105,11 +136,25 @@ class _CreateVaultDialogState extends State<CreateVaultDialog> {
         return;
       }
 
+      if (_a1Controller.text.trim().isEmpty ||
+          _a2Controller.text.trim().isEmpty ||
+          _a3Controller.text.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFFFF4D88),
+            content: Text('Please answer all 3 security questions for vault recovery setup.', style: GoogleFonts.outfit()),
+          ),
+        );
+        return;
+      }
+
       widget.onCreate(
         _passwordController.text,
         _selectedAuthLevel,
         _nameController.text.trim().isEmpty ? 'My Vault' : _nameController.text.trim(),
         _pathController.text.trim().isEmpty ? null : _pathController.text.trim(),
+        [_q1Controller.text, _q2Controller.text, _q3Controller.text],
+        [_a1Controller.text.trim(), _a2Controller.text.trim(), _a3Controller.text.trim()],
       );
       Navigator.of(context).pop();
     }
@@ -161,7 +206,7 @@ class _CreateVaultDialogState extends State<CreateVaultDialog> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? accent.withOpacity(0.15)
+              ? accent.withValues(alpha: 0.15)
               : const Color(0x1F0F172A),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
@@ -204,6 +249,59 @@ class _CreateVaultDialogState extends State<CreateVaultDialog> {
     );
   }
 
+  Widget _buildQuestionSection({
+    required String title,
+    required TextEditingController qController,
+    required TextEditingController aController,
+    required String defaultQuestion,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.outfit(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.1,
+            color: const Color(0xFF00F0FF),
+          ),
+        ),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          initialValue: _predefinedQuestions.contains(qController.text) ? qController.text : defaultQuestion,
+          dropdownColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+          style: GoogleFonts.outfit(color: textColor, fontSize: 12),
+          decoration: _inputDecoration('Select Security Question', Icons.help_outline),
+          items: _predefinedQuestions
+              .map((q) => DropdownMenuItem(
+                    value: q,
+                    child: Text(q, overflow: TextOverflow.ellipsis, style: GoogleFonts.outfit(color: textColor)),
+                  ))
+              .toList(),
+          onChanged: (val) {
+            if (val != null) {
+              qController.text = val;
+            }
+          },
+        ),
+        const SizedBox(height: 6),
+        TextFormField(
+          controller: aController,
+          style: GoogleFonts.outfit(color: textColor, fontSize: 13),
+          decoration: _inputDecoration('Enter Answer', Icons.question_answer_outlined),
+          validator: (val) {
+            if (val == null || val.trim().isEmpty) return 'Answer is required for recovery setup';
+            return null;
+          },
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -214,8 +312,8 @@ class _CreateVaultDialogState extends State<CreateVaultDialog> {
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Container(
-        width: 650,
-        constraints: const BoxConstraints(maxHeight: 700),
+        width: 700,
+        constraints: const BoxConstraints(maxHeight: 780),
         decoration: BoxDecoration(
           color: dialogBg,
           borderRadius: BorderRadius.circular(16),
@@ -265,7 +363,7 @@ class _CreateVaultDialogState extends State<CreateVaultDialog> {
                           ),
                         ),
                         Text(
-                          'Set profile name, folder path, and zero-knowledge master password',
+                          'Set password, 3 security questions for recovery, and zero-knowledge unlock key',
                           style: GoogleFonts.outfit(
                             fontSize: 11,
                             color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
@@ -361,8 +459,10 @@ class _CreateVaultDialogState extends State<CreateVaultDialog> {
                           ],
                         ),
                         const SizedBox(height: 18),
+
+                        // Primary Master Password Section
                         Text(
-                          'MASTER VAULT PASSWORD',
+                          'PRIMARY VAULT MASTER PASSWORD',
                           style: GoogleFonts.outfit(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
@@ -377,7 +477,7 @@ class _CreateVaultDialogState extends State<CreateVaultDialog> {
                           style: GoogleFonts.outfit(color: textColor, fontSize: 13),
                           onChanged: _checkPasswordStrength,
                           decoration: _inputDecoration(
-                            'Enter strong master password',
+                            'Enter primary master password',
                             Icons.lock_outline,
                             suffix: IconButton(
                               icon: Icon(
@@ -420,8 +520,71 @@ class _CreateVaultDialogState extends State<CreateVaultDialog> {
                           ],
                         ),
                         const SizedBox(height: 14),
+
+                        // 3 Security Questions & Answers Section
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0x1F00F0FF) : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isDark ? const Color(0x3300F0FF) : const Color(0xFFCBD5E1),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.security, size: 16, color: Color(0xFF00F0FF)),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '3 SECURITY RECOVERY QUESTIONS & ANSWERS',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.1,
+                                      color: textColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'These 3 answers will be used to reset & recover your main password if forgotten.',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 10,
+                                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              _buildQuestionSection(
+                                title: 'QUESTION 1',
+                                qController: _q1Controller,
+                                aController: _a1Controller,
+                                defaultQuestion: _predefinedQuestions[0],
+                              ),
+                              const SizedBox(height: 12),
+                              _buildQuestionSection(
+                                title: 'QUESTION 2',
+                                qController: _q2Controller,
+                                aController: _a2Controller,
+                                defaultQuestion: _predefinedQuestions[1],
+                              ),
+                              const SizedBox(height: 12),
+                              _buildQuestionSection(
+                                title: 'QUESTION 3',
+                                qController: _q3Controller,
+                                aController: _a3Controller,
+                                defaultQuestion: _predefinedQuestions[2],
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
                         Text(
-                          'CONFIRM MASTER PASSWORD',
+                          'CONFIRM MASTER UNLOCK PASSWORD',
                           style: GoogleFonts.outfit(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
@@ -435,7 +598,7 @@ class _CreateVaultDialogState extends State<CreateVaultDialog> {
                           obscureText: _obscureConfirm,
                           style: GoogleFonts.outfit(color: textColor, fontSize: 13),
                           decoration: _inputDecoration(
-                            'Re-enter master password',
+                            'Re-enter master unlock password',
                             Icons.lock_clock_outlined,
                             suffix: IconButton(
                               icon: Icon(

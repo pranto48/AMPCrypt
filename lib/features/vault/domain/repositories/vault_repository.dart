@@ -221,6 +221,9 @@ abstract class VaultRepository {
   /// Unlocks the vault directly using the master key.
   Future<bool> unlockWithMasterKey(Uint8List masterKey);
 
+  /// Resets the vault master password using a verified master key.
+  Future<void> resetMasterPasswordWithKey(Uint8List masterKey, String newPassword);
+
   /// Checks if TPM hardware-backed storage is supported on the system.
   Future<bool> isTpmSupported();
 
