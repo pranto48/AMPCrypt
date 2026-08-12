@@ -229,13 +229,10 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
     if (lockOnQuit && mounted) {
       context.read<VaultBloc>().add(LockVaultEvent());
     }
-    final isPreventClose = await windowManager.isPreventClose();
-    if (isPreventClose) {
-      if (_minimizeToTray) {
-        await windowManager.hide();
-      } else {
-        _quitApp();
-      }
+    if (_minimizeToTray) {
+      await windowManager.hide();
+    } else {
+      await _quitApp();
     }
   }
 
@@ -290,17 +287,14 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
   }
 
   Future<void> _quitApp() async {
-    // 1. Force lock all vaults (triggers unmount & registry cleanup)
-    context.read<VaultBloc>().add(LockVaultEvent());
-    
-    // 2. Sync SharedPreferences and settings to the portable data directory
-    await PortableStateSync.syncToPortable();
-    
-    // 3. Give processes and file operations a brief moment to finish
-    await Future.delayed(const Duration(milliseconds: 1500));
-    
-    await windowManager.setPreventClose(false);
-    await windowManager.close();
+    try {
+      context.read<VaultBloc>().add(LockVaultEvent());
+      await PortableStateSync.syncToPortable();
+      await Future.delayed(const Duration(milliseconds: 300));
+      await windowManager.setPreventClose(false);
+      await windowManager.destroy();
+    } catch (_) {}
+    exit(0);
   }
 
   Widget _buildCustomTitleBar() {
@@ -770,32 +764,57 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
   }
 
   void _openDriveInExplorer(String driveLetter) async {
-    final cleanLetter = driveLetter.replaceAll(':', '');
-    final driveDir = Directory('$cleanLetter:\\');
+    final repo = context.read<VaultBloc>().repository;
+    final vaultPath = repo.getVaultPath();
+    final cleanLetter = driveLetter.replaceAll(':', '').trim();
 
-    if (!driveDir.existsSync()) {
-      if (mounted) {
+    bool opened = false;
+
+    // 1. Try opening virtual drive letter if non-empty (e.g. Z:\)
+    if (cleanLetter.isNotEmpty && Platform.isWindows) {
+      try {
+        final drivePath = '$cleanLetter:\\';
+        if (Directory(drivePath).existsSync()) {
+          await Process.run('explorer.exe', [drivePath]);
+          opened = true;
+        }
+      } catch (_) {}
+    }
+
+    // 2. If drive letter not opened, open the active vault directory
+    if (!opened && vaultPath.isNotEmpty) {
+      try {
+        if (Directory(vaultPath).existsSync()) {
+          await Process.run('explorer.exe', [vaultPath]);
+          opened = true;
+        }
+      } catch (_) {}
+    }
+
+    // 3. Fallback: url_launcher
+    if (!opened && vaultPath.isNotEmpty) {
+      try {
+        await launchUrl(Uri.file(vaultPath));
+        opened = true;
+      } catch (_) {}
+    }
+
+    if (mounted) {
+      if (opened) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: kSuccessColor,
+            content: Text('Opened vault in Windows Explorer.', style: GoogleFonts.outfit()),
+          ),
+        );
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: const Color(0xFFEAB308),
             content: Text(
-              'Virtual drive $cleanLetter: is not mounted or ready.',
+              'Could not open Explorer. Vault path: $vaultPath',
               style: GoogleFonts.outfit(color: Colors.black, fontWeight: FontWeight.bold),
             ),
-          ),
-        );
-      }
-      return;
-    }
-
-    try {
-      await launchUrl(Uri.file('$cleanLetter:\\'));
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: kPrimaryColor,
-            content: Text('Drive path: $cleanLetter:\\ (Mount active)', style: GoogleFonts.outfit()),
           ),
         );
       }
