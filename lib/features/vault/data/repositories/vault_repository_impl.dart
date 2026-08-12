@@ -90,7 +90,12 @@ class VaultRepositoryImpl implements VaultRepository {
   // ─── CREATE VAULT ────────────────────────────────────────────────────────────
 
   @override
-  Future<List<String>> createVault(String password, {int authLevel = 4}) async {
+  Future<List<String>> createVault(
+    String password, {
+    int authLevel = 4,
+    List<String>? questions,
+    List<String>? answers,
+  }) async {
     final level = authLevel.clamp(1, 4);
 
     // 1. Generate Master Key (256-bit) and Salt (16 bytes)
@@ -130,6 +135,20 @@ class VaultRepositoryImpl implements VaultRepository {
       configMap[_kFactorKeys[i]] = base64Encode(utf8.encode(operationalShares[i]));
     }
     
+    // If security questions recovery is provided, encrypt masterKey with 3 security answers
+    if (questions != null && answers != null && questions.length >= 3 && answers.length >= 3) {
+      final combinedAnswers = answers.map((a) => a.trim().toLowerCase()).join('_');
+      final qSalt = _cryptoService.generateSecureRandom(16);
+      final derivedQKey = await _cryptoService.deriveKey(combinedAnswers, qSalt);
+      final encryptedMasterKey = await _cryptoService.encryptData(masterKey, derivedQKey);
+
+      configMap['questions_recovery_enabled'] = true;
+      configMap['questions_recovery_email'] = 'vault_recovery@ampcrypt.local';
+      configMap['questions_recovery_questions'] = questions;
+      configMap['questions_recovery_salt'] = base64Encode(qSalt);
+      configMap['questions_recovery_encrypted_master_key'] = base64Encode(encryptedMasterKey);
+    }
+
     // Ensure vault directory exists
     Directory(vaultPath).createSync(recursive: true);
     await _saveVaultConfig(configMap);
@@ -150,6 +169,14 @@ class VaultRepositoryImpl implements VaultRepository {
     }
 
     // 7. Persist metadata
+    if (configMap.containsKey('questions_recovery_enabled')) {
+      await _prefs.setBool('questions_recovery_enabled', true);
+      await _prefs.setString('questions_recovery_email', 'vault_recovery@ampcrypt.local');
+      await _prefs.setStringList('questions_recovery_questions', questions!);
+      await _prefs.setString('questions_recovery_salt', configMap['questions_recovery_salt']);
+      await _prefs.setString('questions_recovery_encrypted_master_key', configMap['questions_recovery_encrypted_master_key']);
+    }
+
     await _prefs.setInt('auth_level', level);
     await _prefs.setBool('vault_created', true);
     await _prefs.setBool('is_device_trusted', true);

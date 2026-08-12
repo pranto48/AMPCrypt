@@ -410,17 +410,19 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
           onCreate: (password, authLevel, vaultName, vaultPath, questions, answers) async {
             final repo = context.read<VaultBloc>().repository;
             final targetDir = (vaultPath != null && vaultPath.isNotEmpty)
-                ? p.join(vaultPath, '.ampcrypt_vault_$vaultName')
+                ? vaultPath
                 : p.join(Directory.systemTemp.path, '.ampcrypt_vault_$vaultName');
             await repo.relocateVaultFolder(targetDir);
 
             if (context.mounted) {
               context.read<VaultBloc>().add(
-                CreateVaultEvent(password, authLevel: authLevel),
+                CreateVaultEvent(
+                  password,
+                  authLevel: authLevel,
+                  questions: questions,
+                  answers: answers,
+                ),
               );
-
-              // Enable 3 security questions recovery for this vault profile
-              await repo.enableQuestionsRecovery('vault_recovery@ampcrypt.local', questions, answers);
 
               // Add to remembered vault profiles
               await repo.addRememberedVault(

@@ -67,6 +67,8 @@ class VaultBloc extends Bloc<VaultEvent, VaultState> {
       final recoveryPhrases = await _vaultRepository.createVault(
         event.password,
         authLevel: event.authLevel,
+        questions: event.questions,
+        answers: event.answers,
       );
       final masterKey = _vaultRepository.masterKeyHex ?? '';
       final deviceStatus = await _vaultRepository.getDeviceStatus();

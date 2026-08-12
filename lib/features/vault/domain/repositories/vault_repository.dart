@@ -77,7 +77,7 @@ abstract class VaultRepository {
   ///
   /// [authLevel] (1–4) controls how many SLIP-39 Group 1 shares are generated.
   /// 1FA = Password only, 2FA = +Fingerprint, 3FA = +Face, 4FA = +Voice.
-  Future<List<String>> createVault(String password, {int authLevel = 4});
+  Future<List<String>> createVault(String password, {int authLevel = 4, List<String>? questions, List<String>? answers});
 
   /// Creates a new vault hosted on a remote FTP server.
   Future<List<String>> createFtpVault(

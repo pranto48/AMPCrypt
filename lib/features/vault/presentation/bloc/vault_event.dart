@@ -19,11 +19,18 @@ class CheckVaultStatusEvent extends VaultEvent {}
 class CreateVaultEvent extends VaultEvent {
   final String password;
   final int authLevel;
+  final List<String>? questions;
+  final List<String>? answers;
 
-  const CreateVaultEvent(this.password, {this.authLevel = 4});
+  const CreateVaultEvent(
+    this.password, {
+    this.authLevel = 4,
+    this.questions,
+    this.answers,
+  });
 
   @override
-  List<Object?> get props => [password, authLevel];
+  List<Object?> get props => [password, authLevel, questions, answers];
 }
 
 class UnlockVaultEvent extends VaultEvent {
