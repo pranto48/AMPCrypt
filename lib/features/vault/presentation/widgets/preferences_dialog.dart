@@ -70,9 +70,12 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
         _hideOnStart = prefs.getBool('hide_on_start') ?? false;
         _lockOnQuit = prefs.getBool('lock_on_quit') ?? false;
         _storePasswords = prefs.getBool('store_passwords') ?? true;
-        _passwordStoreType = prefs.getString('password_store_type') ?? 'Windows Data Protection';
+        _passwordStoreType =
+            prefs.getString('password_store_type') ?? 'Windows Data Protection';
         _addToQuickAccess = prefs.getBool('add_to_quick_access') ?? true;
-        _quickAccessLocation = prefs.getString('quick_access_location') ?? 'Explorer Navigation Pane';
+        _quickAccessLocation =
+            prefs.getString('quick_access_location') ??
+            'Explorer Navigation Pane';
         _debugLogging = prefs.getBool('debug_logging') ?? false;
 
         _lookAndFeel = prefs.getString('look_and_feel') ?? 'Light';
@@ -104,8 +107,12 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
     final dialogBg = isDark ? const Color(0xFF070D1E) : const Color(0xFFF0F7FF);
     final cardBg = isDark ? const Color(0xFF0F172A) : Colors.white;
     final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
-    final subtitleColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-    final borderColor = isDark ? const Color(0x3300F0FF) : const Color(0xFFCBD5E1);
+    final subtitleColor = isDark
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF64748B);
+    final borderColor = isDark
+        ? const Color(0x3300F0FF)
+        : const Color(0xFFCBD5E1);
 
     return Dialog(
       backgroundColor: dialogBg,
@@ -125,7 +132,9 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 14),
               decoration: BoxDecoration(
                 gradient: isDark
-                    ? const LinearGradient(colors: [Color(0xFF0B132B), Color(0xFF0F172A)])
+                    ? const LinearGradient(
+                        colors: [Color(0xFF0B132B), Color(0xFF0F172A)],
+                      )
                     : null,
                 color: isDark ? null : const Color(0xFFE2E8F0),
                 borderRadius: const BorderRadius.only(
@@ -140,7 +149,7 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
                     'assets/app_icon.ico',
                     width: 16,
                     height: 16,
-                    errorBuilder: (_, __, ___) => const Icon(
+                    errorBuilder: (_, _, _) => const Icon(
                       Icons.security_rounded,
                       color: Color(0xFF00F0FF),
                       size: 16,
@@ -160,7 +169,10 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
                     icon: const Icon(Icons.close_rounded, size: 16),
                     color: subtitleColor,
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    constraints: const BoxConstraints(
+                      minWidth: 28,
+                      minHeight: 28,
+                    ),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -195,7 +207,11 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
                   children: [
                     _buildGeneralTab(textColor, subtitleColor, borderColor),
                     _buildInterfaceTab(textColor, subtitleColor, borderColor),
-                    _buildVirtualDriveTab(textColor, subtitleColor, borderColor),
+                    _buildVirtualDriveTab(
+                      textColor,
+                      subtitleColor,
+                      borderColor,
+                    ),
                     _buildUpdatesTab(textColor, subtitleColor),
                     _buildSupportTab(textColor, subtitleColor),
                     _buildAboutTab(textColor, subtitleColor),
@@ -213,7 +229,9 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
     final isSelected = _activeTabIndex == index;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     const activeColor = Color(0xFF22C55E); // Cryptomator Green
-    final inactiveColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final inactiveColor = isDark
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF64748B);
 
     return Expanded(
       child: InkWell(
@@ -256,39 +274,37 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
   }
 
   // --- TAB 1: GENERAL ---
-  Widget _buildGeneralTab(Color textColor, Color subtitleColor, Color borderColor) {
+  Widget _buildGeneralTab(
+    Color textColor,
+    Color subtitleColor,
+    Color borderColor,
+  ) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _checkboxRow(
-            'Launch AMPCrypt on system start',
-            _launchOnStart,
-            (val) async {
-              final enabled = val ?? false;
-              setState(() => _launchOnStart = enabled);
-              await _saveBoolPref('launch_on_start', enabled);
-              try {
-                if (enabled) {
-                  await launchAtStartup.enable();
-                } else {
-                  await launchAtStartup.disable();
-                }
-              } catch (_) {}
-            },
-            textColor,
-          ),
+          _checkboxRow('Launch AMPCrypt on system start', _launchOnStart, (
+            val,
+          ) async {
+            final enabled = val ?? false;
+            setState(() => _launchOnStart = enabled);
+            await _saveBoolPref('launch_on_start', enabled);
+            try {
+              if (enabled) {
+                await launchAtStartup.enable();
+              } else {
+                await launchAtStartup.disable();
+              }
+            } catch (_) {}
+          }, textColor),
           const SizedBox(height: 12),
-          _checkboxRow(
-            'Hide window when starting AMPCrypt',
-            _hideOnStart,
-            (val) {
-              final enabled = val ?? false;
-              setState(() => _hideOnStart = enabled);
-              _saveBoolPref('hide_on_start', enabled);
-            },
-            textColor,
-          ),
+          _checkboxRow('Hide window when starting AMPCrypt', _hideOnStart, (
+            val,
+          ) {
+            final enabled = val ?? false;
+            setState(() => _hideOnStart = enabled);
+            _saveBoolPref('hide_on_start', enabled);
+          }, textColor),
           const SizedBox(height: 12),
           _checkboxRow(
             'Lock vaults without asking when quitting application',
@@ -328,15 +344,24 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
                   child: DropdownButton<String>(
                     value: _passwordStoreType,
                     style: GoogleFonts.outfit(color: textColor, fontSize: 13),
-                    items: ['Windows Data Protection', 'Keyring / Keychain', 'Memory Only']
-                        .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                        .toList(),
-                    onChanged: _storePasswords ? (val) {
-                      if (val != null) {
-                        setState(() => _passwordStoreType = val);
-                        _saveStringPref('password_store_type', val);
-                      }
-                    } : null,
+                    items:
+                        [
+                              'Windows Data Protection',
+                              'Keyring / Keychain',
+                              'Memory Only',
+                            ]
+                            .map(
+                              (e) => DropdownMenuItem(value: e, child: Text(e)),
+                            )
+                            .toList(),
+                    onChanged: _storePasswords
+                        ? (val) {
+                            if (val != null) {
+                              setState(() => _passwordStoreType = val);
+                              _saveStringPref('password_store_type', val);
+                            }
+                          }
+                        : null,
                   ),
                 ),
               ),
@@ -370,15 +395,24 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
                   child: DropdownButton<String>(
                     value: _quickAccessLocation,
                     style: GoogleFonts.outfit(color: textColor, fontSize: 13),
-                    items: ['Explorer Navigation Pane', 'Desktop Shortcut', 'Disabled']
-                        .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                        .toList(),
-                    onChanged: _addToQuickAccess ? (val) {
-                      if (val != null) {
-                        setState(() => _quickAccessLocation = val);
-                        _saveStringPref('quick_access_location', val);
-                      }
-                    } : null,
+                    items:
+                        [
+                              'Explorer Navigation Pane',
+                              'Desktop Shortcut',
+                              'Disabled',
+                            ]
+                            .map(
+                              (e) => DropdownMenuItem(value: e, child: Text(e)),
+                            )
+                            .toList(),
+                    onChanged: _addToQuickAccess
+                        ? (val) {
+                            if (val != null) {
+                              setState(() => _quickAccessLocation = val);
+                              _saveStringPref('quick_access_location', val);
+                            }
+                          }
+                        : null,
                   ),
                 ),
               ),
@@ -388,7 +422,9 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
           OutlinedButton(
             style: OutlinedButton.styleFrom(
               side: BorderSide(color: borderColor),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             ),
             onPressed: () async {
@@ -398,7 +434,10 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     backgroundColor: const Color(0xFF22C55E),
-                    content: Text('Trusted hosts reset.', style: GoogleFonts.outfit()),
+                    content: Text(
+                      'Trusted hosts reset.',
+                      style: GoogleFonts.outfit(),
+                    ),
                   ),
                 );
               }
@@ -429,9 +468,13 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
                 onTap: () async {
                   try {
                     final dir = await getApplicationSupportDirectory();
-                    final logFile = File(p.join(dir.path, 'ampcrypt_debug.log'));
+                    final logFile = File(
+                      p.join(dir.path, 'ampcrypt_debug.log'),
+                    );
                     if (!await logFile.exists()) {
-                      await logFile.writeAsString('=== AMPCrypt Debug Log ===\nInitialized at ${DateTime.now()}\n');
+                      await logFile.writeAsString(
+                        '=== AMPCrypt Debug Log ===\nInitialized at ${DateTime.now()}\n',
+                      );
                     }
                     await launchUrl(Uri.file(logFile.path));
                   } catch (_) {}
@@ -453,7 +496,11 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
   }
 
   // --- TAB 2: INTERFACE ---
-  Widget _buildInterfaceTab(Color textColor, Color subtitleColor, Color borderColor) {
+  Widget _buildInterfaceTab(
+    Color textColor,
+    Color subtitleColor,
+    Color borderColor,
+  ) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -464,7 +511,11 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
                 width: 150,
                 child: Text(
                   'Look & Feel',
-                  style: GoogleFonts.outfit(color: textColor, fontSize: 13, fontWeight: FontWeight.w500),
+                  style: GoogleFonts.outfit(
+                    color: textColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
               Container(
@@ -522,7 +573,11 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
                 width: 150,
                 child: Text(
                   'Language (requires restart)',
-                  style: GoogleFonts.outfit(color: textColor, fontSize: 13, fontWeight: FontWeight.w500),
+                  style: GoogleFonts.outfit(
+                    color: textColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
               Container(
@@ -536,9 +591,18 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
                   child: DropdownButton<String>(
                     value: _language,
                     style: GoogleFonts.outfit(color: textColor, fontSize: 13),
-                    items: ['System Default', 'English', 'Spanish', 'German', 'French']
-                        .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                        .toList(),
+                    items:
+                        [
+                              'System Default',
+                              'English',
+                              'Spanish',
+                              'German',
+                              'French',
+                            ]
+                            .map(
+                              (e) => DropdownMenuItem(value: e, child: Text(e)),
+                            )
+                            .toList(),
                     onChanged: (val) {
                       if (val != null) {
                         setState(() => _language = val);
@@ -557,7 +621,11 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
                 width: 150,
                 child: Text(
                   'Interface Orientation',
-                  style: GoogleFonts.outfit(color: textColor, fontSize: 13, fontWeight: FontWeight.w500),
+                  style: GoogleFonts.outfit(
+                    color: textColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
               Radio<String>(
@@ -571,7 +639,10 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
                   }
                 },
               ),
-              Text('Left to Right', style: GoogleFonts.outfit(color: textColor, fontSize: 13)),
+              Text(
+                'Left to Right',
+                style: GoogleFonts.outfit(color: textColor, fontSize: 13),
+              ),
               const SizedBox(width: 20),
               Radio<String>(
                 value: 'RTL',
@@ -584,38 +655,37 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
                   }
                 },
               ),
-              Text('Right to Left', style: GoogleFonts.outfit(color: textColor, fontSize: 13)),
+              Text(
+                'Right to Left',
+                style: GoogleFonts.outfit(color: textColor, fontSize: 13),
+              ),
             ],
           ),
           const SizedBox(height: 18),
-          _checkboxRow(
-            'Show tray icon (requires restart)',
-            _showTrayIcon,
-            (val) {
-              final enabled = val ?? false;
-              setState(() => _showTrayIcon = enabled);
-              _saveBoolPref('show_tray_icon', enabled);
-            },
-            textColor,
-          ),
+          _checkboxRow('Show tray icon (requires restart)', _showTrayIcon, (
+            val,
+          ) {
+            final enabled = val ?? false;
+            setState(() => _showTrayIcon = enabled);
+            _saveBoolPref('show_tray_icon', enabled);
+          }, textColor),
           const SizedBox(height: 12),
-          _checkboxRow(
-            'Enable compact vault list',
-            _compactVaultList,
-            (val) {
-              final enabled = val ?? false;
-              setState(() => _compactVaultList = enabled);
-              _saveBoolPref('compact_vault_list', enabled);
-            },
-            textColor,
-          ),
+          _checkboxRow('Enable compact vault list', _compactVaultList, (val) {
+            final enabled = val ?? false;
+            setState(() => _compactVaultList = enabled);
+            _saveBoolPref('compact_vault_list', enabled);
+          }, textColor),
         ],
       ),
     );
   }
 
   // --- TAB 3: VIRTUAL DRIVE ---
-  Widget _buildVirtualDriveTab(Color textColor, Color subtitleColor, Color borderColor) {
+  Widget _buildVirtualDriveTab(
+    Color textColor,
+    Color subtitleColor,
+    Color borderColor,
+  ) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -626,7 +696,11 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
                 width: 150,
                 child: Text(
                   'Default Volume Type',
-                  style: GoogleFonts.outfit(color: textColor, fontSize: 13, fontWeight: FontWeight.w500),
+                  style: GoogleFonts.outfit(
+                    color: textColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
               Container(
@@ -661,7 +735,11 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
           const SizedBox(height: 20),
           Text(
             'The chosen volume type supports the following features:',
-            style: GoogleFonts.outfit(color: textColor, fontSize: 13, fontWeight: FontWeight.w600),
+            style: GoogleFonts.outfit(
+              color: textColor,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 14),
           _featureCheckRow('Automatic mount point selection', textColor),
@@ -681,7 +759,10 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
       children: [
         const Icon(Icons.check_rounded, color: Color(0xFF22C55E), size: 18),
         const SizedBox(width: 10),
-        Text(feature, style: GoogleFonts.outfit(color: textColor, fontSize: 13)),
+        Text(
+          feature,
+          style: GoogleFonts.outfit(color: textColor, fontSize: 13),
+        ),
       ],
     );
   }
@@ -694,7 +775,11 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
         children: [
           Text(
             'Current Version: $_appVersion',
-            style: GoogleFonts.outfit(color: textColor, fontSize: 14, fontWeight: FontWeight.w600),
+            style: GoogleFonts.outfit(
+              color: textColor,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 16),
           Row(
@@ -726,16 +811,23 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
               backgroundColor: const Color(0xFF388E3C), // Vibrant Green
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             onPressed: () async {
               try {
-                await launchUrl(Uri.parse('https://github.com/pranto48/AMPCrypt/releases'));
+                await launchUrl(
+                  Uri.parse('https://github.com/pranto48/AMPCrypt/releases'),
+                );
               } catch (_) {}
             },
             child: Text(
               'Visit Download Page',
-              style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
+              style: GoogleFonts.outfit(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
             ),
           ),
         ],
@@ -749,11 +841,19 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.favorite_rounded, color: Color(0xFFE11D48), size: 44),
+          const Icon(
+            Icons.favorite_rounded,
+            color: Color(0xFFE11D48),
+            size: 44,
+          ),
           const SizedBox(height: 14),
           Text(
             'Support AMPCrypt Development',
-            style: GoogleFonts.outfit(color: textColor, fontSize: 16, fontWeight: FontWeight.bold),
+            style: GoogleFonts.outfit(
+              color: textColor,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 8),
           Padding(
@@ -761,7 +861,11 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
             child: Text(
               'AMPCrypt is an open-source zero-trust encryption project designed to protect your privacy and shield data from ransomware.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(color: subtitleColor, fontSize: 13, height: 1.4),
+              style: GoogleFonts.outfit(
+                color: subtitleColor,
+                fontSize: 13,
+                height: 1.4,
+              ),
             ),
           ),
           const SizedBox(height: 20),
@@ -770,13 +874,20 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
               backgroundColor: const Color(0xFF22C55E),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             icon: const Icon(Icons.volunteer_activism, size: 16),
-            label: Text('Donate / Sponsor AMPCrypt', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+            label: Text(
+              'Donate / Sponsor AMPCrypt',
+              style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+            ),
             onPressed: () async {
               try {
-                await launchUrl(Uri.parse('https://github.com/pranto48/AMPCrypt'));
+                await launchUrl(
+                  Uri.parse('https://github.com/pranto48/AMPCrypt'),
+                );
               } catch (_) {}
             },
           ),
@@ -797,12 +908,20 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
               shape: BoxShape.circle,
               color: Color(0xFF22C55E),
             ),
-            child: const Icon(Icons.security_rounded, color: Colors.white, size: 32),
+            child: const Icon(
+              Icons.security_rounded,
+              color: Colors.white,
+              size: 32,
+            ),
           ),
           const SizedBox(height: 12),
           Text(
             'AMPCrypt Zero-Trust Vault',
-            style: GoogleFonts.outfit(color: textColor, fontSize: 16, fontWeight: FontWeight.bold),
+            style: GoogleFonts.outfit(
+              color: textColor,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
@@ -818,7 +937,9 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
           InkWell(
             onTap: () async {
               try {
-                await launchUrl(Uri.parse('https://github.com/pranto48/AMPCrypt'));
+                await launchUrl(
+                  Uri.parse('https://github.com/pranto48/AMPCrypt'),
+                );
               } catch (_) {}
             },
             child: Text(
@@ -835,7 +956,12 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
     );
   }
 
-  Widget _checkboxRow(String label, bool value, ValueChanged<bool?> onChanged, Color textColor) {
+  Widget _checkboxRow(
+    String label,
+    bool value,
+    ValueChanged<bool?> onChanged,
+    Color textColor,
+  ) {
     return Row(
       children: [
         Checkbox(

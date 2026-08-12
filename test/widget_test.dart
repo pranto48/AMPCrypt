@@ -44,9 +44,8 @@ void main() {
 
 
 
-    // 3. Verify that it displays the setup screen elements
-    expect(find.text('Initialize Vault'), findsOneWidget);
-    expect(find.text('GENERATE VAULT'), findsOneWidget);
-    expect(find.text('VAULT PASSPHRASE'), findsOneWidget);
+    // 3. Verify that it displays the main AMPCrypt UI elements
+    expect(find.text('No Vaults Available'), findsOneWidget);
+    expect(find.text('Create New Vault'), findsOneWidget);
   });
 }

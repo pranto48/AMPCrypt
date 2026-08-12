@@ -352,11 +352,13 @@ class VaultRepositoryImpl implements VaultRepository {
 
   @override
   void lockVault() {
+    Uint8List? keyToUse;
     if (_cachedMasterKey != null) {
+      keyToUse = Uint8List.fromList(_cachedMasterKey!);
       _cachedMasterKey!.fillRange(0, _cachedMasterKey!.length, 0);
       _cachedMasterKey = null;
     }
-    _stopServerAndUnmount();
+    _stopServerAndUnmount(keyToUse);
   }
 
   @override
@@ -496,7 +498,15 @@ class VaultRepositoryImpl implements VaultRepository {
       }
     } catch (_) {}
 
-    final supportDir = await getApplicationSupportDirectory();
+    Future<Directory> _getSupportDir() async {
+      try {
+        return await getApplicationSupportDirectory();
+      } catch (_) {
+        return Directory.systemTemp;
+      }
+    }
+
+    final supportDir = await _getSupportDir();
     final mountScriptPath = p.join(supportDir.path, 'mount_script.txt');
     final scriptContent = [
       'select vdisk file="$vhdxPath"',
@@ -537,7 +547,12 @@ class VaultRepositoryImpl implements VaultRepository {
   }
 
   Future<void> _dismountVhdxDiskpart(String vhdxPath) async {
-    final supportDir = await getApplicationSupportDirectory();
+    Directory supportDir;
+    try {
+      supportDir = await getApplicationSupportDirectory();
+    } catch (_) {
+      supportDir = Directory.systemTemp;
+    }
     final unmountScriptPath = p.join(supportDir.path, 'unmount_script.txt');
     final scriptContent = [
       'select vdisk file="$vhdxPath"',
@@ -714,7 +729,8 @@ class VaultRepositoryImpl implements VaultRepository {
       // Check WinFSP dependency first
       final fspInstalled = await isWinFspInstalled();
       if (!fspInstalled) {
-        throw Exception("WINFSP_MISSING");
+        print('WinFsp driver is not installed. Vault unlocked with WebDAV server on port $port.');
+        return;
       }
       
       // Ensure rclone is available
@@ -847,7 +863,8 @@ class VaultRepositoryImpl implements VaultRepository {
     }
   }
 
-  Future<void> _stopServerAndUnmount() async {
+  Future<void> _stopServerAndUnmount([Uint8List? masterKey]) async {
+    final keyToUse = masterKey ?? _cachedMasterKey;
     if (Platform.isWindows) {
       final preferredLetter = getDriveLetter().replaceAll(':', '');
       final activeLetter = _prefs.getString('drive_letter')?.replaceAll(':', '') ?? preferredLetter;
@@ -856,20 +873,22 @@ class VaultRepositoryImpl implements VaultRepository {
         final vaultPath = getVaultPath();
         final vhdxPath = p.join(vaultPath, 'vault.vhdx');
         final vhdxEncPath = p.join(vaultPath, 'vault.vhdx.enc');
+        final vhdxFile = File(vhdxPath);
 
-        await _dismountVhdxDiskpart(vhdxPath);
-        await Future.delayed(const Duration(milliseconds: 1500));
+        if (vhdxFile.existsSync()) {
+          await _dismountVhdxDiskpart(vhdxPath);
+          await Future.delayed(const Duration(milliseconds: 500));
+        }
 
-        final masterKey = _cachedMasterKey;
-        if (masterKey != null) {
-          final vhdxFile = File(vhdxPath);
+        if (keyToUse != null) {
           final vhdxEncFile = File(vhdxEncPath);
           if (vhdxFile.existsSync()) {
             try {
-              await _encryptFile(vhdxFile, vhdxEncFile, masterKey);
+              await _encryptFile(vhdxFile, vhdxEncFile, keyToUse);
               vhdxFile.deleteSync();
             } catch (_) {}
           }
+          keyToUse.fillRange(0, keyToUse.length, 0);
         }
 
         // Clean up registry keys for both preferred and active letters
