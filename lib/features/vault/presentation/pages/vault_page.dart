@@ -854,22 +854,44 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
 
     bool opened = false;
 
-    // 1. Try opening virtual drive letter if non-empty (e.g. Z:\)
+    // 1. Try opening mounted virtual drive letter (e.g. Z:\)
     if (cleanLetter.isNotEmpty && Platform.isWindows) {
       try {
         final drivePath = '$cleanLetter:\\';
-        if (Directory(drivePath).existsSync()) {
-          await Process.run('explorer.exe', [drivePath]);
+        bool isMounted = false;
+        try {
+          isMounted = Directory(drivePath).existsSync();
+        } catch (_) {}
+
+        if (isMounted) {
+          await Process.start('explorer.exe', [drivePath], runInShell: true);
           opened = true;
+        } else {
+          final result = await Process.run('cmd.exe', ['/c', 'start', '', drivePath]);
+          if (result.exitCode == 0) {
+            opened = true;
+          }
         }
       } catch (_) {}
     }
 
-    // 2. Open native Cloud Filter Sync Root folder
-    if (!opened && vaultPath.isNotEmpty && Directory(vaultPath).existsSync()) {
+    // 2. Try opening active vault folder
+    if (!opened && vaultPath.isNotEmpty) {
       try {
-        await Process.run('explorer.exe', [vaultPath]);
-        opened = true;
+        bool pathExists = false;
+        try {
+          pathExists = Directory(vaultPath).existsSync();
+        } catch (_) {}
+
+        if (pathExists) {
+          await Process.start('explorer.exe', [vaultPath], runInShell: true);
+          opened = true;
+        } else {
+          final result = await Process.run('cmd.exe', ['/c', 'start', '', vaultPath]);
+          if (result.exitCode == 0) {
+            opened = true;
+          }
+        }
       } catch (_) {}
     }
 

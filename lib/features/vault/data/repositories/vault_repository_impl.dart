@@ -870,6 +870,9 @@ class VaultRepositoryImpl implements VaultRepository {
 
       // 2. Drive Letter Mount (WinFsp/rclone or Native Windows WebDAV map)
       var fspInstalled = await isWinFspInstalled();
+      if (!fspInstalled) {
+        fspInstalled = await installWinFsp();
+      }
       if (fspInstalled) {
         try {
           final rclonePath = await _ensureRclone();
@@ -904,9 +907,15 @@ class VaultRepositoryImpl implements VaultRepository {
 
       // 3. Fallback: Map drive letter Z: using native Windows WebDAV client if drive is not mounted yet
       final cleanLetter = driveLetter.replaceAll(':', '').trim();
-      if (cleanLetter.isNotEmpty && !Directory('$cleanLetter:\\').existsSync()) {
+      bool isMounted = false;
+      if (cleanLetter.isNotEmpty) {
         try {
-          await Process.run('net.exe', ['use', '$cleanLetter:', 'http://127.0.0.1:$port/']);
+          isMounted = Directory('$cleanLetter:\\').existsSync();
+        } catch (_) {}
+      }
+      if (cleanLetter.isNotEmpty && !isMounted) {
+        try {
+          await Process.run('net.exe', ['use', '$cleanLetter:', 'http://127.0.0.1:$port/DavWWWRoot']);
         } catch (_) {}
       }
 
@@ -1164,6 +1173,11 @@ class VaultRepositoryImpl implements VaultRepository {
       ]);
       if (result.exitCode == 0) return true;
     } catch (_) {}
+    if (Directory(r'C:\Program Files (x86)\WinFsp').existsSync() ||
+        Directory(r'C:\Program Files\WinFsp').existsSync() ||
+        File(r'C:\Windows\System32\drivers\winfsp-x64.sys').existsSync()) {
+      return true;
+    }
     return false;
   }
 
