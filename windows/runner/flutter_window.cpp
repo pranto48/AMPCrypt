@@ -20,6 +20,7 @@
 #include <winrt/Windows.Security.Credentials.UI.h>
 
 #include "winfsp_tpm_helper.h"
+#include "cfapi_sync_engine.h"
 #include <wincrypt.h>
 #include <shlobj.h>
 
@@ -66,6 +67,10 @@ bool FlutterWindow::OnCreate() {
 
   // Setup method channel for Windows Hello native UserConsentVerifier and TPM KEK
   auto messenger = flutter_controller_->engine()->messenger();
+
+  // Register Native Windows CFAPI Sync Engine Method Channel
+  CfApiSyncEngine::GetInstance().RegisterMethodChannel(messenger);
+
   auto hello_channel = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
       messenger, "ampcrypt/windows_hello",
       &flutter::StandardMethodCodec::GetInstance());
