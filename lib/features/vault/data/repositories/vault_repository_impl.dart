@@ -839,8 +839,11 @@ class VaultRepositoryImpl implements VaultRepository {
     if (Platform.isWindows && _webDavServer.isRunning) {
       final port = _webDavServer.port;
 
-      // Check WinFSP dependency first
-      final fspInstalled = await isWinFspInstalled();
+      // Check WinFSP dependency first and attempt silent auto-installation if missing
+      var fspInstalled = await isWinFspInstalled();
+      if (!fspInstalled) {
+        fspInstalled = await installWinFsp();
+      }
       if (!fspInstalled) {
         print(
           'WinFsp driver is not installed. Vault unlocked with WebDAV server on port $port.',
@@ -1133,6 +1136,62 @@ class VaultRepositoryImpl implements VaultRepository {
       if (result.exitCode == 0) return true;
     } catch (_) {}
     return false;
+  }
+
+  @override
+  Future<bool> installWinFsp() async {
+    if (!Platform.isWindows) return true;
+    if (await isWinFspInstalled()) return true;
+
+    try {
+      Directory supportDir;
+      try {
+        supportDir = await getApplicationSupportDirectory();
+      } catch (_) {
+        supportDir = Directory.systemTemp;
+      }
+      final msiPath = p.join(supportDir.path, 'winfsp-2.0.23075.msi');
+      final msiFile = File(msiPath);
+
+      if (!await msiFile.exists()) {
+        // 1. Check bundled Flutter asset first
+        try {
+          final byteData = await rootBundle.load('assets/winfsp.msi');
+          await msiFile.writeAsBytes(byteData.buffer.asUint8List());
+        } catch (_) {
+          // 2. Download official WinFsp installer from GitHub release
+          final client = HttpClient();
+          final request = await client.getUrl(Uri.parse(
+              'https://github.com/winfsp/winfsp/releases/download/v2.0/winfsp-2.0.23075.msi'));
+          final response = await request.close();
+          if (response.statusCode == 200) {
+            final bytes = await response.fold<List<int>>(
+                <int>[], (previous, element) => previous..addAll(element));
+            await msiFile.writeAsBytes(bytes);
+          }
+        }
+      }
+
+      if (await msiFile.exists()) {
+        // Run silent unattended MSI installer
+        await Process.run('msiexec.exe', [
+          '/i',
+          msiPath,
+          '/qn',
+          '/norestart',
+        ]);
+
+        // Poll registry up to 5 seconds for installation completion
+        for (int i = 0; i < 10; i++) {
+          await Future.delayed(const Duration(milliseconds: 500));
+          if (await isWinFspInstalled()) {
+            return true;
+          }
+        }
+      }
+    } catch (_) {}
+
+    return await isWinFspInstalled();
   }
 
   Future<String> _ensureRclone() async {

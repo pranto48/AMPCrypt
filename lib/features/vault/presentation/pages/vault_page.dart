@@ -109,68 +109,152 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
   }
 
   void _showWinFspMissingDialog() {
+    bool isInstalling = false;
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        backgroundColor: kSurfaceColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: kErrorColor.withValues(alpha: 0.8), width: 1.5),
-        ),
-        title: Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: kErrorColor, size: 24),
-            const SizedBox(width: 12),
-            Text(
-              'WinFsp Driver Missing',
-              style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: kSurfaceColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: kErrorColor.withValues(alpha: 0.8),
+              width: 1.5,
+            ),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: kErrorColor, size: 24),
+              const SizedBox(width: 12),
+              Text(
+                'WinFsp Driver Missing',
+                style: GoogleFonts.outfit(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'AMPCrypt requires the WinFsp (Windows File System Proxy) driver to mount secure vaults as native local drives under "Devices and Drives".',
+                style: GoogleFonts.outfit(
+                  color: const Color(0xFF94A3B8),
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Click "AUTO-INSTALL WINFSP NOW" to install the driver automatically.',
+                style: GoogleFonts.outfit(
+                  color: const Color(0xFFE2E8F0),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (isInstalling) ...[
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(kPrimaryColor),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Installing built-in WinFsp driver...',
+                        style: GoogleFonts.outfit(
+                          color: kPrimaryColor,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            if (!isInstalling)
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: Text(
+                  'CLOSE',
+                  style: GoogleFonts.outfit(
+                    color: const Color(0xFF64748B),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kPrimaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: isInstalling
+                  ? null
+                  : () async {
+                      setDialogState(() {
+                        isInstalling = true;
+                      });
+
+                      try {
+                        final repository =
+                            context.read<VaultBloc>().repository;
+                        final installed = await repository.installWinFsp();
+
+                        if (mounted) {
+                          Navigator.pop(dialogContext);
+                          if (installed) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                backgroundColor: kSuccessColor,
+                                content: Text(
+                                  'WinFsp Driver installed successfully! Vault drive mounting is active.',
+                                  style: GoogleFonts.outfit(color: Colors.white),
+                                ),
+                              ),
+                            );
+                          } else {
+                            await launchUrl(
+                              Uri.parse('https://winfsp.dev/rel/'),
+                              mode: LaunchMode.externalApplication,
+                            );
+                          }
+                        }
+                      } catch (_) {
+                        if (mounted) {
+                          Navigator.pop(dialogContext);
+                          await launchUrl(
+                            Uri.parse('https://winfsp.dev/rel/'),
+                            mode: LaunchMode.externalApplication,
+                          );
+                        }
+                      }
+                    },
+              child: Text(
+                isInstalling ? 'INSTALLING...' : 'AUTO-INSTALL WINFSP NOW',
+                style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'AMPCrypt requires the WinFsp (Windows File System Proxy) driver to mount secure vaults as native local drives under "Devices and Drives".',
-              style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13, height: 1.4),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Without WinFsp, you will not be able to unlock or mount your files.',
-              style: GoogleFonts.outfit(color: const Color(0xFFE2E8F0), fontSize: 13, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'CLOSE',
-              style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontWeight: FontWeight.bold),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: kPrimaryColor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: () async {
-              try {
-                await launchUrl(
-                  Uri.parse('https://winfsp.dev/rel/'),
-                  mode: LaunchMode.externalApplication,
-                );
-              } catch (_) {}
-            },
-            child: Text(
-              'DOWNLOAD WINFSP',
-              style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
       ),
     );
   }

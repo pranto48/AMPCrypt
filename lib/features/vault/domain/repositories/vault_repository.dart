@@ -130,6 +130,9 @@ abstract class VaultRepository {
   /// Checks if the WinFsp FUSE driver is installed on the host OS.
   Future<bool> isWinFspInstalled();
 
+  /// Silently auto-installs the built-in WinFsp driver on Windows host OS.
+  Future<bool> installWinFsp();
+
   /// Registers/Trusts the current device (mock).
   Future<void> trustCurrentDevice();
 
