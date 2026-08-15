@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <cfapi.h>
 #include <shlobj.h>
+#include <ntstatus.h>
 #include <string>
 #include <vector>
 #include <memory>
@@ -46,7 +47,7 @@ private:
         _In_ CONST CF_CALLBACK_PARAMETERS* CallbackParameters
     );
 
-    CF_CONNECTION_KEY connection_key_ = CF_CONNECTION_KEY_INVALID;
+    CF_CONNECTION_KEY connection_key_ = { 0 };
     std::wstring current_sync_root_;
     bool is_unlocked_ = false;
     std::vector<uint8_t> master_key_;

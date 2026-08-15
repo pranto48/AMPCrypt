@@ -865,13 +865,11 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
       } catch (_) {}
     }
 
-    // 2. If drive letter not opened, open the active vault directory
-    if (!opened && vaultPath.isNotEmpty) {
+    // 2. Open native Cloud Filter Sync Root folder
+    if (!opened && vaultPath.isNotEmpty && Directory(vaultPath).existsSync()) {
       try {
-        if (Directory(vaultPath).existsSync()) {
-          await Process.run('explorer.exe', [vaultPath]);
-          opened = true;
-        }
+        await Process.run('explorer.exe', [vaultPath]);
+        opened = true;
       } catch (_) {}
     }
 

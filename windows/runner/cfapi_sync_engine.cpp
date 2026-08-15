@@ -10,6 +10,13 @@
 #pragma comment(lib, "cldapi.lib")
 #pragma comment(lib, "shlwapi.lib")
 
+#ifndef STATUS_SUCCESS
+#define STATUS_SUCCESS ((NTSTATUS)0x00000000L)
+#endif
+#ifndef STATUS_UNSUCCESSFUL
+#define STATUS_UNSUCCESSFUL ((NTSTATUS)0xC0000001L)
+#endif
+
 static const wchar_t* kClsidString = L"{A3B84E10-63BA-4F11-83AB-D7EB17D52CA0}";
 
 CfApiSyncEngine& CfApiSyncEngine::GetInstance() {
@@ -121,21 +128,21 @@ void CfApiSyncEngine::RegisterMethodChannel(flutter::BinaryMessenger* messenger)
 }
 
 bool CfApiSyncEngine::RegisterSyncRoot(const std::wstring& syncRootPath, const std::wstring& displayName, const std::wstring& iconPath) {
-    CF_SYNC_ROOT_PROVIDER_INFO providerInfo = { 0 };
-    providerInfo.ProviderName = L"AMPCrypt Vault Sync Root";
-    providerInfo.ProviderVersion = L"1.0.0";
-    providerInfo.SyncRootIdentity = (CF_SYNC_ROOT_BASIC_INFO*)&providerInfo;
-    providerInfo.SyncRootIdentityLength = sizeof(providerInfo);
+    CF_SYNC_REGISTRATION registration = { 0 };
+    registration.StructSize = sizeof(CF_SYNC_REGISTRATION);
+    registration.ProviderName = L"AMPCrypt Vault Sync Root";
+    registration.ProviderVersion = L"1.0.0";
+    registration.SyncRootIdentity = (LPCVOID)syncRootPath.c_str();
+    registration.SyncRootIdentityLength = (DWORD)(syncRootPath.length() * sizeof(wchar_t));
 
     CF_SYNC_POLICIES policies = { 0 };
     policies.StructSize = sizeof(CF_SYNC_POLICIES);
     policies.Hydration.Primary = CF_HYDRATION_POLICY_PARTIAL;
     policies.Population.Primary = CF_POPULATION_POLICY_PARTIAL;
-    policies.InSync = CF_IN_SYNC_POLICY_TRACK_FILE_CREATION_TIME | CF_IN_SYNC_POLICY_TRACK_FILE_WRITE_TIME;
 
     HRESULT hr = CfRegisterSyncRoot(
         syncRootPath.c_str(),
-        &providerInfo,
+        &registration,
         &policies,
         CF_REGISTER_FLAG_NONE
     );
@@ -178,8 +185,6 @@ bool CfApiSyncEngine::UnregisterSyncRoot(const std::wstring& syncRootPath) {
 }
 
 bool CfApiSyncEngine::CreatePlaceholder(const std::wstring& syncRootPath, const std::wstring& relativePath, long long fileSize, const std::string& fileIdentity) {
-    std::wstring fullPath = syncRootPath + L"\\" + relativePath;
-
     CF_PLACEHOLDER_CREATE_INFO info = { 0 };
     info.RelativeFileName = relativePath.c_str();
     info.FsMetadata.FileSize.QuadPart = fileSize;
@@ -201,7 +206,7 @@ bool CfApiSyncEngine::CreatePlaceholder(const std::wstring& syncRootPath, const 
 }
 
 bool CfApiSyncEngine::ConnectSyncRoot(const std::wstring& syncRootPath) {
-    if (connection_key_ != CF_CONNECTION_KEY_INVALID) {
+    if (connection_key_.Internal != 0) {
         return true;
     }
 
@@ -223,9 +228,9 @@ bool CfApiSyncEngine::ConnectSyncRoot(const std::wstring& syncRootPath) {
 }
 
 void CfApiSyncEngine::DisconnectSyncRoot() {
-    if (connection_key_ != CF_CONNECTION_KEY_INVALID) {
+    if (connection_key_.Internal != 0) {
         CfDisconnectSyncRoot(connection_key_);
-        connection_key_ = CF_CONNECTION_KEY_INVALID;
+        connection_key_ = { 0 };
     }
 }
 
@@ -236,8 +241,10 @@ void CfApiSyncEngine::SetVaultState(bool isUnlocked, const std::vector<uint8_t>&
         master_key_ = masterKey;
     } else {
         // Zero out master key in RAM synchronously on lock
-        RtlZeroMemory(master_key_.data(), master_key_.size());
-        master_key_.clear();
+        if (!master_key_.empty()) {
+            RtlZeroMemory(master_key_.data(), master_key_.size());
+            master_key_.clear();
+        }
     }
 }
 
@@ -251,6 +258,8 @@ VOID CALLBACK CfApiSyncEngine::OnFetchDataCallback(
     const long long kChunkSize = 32768; // 32 KiB Chunk
     long long startChunk = requiredOffset.QuadPart / kChunkSize;
     long long endChunk = (requiredOffset.QuadPart + requiredLength.QuadPart - 1) / kChunkSize;
+    (void)startChunk;
+    (void)endChunk;
 
     // Allocate temporary RAM buffer for plaintext data
     std::vector<BYTE> decryptedBuffer(requiredLength.QuadPart, 0);

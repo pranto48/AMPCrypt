@@ -19,6 +19,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:ftpconnect/ftpconnect.dart';
 import '../../domain/repositories/vault_repository.dart';
 import '../../../../core/portable_state_sync.dart';
+import '../../../../core/storage/cloud_filter_service.dart';
 
 /// Factor names in Group 1, indexed by position.
 /// For an authLevel of N, only the first N factors are used.
@@ -839,54 +840,75 @@ class VaultRepositoryImpl implements VaultRepository {
     if (Platform.isWindows && _webDavServer.isRunning) {
       final port = _webDavServer.port;
 
-      // Check WinFSP dependency first and attempt silent auto-installation if missing
-      var fspInstalled = await isWinFspInstalled();
-      if (!fspInstalled) {
-        fspInstalled = await installWinFsp();
-      }
-      if (!fspInstalled) {
-        print(
-          'WinFsp driver is not installed. Vault unlocked with WebDAV server on port $port.',
-        );
-        return;
-      }
-
-      // Ensure rclone is available
-      final rclonePath = await _ensureRclone();
-
-      // Safely kill any existing rclone process
+      // 1. Register Native Windows Cloud Filter Sync Root (OneDrive-style Explorer Integration)
       try {
-        if (_rcloneProcess != null) {
-          _rcloneProcess!.kill();
-          _rcloneProcess = null;
+        final supportDir = await getApplicationSupportDirectory();
+        final iconFile = File(p.join(supportDir.path, 'vault_drive.ico'));
+        String securityIcon = iconFile.path;
+        if (!await iconFile.exists()) {
+          try {
+            final byteData = await rootBundle.load('assets/vault_drive.ico');
+            await iconFile.writeAsBytes(
+              byteData.buffer.asUint8List(
+                byteData.offsetInBytes,
+                byteData.lengthInBytes,
+              ),
+              flush: true,
+            );
+          } catch (_) {}
         }
+        await CloudFilterService.registerSyncRoot(
+          path: vaultPath,
+          name: p.basename(vaultPath),
+          iconPath: securityIcon,
+        );
+        await CloudFilterService.setVaultState(
+          isUnlocked: true,
+          masterKey: masterKey,
+        );
       } catch (_) {}
 
-      // Launch silent rclone.exe mount process
-      final supportDir = await getApplicationSupportDirectory();
-      final cachePath = storageType == 'ftp'
-          ? p.join(supportDir.path, '.amp_cache_ftp')
-          : p.join(vaultPath, '.amp_cache');
+      // 2. Drive Letter Mount (WinFsp/rclone or Native Windows WebDAV map)
+      var fspInstalled = await isWinFspInstalled();
+      if (fspInstalled) {
+        try {
+          final rclonePath = await _ensureRclone();
+          if (_rcloneProcess != null) {
+            _rcloneProcess!.kill();
+            _rcloneProcess = null;
+          }
+          final supportDir = await getApplicationSupportDirectory();
+          final cachePath = storageType == 'ftp'
+              ? p.join(supportDir.path, '.amp_cache_ftp')
+              : p.join(vaultPath, '.amp_cache');
 
-      _rcloneProcess = await Process.start(rclonePath, [
-        'mount',
-        ':webdav:',
-        driveLetter,
-        '--webdav-url',
-        'http://127.0.0.1:$port',
-        '--vfs-cache-mode',
-        'writes',
-        '--cache-dir',
-        cachePath,
-        '--network-mode=false',
-        '--no-checksum',
-        '--no-modtime',
-        '--volname',
-        'AMPCrypt',
-      ], runInShell: false);
+          _rcloneProcess = await Process.start(rclonePath, [
+            'mount',
+            ':webdav:',
+            driveLetter,
+            '--webdav-url',
+            'http://127.0.0.1:$port',
+            '--vfs-cache-mode',
+            'writes',
+            '--cache-dir',
+            cachePath,
+            '--network-mode=false',
+            '--no-checksum',
+            '--no-modtime',
+            '--volname',
+            'AMPCrypt',
+          ], runInShell: false);
+          await Future.delayed(const Duration(milliseconds: 1500));
+        } catch (_) {}
+      }
 
-      // Wait a moment for rclone to initialize mount
-      await Future.delayed(const Duration(milliseconds: 1500));
+      // 3. Fallback: Map drive letter Z: using native Windows WebDAV client if drive is not mounted yet
+      final cleanLetter = driveLetter.replaceAll(':', '').trim();
+      if (cleanLetter.isNotEmpty && !Directory('$cleanLetter:\\').existsSync()) {
+        try {
+          await Process.run('net.exe', ['use', '$cleanLetter:', 'http://127.0.0.1:$port/']);
+        } catch (_) {}
+      }
 
       // Also notify WinFSP about vault root path for accurate disk stats
       // (rclone path — try to derive drive root from vaultPath)
@@ -1043,6 +1065,10 @@ class VaultRepositoryImpl implements VaultRepository {
       }
 
       // Rclone WebDAV Mount Cleanup (FTP Fallback)
+      try {
+        await CloudFilterService.setVaultState(isUnlocked: false);
+      } catch (_) {}
+
       if (_rcloneProcess != null) {
         _rcloneProcess!.kill();
         _rcloneProcess = null;
@@ -1053,6 +1079,9 @@ class VaultRepositoryImpl implements VaultRepository {
 
       try {
         for (var letter in [preferredLetter, activeLetter]) {
+          try {
+            await Process.run('net.exe', ['use', '$letter:', '/delete', '/y']);
+          } catch (_) {}
           try {
             await Process.run('powershell.exe', [
               '-Command',
@@ -1249,12 +1278,12 @@ class VaultRepositoryImpl implements VaultRepository {
     if (configuredPath != null && configuredPath.isNotEmpty) {
       return configuredPath;
     }
-    // Default to D:\Data on Windows; fall back to home dir on other platforms
-    if (Platform.isWindows) {
-      return r'D:\Data';
+    final remembered = getRememberedVaults();
+    if (remembered.isNotEmpty && remembered.first.path.isNotEmpty) {
+      return remembered.first.path;
     }
     final home = _getHomeDir();
-    return p.join(home, '.ampcrypt_vault');
+    return p.join(home, 'AMPCrypt_Vault');
   }
 
   @override
