@@ -150,8 +150,10 @@ class WebDavServer {
         ? path.substring(0, path.length - 1)
         : path;
     
-    // Set headers required for WebDAV
+    // Set headers required for WebDAV and Windows WebClient
     request.response.headers.set('DAV', '1, 2');
+    request.response.headers.set('MS-Author-Via', 'DAV');
+    request.response.headers.set('Server', 'Microsoft-HTTPAPI/2.0');
     request.response.headers.set('Allow', 'OPTIONS, GET, HEAD, PROPFIND, PROPPATCH, PUT, DELETE, MKCOL, MOVE, COPY, LOCK, UNLOCK');
     request.response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
     

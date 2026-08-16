@@ -905,7 +905,7 @@ class VaultRepositoryImpl implements VaultRepository {
         } catch (_) {}
       }
 
-      // 3. Fallback: Map drive letter Z: using native Windows WebDAV client if drive is not mounted yet
+      // 3. Native Fast Virtual Drive Mount via subst or net use
       final cleanLetter = driveLetter.replaceAll(':', '').trim();
       bool isMounted = false;
       if (cleanLetter.isNotEmpty) {
@@ -915,7 +915,16 @@ class VaultRepositoryImpl implements VaultRepository {
       }
       if (cleanLetter.isNotEmpty && !isMounted) {
         try {
-          await Process.run('net.exe', ['use', '$cleanLetter:', 'http://127.0.0.1:$port/DavWWWRoot']);
+          await Process.run('net.exe', ['use', '$cleanLetter:', '/delete', '/y']);
+          await Process.run('subst.exe', ['$cleanLetter:', '/d']);
+        } catch (_) {}
+
+        try {
+          if (storageType == 'local' && Directory(vaultPath).existsSync()) {
+            await Process.run('subst.exe', ['$cleanLetter:', vaultPath]);
+          } else {
+            await Process.run('net.exe', ['use', '$cleanLetter:', 'http://127.0.0.1:$port/DavWWWRoot']);
+          }
         } catch (_) {}
       }
 
@@ -1090,6 +1099,9 @@ class VaultRepositoryImpl implements VaultRepository {
         for (var letter in [preferredLetter, activeLetter]) {
           try {
             await Process.run('net.exe', ['use', '$letter:', '/delete', '/y']);
+          } catch (_) {}
+          try {
+            await Process.run('subst.exe', ['$letter:', '/d']);
           } catch (_) {}
           try {
             await Process.run('powershell.exe', [
