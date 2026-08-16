@@ -840,32 +840,9 @@ class VaultRepositoryImpl implements VaultRepository {
     if (Platform.isWindows && _webDavServer.isRunning) {
       final port = _webDavServer.port;
 
-      // 1. Register Native Windows Cloud Filter Sync Root (OneDrive-style Explorer Integration)
+      // 1. Ensure CFAPI sync root is unregistered from physical vault path so Windows physical disk I/O works 100% without timeouts
       try {
-        final supportDir = await getApplicationSupportDirectory();
-        final iconFile = File(p.join(supportDir.path, 'vault_drive.ico'));
-        String securityIcon = iconFile.path;
-        if (!await iconFile.exists()) {
-          try {
-            final byteData = await rootBundle.load('assets/vault_drive.ico');
-            await iconFile.writeAsBytes(
-              byteData.buffer.asUint8List(
-                byteData.offsetInBytes,
-                byteData.lengthInBytes,
-              ),
-              flush: true,
-            );
-          } catch (_) {}
-        }
-        await CloudFilterService.registerSyncRoot(
-          path: vaultPath,
-          name: p.basename(vaultPath),
-          iconPath: securityIcon,
-        );
-        await CloudFilterService.setVaultState(
-          isUnlocked: true,
-          masterKey: masterKey,
-        );
+        await CloudFilterService.unregisterSyncRoot(vaultPath);
       } catch (_) {}
 
       // 2. Drive Letter Mount (WinFsp/rclone or Native Windows WebDAV map)
@@ -943,17 +920,17 @@ class VaultRepositoryImpl implements VaultRepository {
         final supportDir = await getApplicationSupportDirectory();
         final iconFile = File(p.join(supportDir.path, 'vault_drive.ico'));
         String securityIcon = iconFile.path;
-        if (!await iconFile.exists()) {
-          try {
-            final byteData = await rootBundle.load('assets/vault_drive.ico');
-            await iconFile.writeAsBytes(
-              byteData.buffer.asUint8List(
-                byteData.offsetInBytes,
-                byteData.lengthInBytes,
-              ),
-              flush: true,
-            );
-          } catch (_) {
+        try {
+          final byteData = await rootBundle.load('assets/vault_drive.ico');
+          await iconFile.writeAsBytes(
+            byteData.buffer.asUint8List(
+              byteData.offsetInBytes,
+              byteData.lengthInBytes,
+            ),
+            flush: true,
+          );
+        } catch (_) {
+          if (!await iconFile.exists()) {
             securityIcon = '$systemRoot\\System32\\imageres.dll,104';
           }
         }

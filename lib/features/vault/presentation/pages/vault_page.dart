@@ -83,7 +83,6 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
     windowManager.addListener(this);
     _initSystemTray();
     _loadSettings();
-    _checkWinFspDependency();
     // Check initial vault status
     context.read<VaultBloc>().add(CheckVaultStatusEvent());
   }
