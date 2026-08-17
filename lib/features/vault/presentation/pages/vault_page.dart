@@ -371,8 +371,22 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
 
   Future<void> _quitApp() async {
     try {
+      final repository = context.read<VaultBloc>().repository;
+      await repository.lockVault();
+    } catch (_) {}
+    try {
       context.read<VaultBloc>().add(LockVaultEvent());
+      // Explicitly disconnect all potential drive letters on exit
+      for (final letter in ['Z', 'Y', 'X', 'W', 'V']) {
+        try {
+          await Process.run('subst.exe', ['$letter:', '/d']);
+          await Process.run('net.exe', ['use', '$letter:', '/delete', '/y']);
+        } catch (_) {}
+      }
       await PortableStateSync.syncToPortable();
+      try {
+        await trayManager.destroy();
+      } catch (_) {}
       await Future.delayed(const Duration(milliseconds: 300));
       await windowManager.setPreventClose(false);
       await windowManager.destroy();

@@ -246,6 +246,14 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  // Ensure all virtual drives are disconnected cleanly when window closes
+  for (wchar_t letter = L'D'; letter <= L'Z'; ++letter) {
+    std::wstring drive = std::wstring(1, letter) + L":";
+    UnmountWinFspDrive(drive);
+  }
+  _wsystem(L"subst.exe Z: /d >nul 2>&1");
+  _wsystem(L"net.exe use Z: /delete /y >nul 2>&1");
+
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
