@@ -845,64 +845,62 @@ class VaultRepositoryImpl implements VaultRepository {
         await CloudFilterService.unregisterSyncRoot(vaultPath);
       } catch (_) {}
 
-      // 2. Drive Letter Mount (WinFsp/rclone or Native Windows WebDAV map)
-      var fspInstalled = await isWinFspInstalled();
-      if (!fspInstalled) {
-        fspInstalled = await installWinFsp();
-      }
-      if (fspInstalled) {
-        try {
-          final rclonePath = await _ensureRclone();
-          if (_rcloneProcess != null) {
-            _rcloneProcess!.kill();
-            _rcloneProcess = null;
-          }
-          final supportDir = await getApplicationSupportDirectory();
-          final cachePath = storageType == 'ftp'
-              ? p.join(supportDir.path, '.amp_cache_ftp')
-              : p.join(vaultPath, '.amp_cache');
-
-          _rcloneProcess = await Process.start(rclonePath, [
-            'mount',
-            ':webdav:',
-            driveLetter,
-            '--webdav-url',
-            'http://127.0.0.1:$port',
-            '--vfs-cache-mode',
-            'writes',
-            '--cache-dir',
-            cachePath,
-            '--network-mode=false',
-            '--no-checksum',
-            '--no-modtime',
-            '--volname',
-            'AMPCrypt',
-          ], runInShell: false);
-          await Future.delayed(const Duration(milliseconds: 1500));
-        } catch (_) {}
-      }
-
-      // 3. Native Fast Virtual Drive Mount via subst or net use
+      // 2. Drive Letter Mount: Use native subst for local vaults to map the exact physical disk (D:)
       final cleanLetter = driveLetter.replaceAll(':', '').trim();
-      bool isMounted = false;
-      if (cleanLetter.isNotEmpty) {
-        try {
-          isMounted = Directory('$cleanLetter:\\').existsSync();
-        } catch (_) {}
-      }
-      if (cleanLetter.isNotEmpty && !isMounted) {
+
+      if (storageType == 'local' && Directory(vaultPath).existsSync()) {
         try {
           await Process.run('net.exe', ['use', '$cleanLetter:', '/delete', '/y']);
           await Process.run('subst.exe', ['$cleanLetter:', '/d']);
         } catch (_) {}
 
         try {
-          if (storageType == 'local' && Directory(vaultPath).existsSync()) {
-            await Process.run('subst.exe', ['$cleanLetter:', vaultPath]);
-          } else {
-            await Process.run('net.exe', ['use', '$cleanLetter:', 'http://127.0.0.1:$port/DavWWWRoot']);
-          }
+          await Process.run('subst.exe', ['$cleanLetter:', vaultPath]);
         } catch (_) {}
+      } else {
+        // For Remote FTP storage, use rclone / WebDAV mount
+        var fspInstalled = await isWinFspInstalled();
+        if (fspInstalled) {
+          try {
+            final rclonePath = await _ensureRclone();
+            if (_rcloneProcess != null) {
+              _rcloneProcess!.kill();
+              _rcloneProcess = null;
+            }
+            final supportDir = await getApplicationSupportDirectory();
+            final cachePath = p.join(supportDir.path, '.amp_cache_ftp');
+
+            _rcloneProcess = await Process.start(rclonePath, [
+              'mount',
+              ':webdav:',
+              driveLetter,
+              '--webdav-url',
+              'http://127.0.0.1:$port',
+              '--vfs-cache-mode',
+              'writes',
+              '--cache-dir',
+              cachePath,
+              '--network-mode=false',
+              '--no-checksum',
+              '--no-modtime',
+              '--volname',
+              'AMPCrypt Vault',
+            ], runInShell: false);
+            await Future.delayed(const Duration(milliseconds: 1500));
+          } catch (_) {}
+        }
+
+        bool isMounted = false;
+        if (cleanLetter.isNotEmpty) {
+          try {
+            isMounted = Directory('$cleanLetter:\\').existsSync();
+          } catch (_) {}
+        }
+        if (cleanLetter.isNotEmpty && !isMounted) {
+          try {
+            await Process.run('net.exe', ['use', '$cleanLetter:', 'http://127.0.0.1:$port/DavWWWRoot']);
+          } catch (_) {}
+        }
       }
 
       // Also notify WinFSP about vault root path for accurate disk stats

@@ -6854,15 +6854,13 @@ class _WebLandingPageState extends State<WebLandingPage> {
 
     try {
       final response = await http_pkg.post(
-        Uri.parse('https://api.resend.com/emails'),
+        Uri.parse('https://ampcrypt.itsupport.com.bd/api/send-email'),
         headers: {
-          'Authorization': 'Bearer re_JRnu4jFo_JRjAbMeMnqraKM3yKAJPFNdf',
           'Content-Type': 'application/json',
         },
         body: json.encode({
-          'from': 'AMPCrypt Web <onboarding@resend.dev>',
           'to': ['pranto48@gmail.com'],
-          'subject': '[AMPCrypt Web Contact] ${_subjectController.text.trim()}',
+          'subject': '[AMPCrypt Contact] ${_subjectController.text.trim()}',
           'html': '''
             <h3>New Contact Form Message</h3>
             <p><strong>Name:</strong> ${_nameController.text.trim()}</p>
