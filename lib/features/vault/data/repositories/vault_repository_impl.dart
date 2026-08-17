@@ -1955,17 +1955,12 @@ class VaultRepositoryImpl implements VaultRepository {
     try {
       final client = HttpClient();
       final request = await client.postUrl(
-        Uri.parse('https://api.resend.com/emails'),
+        Uri.parse('https://ampcrypt.itsupport.com.bd/api/send-email'),
       );
 
-      request.headers.set(
-        'Authorization',
-        'Bearer re_6uqukUSr_JhcPeNW5AhY2264TZASygaS9',
-      );
       request.headers.set('Content-Type', 'application/json');
 
       final body = {
-        'from': 'AMPCrypt <noreply@itsupport.bd>',
         'to': [email],
         'subject': 'AMPCrypt Recovery Verification Code',
         'html':
