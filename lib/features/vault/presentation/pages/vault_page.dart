@@ -372,7 +372,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
   Future<void> _quitApp() async {
     try {
       final repository = context.read<VaultBloc>().repository;
-      await repository.lockVault();
+      repository.lockVault();
     } catch (_) {}
     try {
       context.read<VaultBloc>().add(LockVaultEvent());
