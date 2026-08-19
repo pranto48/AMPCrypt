@@ -584,16 +584,14 @@ class VaultRepositoryImpl implements VaultRepository {
       }
     } catch (_) {}
 
-    Future<Directory> getSupportDir() async {
+    final vaultDir = p.dirname(vhdxPath);
+    final tmpDir = Directory(p.join(vaultDir, '.amp_tmp'));
+    if (!tmpDir.existsSync()) {
       try {
-        return await getApplicationSupportDirectory();
-      } catch (_) {
-        return Directory.systemTemp;
-      }
+        tmpDir.createSync(recursive: true);
+      } catch (_) {}
     }
-
-    final supportDir = await getSupportDir();
-    final mountScriptPath = p.join(supportDir.path, 'mount_script.txt');
+    final mountScriptPath = p.join(tmpDir.existsSync() ? tmpDir.path : vaultDir, 'mount_script.txt');
     final scriptContent = [
       'select vdisk file="$vhdxPath"',
       'attach vdisk',
@@ -606,6 +604,9 @@ class VaultRepositoryImpl implements VaultRepository {
     await File(mountScriptPath).writeAsString(scriptContent);
     try {
       final res = await Process.run('diskpart.exe', ['/s', mountScriptPath]);
+      try {
+        await File(mountScriptPath).delete();
+      } catch (_) {}
       if (res.exitCode != 0) return null;
     } catch (_) {
       return null; // Requires elevation; fall back to WebDAV
@@ -633,13 +634,9 @@ class VaultRepositoryImpl implements VaultRepository {
   }
 
   Future<void> _dismountVhdxDiskpart(String vhdxPath) async {
-    Directory supportDir;
-    try {
-      supportDir = await getApplicationSupportDirectory();
-    } catch (_) {
-      supportDir = Directory.systemTemp;
-    }
-    final unmountScriptPath = p.join(supportDir.path, 'unmount_script.txt');
+    final vaultDir = p.dirname(vhdxPath);
+    final tmpDir = Directory(p.join(vaultDir, '.amp_tmp'));
+    final unmountScriptPath = p.join(tmpDir.existsSync() ? tmpDir.path : vaultDir, 'unmount_script.txt');
     final scriptContent = [
       'select vdisk file="$vhdxPath"',
       'offline disk',
@@ -648,6 +645,9 @@ class VaultRepositoryImpl implements VaultRepository {
     await File(unmountScriptPath).writeAsString(scriptContent);
     try {
       await Process.run('diskpart.exe', ['/s', unmountScriptPath]);
+      try {
+        await File(unmountScriptPath).delete();
+      } catch (_) {}
     } catch (_) {}
   }
 
@@ -735,24 +735,21 @@ class VaultRepositoryImpl implements VaultRepository {
             try {
               final systemRoot =
                   Platform.environment['SystemRoot'] ?? r'C:\Windows';
-              final supportDir = await getApplicationSupportDirectory();
-              final iconFile = File(p.join(supportDir.path, 'vault_drive.ico'));
+              final iconFile = File(p.join(vaultPath, 'vault_drive.ico'));
               String securityIcon = iconFile.path;
-              if (!await iconFile.exists()) {
-                try {
-                  final byteData = await rootBundle.load(
-                    'assets/vault_drive.ico',
-                  );
-                  await iconFile.writeAsBytes(
-                    byteData.buffer.asUint8List(
-                      byteData.offsetInBytes,
-                      byteData.lengthInBytes,
-                    ),
-                    flush: true,
-                  );
-                } catch (_) {
-                  securityIcon = '$systemRoot\\System32\\imageres.dll,104';
-                }
+              try {
+                final byteData = await rootBundle.load(
+                  'assets/vault_drive.ico',
+                );
+                await iconFile.writeAsBytes(
+                  byteData.buffer.asUint8List(
+                    byteData.offsetInBytes,
+                    byteData.lengthInBytes,
+                  ),
+                  flush: true,
+                );
+              } catch (_) {
+                securityIcon = '$systemRoot\\System32\\imageres.dll,104';
               }
 
               // HKLM and HKCU registry overrides
@@ -845,62 +842,62 @@ class VaultRepositoryImpl implements VaultRepository {
         await CloudFilterService.unregisterSyncRoot(vaultPath);
       } catch (_) {}
 
-      // 2. Drive Letter Mount: Use native subst for local vaults to map the exact physical disk (D:)
+      // 2. Drive Letter Mount: Always mount through the WebDAV Encryption Server (rclone / native WebDAV redirector)
       final cleanLetter = driveLetter.replaceAll(':', '').trim();
 
-      if (storageType == 'local' && Directory(vaultPath).existsSync()) {
+      // Clear any previous stale mappings
+      try {
+        await Process.run('net.exe', ['use', '$cleanLetter:', '/delete', '/y']);
+        await Process.run('subst.exe', ['$cleanLetter:', '/d']);
+      } catch (_) {}
+
+      var fspInstalled = await isWinFspInstalled();
+      if (!fspInstalled) {
+        fspInstalled = await installWinFsp();
+      }
+
+      if (fspInstalled) {
         try {
-          await Process.run('net.exe', ['use', '$cleanLetter:', '/delete', '/y']);
-          await Process.run('subst.exe', ['$cleanLetter:', '/d']);
-        } catch (_) {}
+          final rclonePath = await _ensureRclone();
+          if (_rcloneProcess != null) {
+            _rcloneProcess!.kill();
+            _rcloneProcess = null;
+          }
+          final supportDir = await getApplicationSupportDirectory();
+          final cachePath = storageType == 'ftp'
+              ? p.join(supportDir.path, '.amp_cache_ftp')
+              : p.join(vaultPath, '.amp_cache');
 
+          _rcloneProcess = await Process.start(rclonePath, [
+            'mount',
+            ':webdav:',
+            driveLetter,
+            '--webdav-url',
+            'http://127.0.0.1:$port',
+            '--vfs-cache-mode',
+            'writes',
+            '--cache-dir',
+            cachePath,
+            '--network-mode=false',
+            '--no-checksum',
+            '--no-modtime',
+            '--volname',
+            'AMPCrypt Vault',
+          ], runInShell: false);
+          await Future.delayed(const Duration(milliseconds: 1500));
+        } catch (_) {}
+      }
+
+      bool isMounted = false;
+      if (cleanLetter.isNotEmpty) {
         try {
-          await Process.run('subst.exe', ['$cleanLetter:', vaultPath]);
+          isMounted = Directory('$cleanLetter:\\').existsSync();
         } catch (_) {}
-      } else {
-        // For Remote FTP storage, use rclone / WebDAV mount
-        var fspInstalled = await isWinFspInstalled();
-        if (fspInstalled) {
-          try {
-            final rclonePath = await _ensureRclone();
-            if (_rcloneProcess != null) {
-              _rcloneProcess!.kill();
-              _rcloneProcess = null;
-            }
-            final supportDir = await getApplicationSupportDirectory();
-            final cachePath = p.join(supportDir.path, '.amp_cache_ftp');
-
-            _rcloneProcess = await Process.start(rclonePath, [
-              'mount',
-              ':webdav:',
-              driveLetter,
-              '--webdav-url',
-              'http://127.0.0.1:$port',
-              '--vfs-cache-mode',
-              'writes',
-              '--cache-dir',
-              cachePath,
-              '--network-mode=false',
-              '--no-checksum',
-              '--no-modtime',
-              '--volname',
-              'AMPCrypt Vault',
-            ], runInShell: false);
-            await Future.delayed(const Duration(milliseconds: 1500));
-          } catch (_) {}
-        }
-
-        bool isMounted = false;
-        if (cleanLetter.isNotEmpty) {
-          try {
-            isMounted = Directory('$cleanLetter:\\').existsSync();
-          } catch (_) {}
-        }
-        if (cleanLetter.isNotEmpty && !isMounted) {
-          try {
-            await Process.run('net.exe', ['use', '$cleanLetter:', 'http://127.0.0.1:$port/DavWWWRoot']);
-          } catch (_) {}
-        }
+      }
+      if (cleanLetter.isNotEmpty && !isMounted) {
+        try {
+          await Process.run('net.exe', ['use', '$cleanLetter:', 'http://127.0.0.1:$port/DavWWWRoot']);
+        } catch (_) {}
       }
 
       // Also notify WinFSP about vault root path for accurate disk stats
@@ -915,8 +912,7 @@ class VaultRepositoryImpl implements VaultRepository {
         final letterOnly = driveLetter.replaceAll(':', '');
         final systemRoot = Platform.environment['SystemRoot'] ?? r'C:\Windows';
 
-        final supportDir = await getApplicationSupportDirectory();
-        final iconFile = File(p.join(supportDir.path, 'vault_drive.ico'));
+        final iconFile = File(p.join(vaultPath, 'vault_drive.ico'));
         String securityIcon = iconFile.path;
         try {
           final byteData = await rootBundle.load('assets/vault_drive.ico');

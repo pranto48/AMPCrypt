@@ -370,24 +370,26 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
   }
 
   Future<void> _quitApp() async {
+    // 1. Immediately hide window and remove tray icon for instant user responsiveness (0ms feedback)
+    try {
+      await windowManager.hide();
+      await trayManager.destroy();
+    } catch (_) {}
+
+    // 2. Fast synchronous lock & background unmount
     try {
       final repository = context.read<VaultBloc>().repository;
       repository.lockVault();
     } catch (_) {}
+
     try {
       context.read<VaultBloc>().add(LockVaultEvent());
-      // Explicitly disconnect all potential drive letters on exit
-      for (final letter in ['Z', 'Y', 'X', 'W', 'V']) {
-        try {
-          await Process.run('subst.exe', ['$letter:', '/d']);
-          await Process.run('net.exe', ['use', '$letter:', '/delete', '/y']);
-        } catch (_) {}
-      }
-      await PortableStateSync.syncToPortable();
-      try {
-        await trayManager.destroy();
-      } catch (_) {}
-      await Future.delayed(const Duration(milliseconds: 300));
+      // Parallel fast unmount
+      await Future.wait([
+        Process.run('subst.exe', ['Z:', '/d']),
+        Process.run('net.exe', ['use', 'Z:', '/delete', '/y']),
+        PortableStateSync.syncToPortable(),
+      ]).timeout(const Duration(milliseconds: 300), onTimeout: () => []);
       await windowManager.setPreventClose(false);
       await windowManager.destroy();
     } catch (_) {}
@@ -861,79 +863,32 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
   }
 
   void _openDriveInExplorer(String driveLetter) async {
-    final repo = context.read<VaultBloc>().repository;
-    final vaultPath = repo.getVaultPath();
     final cleanLetter = driveLetter.replaceAll(':', '').trim();
 
-    bool opened = false;
-
-    // 1. Try opening mounted virtual drive letter (e.g. Z:\)
+    // 1. Instantly open mounted virtual drive letter (e.g. Z:\)
     if (cleanLetter.isNotEmpty && Platform.isWindows) {
+      final drivePath = '$cleanLetter:\\';
       try {
-        final drivePath = '$cleanLetter:\\';
-        bool isMounted = false;
+        await Process.start('explorer.exe', [drivePath], runInShell: false);
+        return;
+      } catch (_) {
         try {
-          isMounted = Directory(drivePath).existsSync();
+          await Process.start('cmd.exe', ['/c', 'start', '', drivePath], runInShell: true);
+          return;
         } catch (_) {}
-
-        if (isMounted) {
-          await Process.start('explorer.exe', [drivePath], runInShell: true);
-          opened = true;
-        } else {
-          final result = await Process.run('cmd.exe', ['/c', 'start', '', drivePath]);
-          if (result.exitCode == 0) {
-            opened = true;
-          }
-        }
-      } catch (_) {}
+      }
     }
 
-    // 2. Try opening active vault folder
-    if (!opened && vaultPath.isNotEmpty) {
+    // 2. Fallback: Open active vault folder
+    final repo = context.read<VaultBloc>().repository;
+    final vaultPath = repo.getVaultPath();
+    if (vaultPath.isNotEmpty) {
       try {
-        bool pathExists = false;
+        await Process.start('explorer.exe', [vaultPath], runInShell: false);
+      } catch (_) {
         try {
-          pathExists = Directory(vaultPath).existsSync();
+          await Process.start('cmd.exe', ['/c', 'start', '', vaultPath], runInShell: true);
         } catch (_) {}
-
-        if (pathExists) {
-          await Process.start('explorer.exe', [vaultPath], runInShell: true);
-          opened = true;
-        } else {
-          final result = await Process.run('cmd.exe', ['/c', 'start', '', vaultPath]);
-          if (result.exitCode == 0) {
-            opened = true;
-          }
-        }
-      } catch (_) {}
-    }
-
-    // 3. Fallback: url_launcher
-    if (!opened && vaultPath.isNotEmpty) {
-      try {
-        await launchUrl(Uri.file(vaultPath));
-        opened = true;
-      } catch (_) {}
-    }
-
-    if (mounted) {
-      if (opened) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: kSuccessColor,
-            content: Text('Opened vault in Windows Explorer.', style: GoogleFonts.outfit()),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: const Color(0xFFEAB308),
-            content: Text(
-              'Could not open Explorer. Vault path: $vaultPath',
-              style: GoogleFonts.outfit(color: Colors.black, fontWeight: FontWeight.bold),
-            ),
-          ),
-        );
       }
     }
   }
