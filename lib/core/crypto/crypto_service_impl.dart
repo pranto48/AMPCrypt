@@ -104,4 +104,9 @@ class CryptoServiceImpl implements CryptoService {
 
     return Uint8List.fromList(decrypted);
   }
+
+  @override
+  void zeroizeKey(Uint8List key) {
+    key.fillRange(0, key.length, 0);
+  }
 }

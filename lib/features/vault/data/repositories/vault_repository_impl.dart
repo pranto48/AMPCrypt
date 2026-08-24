@@ -429,6 +429,7 @@ class VaultRepositoryImpl implements VaultRepository {
         encryptedPasswordShare,
         derivedKey,
       );
+      _cryptoService.zeroizeKey(derivedKey);
       final passwordShare = utf8.decode(decryptedBytes);
       return passwordShare.isNotEmpty;
     } catch (_) {
@@ -851,14 +852,11 @@ class VaultRepositoryImpl implements VaultRepository {
         await Process.run('subst.exe', ['$cleanLetter:', '/d']);
       } catch (_) {}
 
-      var fspInstalled = await isWinFspInstalled();
-      if (!fspInstalled) {
-        fspInstalled = await installWinFsp();
-      }
+      final fspInstalled = await isWinFspInstalled();
+      final rclonePath = await _ensureRclone();
 
-      if (fspInstalled) {
+      if (fspInstalled && rclonePath != null) {
         try {
-          final rclonePath = await _ensureRclone();
           if (_rcloneProcess != null) {
             _rcloneProcess!.kill();
             _rcloneProcess = null;
@@ -884,7 +882,13 @@ class VaultRepositoryImpl implements VaultRepository {
             '--volname',
             'AMPCrypt Vault',
           ], runInShell: false);
-          await Future.delayed(const Duration(milliseconds: 1500));
+          
+          for (int i = 0; i < 10; i++) {
+            await Future.delayed(const Duration(milliseconds: 100));
+            if (Directory('$cleanLetter:\\').existsSync()) {
+              break;
+            }
+          }
         } catch (_) {}
       }
 
@@ -1199,16 +1203,23 @@ class VaultRepositoryImpl implements VaultRepository {
       }
 
       if (await msiFile.exists()) {
-        // Run silent unattended MSI installer
-        await Process.run('msiexec.exe', [
-          '/i',
-          msiPath,
-          '/qn',
-          '/norestart',
-        ]);
+        // Run silent unattended MSI installer with elevation
+        try {
+          await Process.run('powershell.exe', [
+            '-Command',
+            'Start-Process msiexec.exe -ArgumentList \'/i\', \'\"$msiPath\"\', \'/qn\', \'/norestart\' -Verb RunAs -Wait',
+          ]);
+        } catch (_) {
+          await Process.run('msiexec.exe', [
+            '/i',
+            msiPath,
+            '/qn',
+            '/norestart',
+          ]);
+        }
 
-        // Poll registry up to 5 seconds for installation completion
-        for (int i = 0; i < 10; i++) {
+        // Poll registry up to 10 seconds for installation completion
+        for (int i = 0; i < 20; i++) {
           await Future.delayed(const Duration(milliseconds: 500));
           if (await isWinFspInstalled()) {
             return true;
@@ -1220,35 +1231,36 @@ class VaultRepositoryImpl implements VaultRepository {
     return await isWinFspInstalled();
   }
 
-  Future<String> _ensureRclone() async {
-    // 1. Check installer's Program Files directory first (bundled rclone)
-    final programFiles =
-        Platform.environment['ProgramFiles'] ?? r'C:\Program Files';
-    final bundledRclone = File(p.join(programFiles, 'ampcrypt', 'rclone.exe'));
-    if (await bundledRclone.exists()) {
-      return bundledRclone.path;
-    }
+  Future<String?> _ensureRclone() async {
+    try {
+      // 1. Check same directory as current executable
+      final exeDir = File(Platform.resolvedExecutable).parent.path;
+      final localExe = File(p.join(exeDir, 'rclone.exe'));
+      if (await localExe.exists()) return localExe.path;
 
-    // 2. Check AppData support directory (previously downloaded)
-    final supportDir = await getApplicationSupportDirectory();
-    final rcloneExe = File(p.join(supportDir.path, 'rclone.exe'));
-    if (await rcloneExe.exists()) {
-      return rcloneExe.path;
-    }
+      // 2. Check installer's Program Files directory (bundled rclone)
+      final programFiles =
+          Platform.environment['ProgramFiles'] ?? r'C:\Program Files';
+      final bundledRclone = File(p.join(programFiles, 'ampcrypt', 'rclone.exe'));
+      if (await bundledRclone.exists()) {
+        return bundledRclone.path;
+      }
 
-    // 3. Last resort: download from internet silently
-    final psCommand =
-        '''
-      Set-Location -Path '${supportDir.path}';
-      [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;
-      Invoke-WebRequest -Uri 'https://downloads.rclone.org/v1.66.0/rclone-v1.66.0-windows-amd64.zip' -OutFile 'rclone.zip';
-      Expand-Archive -Path 'rclone.zip' -DestinationPath 'rclone-temp' -Force;
-      Copy-Item 'rclone-temp\\rclone-v1.66.0-windows-amd64\\rclone.exe' -Destination 'rclone.exe' -Force;
-      Remove-Item -Recurse -Force 'rclone-temp', 'rclone.zip'
-    ''';
+      // 3. Check AppData support directory
+      final supportDir = await getApplicationSupportDirectory();
+      final rcloneExe = File(p.join(supportDir.path, 'rclone.exe'));
+      if (await rcloneExe.exists()) {
+        return rcloneExe.path;
+      }
 
-    await Process.run('powershell.exe', ['-Command', psCommand]);
-    return rcloneExe.path;
+      // 4. Check local assets/rclone.exe
+      final assetRclone = File(p.join(Directory.current.path, 'assets', 'rclone.exe'));
+      if (await assetRclone.exists()) {
+        return assetRclone.path;
+      }
+    } catch (_) {}
+
+    return null;
   }
   // ─── DEVICE STATUS ───────────────────────────────────────────────────────────
 

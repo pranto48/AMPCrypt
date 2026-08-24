@@ -34,4 +34,7 @@ abstract class CryptoService {
   /// Decrypts data using AES-GCM-256 with the derived key.
   /// Expects the concatenated byte array format: nonce + tag/mac + ciphertext.
   Future<Uint8List> decryptData(Uint8List encryptedData, Uint8List key);
+
+  /// Securely overwrites the key buffer in RAM with zeros.
+  void zeroizeKey(Uint8List key);
 }

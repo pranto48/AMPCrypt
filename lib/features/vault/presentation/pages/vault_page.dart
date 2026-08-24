@@ -56,13 +56,18 @@ bool get isSystemDark {
 }
 
 // ─── Liquid Blue Glass Palette ───────────────────────────────────────────────
-Color get kPrimaryColor => const Color(0xFF0284C7);       // Azure Cyan Liquid Blue
-Color get kPrimaryHoverColor => const Color(0xFF38BDF8);  // Electric Sky Blue Hover
-Color get kScaffoldBackgroundColor => isSystemDark ? const Color(0xFF070D1E) : const Color(0xFFF0F7FF);
-Color get kSurfaceColor => const Color(0xFF0F172A);       // Liquid Sapphire Surface
-Color get kSidebarBackgroundColor => isSystemDark ? const Color(0xFF0B132B) : const Color(0xFFE2E8F0);
-Color get kSuccessColor => const Color(0xFF38BDF8);        // Soft Electric Cyan — unlocked / OK
-Color get kErrorColor => const Color(0xFFF43F5E);          // Rose Red — warnings / errors
+Color get kPrimaryColor => const Color(0xFF0284C7); // Azure Cyan Liquid Blue
+Color get kPrimaryHoverColor =>
+    const Color(0xFF38BDF8); // Electric Sky Blue Hover
+Color get kScaffoldBackgroundColor =>
+    isSystemDark ? const Color(0xFF070D1E) : const Color(0xFFF0F7FF);
+Color get kSurfaceColor => const Color(0xFF0F172A); // Liquid Sapphire Surface
+Color get kSidebarBackgroundColor =>
+    isSystemDark ? const Color(0xFF0B132B) : const Color(0xFFE2E8F0);
+Color get kSuccessColor =>
+    const Color(0xFF38BDF8); // Soft Electric Cyan — unlocked / OK
+Color get kErrorColor =>
+    const Color(0xFFF43F5E); // Rose Red — warnings / errors
 
 class VaultPage extends StatefulWidget {
   const VaultPage({super.key});
@@ -73,7 +78,8 @@ class VaultPage extends StatefulWidget {
 
 enum ActiveView { dashboard, settings, recovery }
 
-class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener {
+class _VaultPageState extends State<VaultPage>
+    with WindowListener, TrayListener {
   ActiveView _activeView = ActiveView.dashboard;
   bool _minimizeToTray = true;
 
@@ -167,7 +173,9 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(kPrimaryColor),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          kPrimaryColor,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -214,8 +222,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                       });
 
                       try {
-                        final repository =
-                            context.read<VaultBloc>().repository;
+                        final repository = context.read<VaultBloc>().repository;
                         final installed = await repository.installWinFsp();
 
                         if (mounted) {
@@ -226,7 +233,9 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                                 backgroundColor: kSuccessColor,
                                 content: Text(
                                   'WinFsp Driver installed successfully! Vault drive mounting is active.',
-                                  style: GoogleFonts.outfit(color: Colors.white),
+                                  style: GoogleFonts.outfit(
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                             );
@@ -267,18 +276,22 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
 
   /// Rebuilds the system tray context menu to reflect the current vault lock state.
   Future<void> _initSystemTray({bool isVaultUnlocked = false}) async {
-    if (kIsWeb || (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux)) return;
+    if (kIsWeb ||
+        (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux))
+      return;
 
     try {
       await trayManager.setIcon(
-        Platform.isWindows 
-            ? 'assets/app_icon.ico' 
-            : 'macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png'
+        Platform.isWindows
+            ? 'assets/app_icon.ico'
+            : 'macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_256.png',
       );
-      
+
       // Build tray tooltip to show vault status
       await trayManager.setToolTip(
-        isVaultUnlocked ? 'AMPCrypt — Vault Unlocked 🔓' : 'AMPCrypt — Vault Locked 🔒'
+        isVaultUnlocked
+            ? 'AMPCrypt — Vault Unlocked 🔓'
+            : 'AMPCrypt — Vault Locked 🔒',
       );
 
       final menu = Menu(
@@ -286,7 +299,9 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
           MenuItem(key: 'open', label: 'Open AMPCrypt'),
           MenuItem(
             key: 'lock',
-            label: isVaultUnlocked ? '🔒  Lock Vault Now' : '🔒  Vault is Locked',
+            label: isVaultUnlocked
+                ? '🔒  Lock Vault Now'
+                : '🔒  Vault is Locked',
           ),
           MenuItem.separator(),
           MenuItem(key: 'quit', label: 'Exit AMPCrypt'),
@@ -356,7 +371,10 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: kErrorColor,
-          content: Text('All vaults locked from system tray.', style: GoogleFonts.outfit()),
+          content: Text(
+            'All vaults locked from system tray.',
+            style: GoogleFonts.outfit(),
+          ),
         ),
       );
     } else if (menuItem.key == 'quit') {
@@ -500,41 +518,55 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
       barrierDismissible: true,
       builder: (dialogContext) {
         return CreateVaultDialog(
-          onCreate: (password, authLevel, vaultName, vaultPath, questions, answers) async {
-            final repo = context.read<VaultBloc>().repository;
-            final targetDir = (vaultPath != null && vaultPath.isNotEmpty)
-                ? vaultPath
-                : p.join(Directory.systemTemp.path, '.ampcrypt_vault_$vaultName');
-            await repo.relocateVaultFolder(targetDir);
+          onCreate:
+              (
+                password,
+                authLevel,
+                vaultName,
+                vaultPath,
+                questions,
+                answers,
+              ) async {
+                final repo = context.read<VaultBloc>().repository;
+                final targetDir = (vaultPath != null && vaultPath.isNotEmpty)
+                    ? vaultPath
+                    : p.join(
+                        Directory.systemTemp.path,
+                        '.ampcrypt_vault_$vaultName',
+                      );
+                await repo.relocateVaultFolder(targetDir);
 
-            if (context.mounted) {
-              context.read<VaultBloc>().add(
-                CreateVaultEvent(
-                  password,
-                  authLevel: authLevel,
-                  questions: questions,
-                  answers: answers,
-                ),
-              );
+                if (context.mounted) {
+                  context.read<VaultBloc>().add(
+                    CreateVaultEvent(
+                      password,
+                      authLevel: authLevel,
+                      questions: questions,
+                      answers: answers,
+                    ),
+                  );
 
-              // Add to remembered vault profiles
-              await repo.addRememberedVault(
-                VaultProfile(
-                  name: vaultName,
-                  path: targetDir,
-                  storageType: 'local',
-                  driveLetter: repo.getDriveLetter(),
-                ),
-              );
+                  // Add to remembered vault profiles
+                  await repo.addRememberedVault(
+                    VaultProfile(
+                      name: vaultName,
+                      path: targetDir,
+                      storageType: 'local',
+                      driveLetter: repo.getDriveLetter(),
+                    ),
+                  );
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: kSuccessColor,
-                  content: Text('Vault "$vaultName" created with 3 Security Questions recovery!', style: GoogleFonts.outfit()),
-                ),
-              );
-            }
-          },
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: kSuccessColor,
+                      content: Text(
+                        'Vault "$vaultName" created with 3 Security Questions recovery!',
+                        style: GoogleFonts.outfit(),
+                      ),
+                    ),
+                  );
+                }
+              },
         );
       },
     );
@@ -566,7 +598,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
   void _showMountDialogForPath(BuildContext context, String path) {
     final repository = context.read<VaultBloc>().repository;
     String selectedDrive = repository.getDriveLetter();
-    
+
     showDialog(
       context: context,
       builder: (dialogContext) {
@@ -574,10 +606,15 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
           builder: (context, setDialogState) {
             return AlertDialog(
               backgroundColor: kSurfaceColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               title: Text(
                 'Open Existing Vault',
-                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
+                style: GoogleFonts.outfit(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -585,12 +622,18 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                 children: [
                   Text(
                     'Selected folder:',
-                    style: GoogleFonts.outfit(color: Colors.white70, fontSize: 12),
+                    style: GoogleFonts.outfit(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     path,
-                    style: GoogleFonts.shareTechMono(color: kPrimaryColor, fontSize: 11),
+                    style: GoogleFonts.shareTechMono(
+                      color: kPrimaryColor,
+                      fontSize: 11,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
@@ -598,16 +641,39 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                     dropdownColor: kSurfaceColor,
                     decoration: InputDecoration(
                       labelText: 'Virtual Drive Letter',
-                      labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
-                      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                      labelStyle: GoogleFonts.outfit(
+                        color: const Color(0xFF94A3B8),
+                      ),
+                      enabledBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF334155)),
+                      ),
                     ),
                     style: GoogleFonts.outfit(color: Colors.white),
-                    items: ['D:', 'E:', 'F:', 'G:', 'H:', 'V:', 'W:', 'X:', 'Y:', 'Z:']
-                        .map((drive) => DropdownMenuItem(
-                              value: drive,
-                              child: Text(drive, style: GoogleFonts.outfit(color: Colors.white)),
-                            ))
-                        .toList(),
+                    items:
+                        [
+                              'D:',
+                              'E:',
+                              'F:',
+                              'G:',
+                              'H:',
+                              'V:',
+                              'W:',
+                              'X:',
+                              'Y:',
+                              'Z:',
+                            ]
+                            .map(
+                              (drive) => DropdownMenuItem(
+                                value: drive,
+                                child: Text(
+                                  drive,
+                                  style: GoogleFonts.outfit(
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(),
                     onChanged: (val) {
                       if (val != null) {
                         setDialogState(() {
@@ -621,13 +687,18 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: Text('Cancel', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8))),
+                  child: Text(
+                    'Cancel',
+                    style: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
+                  ),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: kPrimaryColor,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                   onPressed: () async {
                     Navigator.of(dialogContext).pop();
@@ -637,12 +708,18 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           backgroundColor: kSuccessColor,
-                          content: Text('Vault profile loaded. Unlock to mount.', style: GoogleFonts.outfit()),
+                          content: Text(
+                            'Vault profile loaded. Unlock to mount.',
+                            style: GoogleFonts.outfit(),
+                          ),
                         ),
                       );
                     }
                   },
-                  child: Text('Open Vault', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                  child: Text(
+                    'Open Vault',
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             );
@@ -669,7 +746,10 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: kSuccessColor,
-              content: Text('Backup configuration restored.', style: GoogleFonts.outfit()),
+              content: Text(
+                'Backup configuration restored.',
+                style: GoogleFonts.outfit(),
+              ),
             ),
           );
         },
@@ -679,7 +759,9 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
 
   void _showDeleteVaultDialog(BuildContext context, [String? targetPath]) {
     final repo = context.read<VaultBloc>().repository;
-    final vaultPath = (targetPath != null && targetPath.isNotEmpty) ? targetPath : repo.getVaultPath();
+    final vaultPath = (targetPath != null && targetPath.isNotEmpty)
+        ? targetPath
+        : repo.getVaultPath();
     String rawName = p.basename(vaultPath).replaceAll('.ampcrypt_vault_', '');
     if (rawName.isEmpty || rawName == '.' || rawName == '/') rawName = 'Data';
 
@@ -695,7 +777,10 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 backgroundColor: kPrimaryColor,
-                content: Text('Vault removed from app list. Files on disk remain safe.', style: GoogleFonts.outfit()),
+                content: Text(
+                  'Vault removed from app list. Files on disk remain safe.',
+                  style: GoogleFonts.outfit(),
+                ),
               ),
             );
           }
@@ -703,12 +788,17 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
         onForceDeleteConfirm: (password) async {
           final isVerified = await repo.verifyVaultPassword(password);
           if (isVerified && mounted) {
-            context.read<VaultBloc>().add(ForceDeleteVaultEvent(password, vaultPath));
+            context.read<VaultBloc>().add(
+              ForceDeleteVaultEvent(password, vaultPath),
+            );
             setState(() {});
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 backgroundColor: kErrorColor,
-                content: Text('Vault and all physical files deleted from disk.', style: GoogleFonts.outfit()),
+                content: Text(
+                  'Vault and all physical files deleted from disk.',
+                  style: GoogleFonts.outfit(),
+                ),
               ),
             );
             return true;
@@ -722,14 +812,17 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
   void _showPreferencesDialog(BuildContext context, {int initialTab = 0}) {
     showDialog(
       context: context,
-      builder: (dialogContext) => PreferencesDialog(initialTabIndex: initialTab),
+      builder: (dialogContext) =>
+          PreferencesDialog(initialTabIndex: initialTab),
     );
   }
 
   Widget _buildEmptyVaultsView(BuildContext context, bool isDark) {
     final bg = isDark ? const Color(0xFF070D1E) : const Color(0xFFF0F7FF);
     final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
-    final subtitleColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final subtitleColor = isDark
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF64748B);
 
     return Container(
       color: bg,
@@ -772,10 +865,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
             const SizedBox(height: 8),
             Text(
               'Create a new vault or open an existing vault on your computer.',
-              style: GoogleFonts.outfit(
-                color: subtitleColor,
-                fontSize: 13,
-              ),
+              style: GoogleFonts.outfit(color: subtitleColor, fontSize: 13),
             ),
             const SizedBox(height: 26),
             Row(
@@ -800,11 +890,22 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 22,
+                        vertical: 13,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                     icon: const Icon(Icons.add_rounded, size: 18),
-                    label: Text('Create New Vault', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13)),
+                    label: Text(
+                      'Create New Vault',
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
                     onPressed: () => _showCreateVaultDialog(context),
                   ),
                 ),
@@ -812,12 +913,28 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     foregroundColor: textColor,
-                    side: BorderSide(color: isDark ? const Color(0x3300F0FF) : const Color(0xFFCBD5E1), width: 1.2),
-                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    side: BorderSide(
+                      color: isDark
+                          ? const Color(0x3300F0FF)
+                          : const Color(0xFFCBD5E1),
+                      width: 1.2,
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 22,
+                      vertical: 13,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                   icon: const Icon(Icons.folder_open_rounded, size: 18),
-                  label: Text('Open Existing Vault', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 13)),
+                  label: Text(
+                    'Open Existing Vault',
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
                   onPressed: () => _showOpenVaultDialog(context),
                 ),
               ],
@@ -841,7 +958,10 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 backgroundColor: kSuccessColor,
-                content: Text('Vault reconnected to: $selectedPath', style: GoogleFonts.outfit()),
+                content: Text(
+                  'Vault reconnected to: $selectedPath',
+                  style: GoogleFonts.outfit(),
+                ),
               ),
             );
           }
@@ -873,7 +993,12 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
         return;
       } catch (_) {
         try {
-          await Process.start('cmd.exe', ['/c', 'start', '', drivePath], runInShell: true);
+          await Process.start('cmd.exe', [
+            '/c',
+            'start',
+            '',
+            drivePath,
+          ], runInShell: true);
           return;
         } catch (_) {}
       }
@@ -887,7 +1012,12 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
         await Process.start('explorer.exe', [vaultPath], runInShell: false);
       } catch (_) {
         try {
-          await Process.start('cmd.exe', ['/c', 'start', '', vaultPath], runInShell: true);
+          await Process.start('cmd.exe', [
+            '/c',
+            'start',
+            '',
+            vaultPath,
+          ], runInShell: true);
         } catch (_) {}
       }
     }
@@ -898,18 +1028,18 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
     if (kIsWeb) {
       return const WebLandingPage();
     }
-    final showCustomTitleBar = !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+    final showCustomTitleBar =
+        !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: isDark
+          ? const Color(0xFF0F172A)
+          : const Color(0xFFF8FAFC),
       body: Column(
         children: [
           if (showCustomTitleBar)
-            CryptomatorTitleBar(
-              isDark: isDark,
-              onClose: () => onWindowClose(),
-            ),
+            CryptomatorTitleBar(isDark: isDark, onClose: () => onWindowClose()),
           CryptomatorBanners(
             onUpdateTap: () => _showPreferencesDialog(context, initialTab: 3),
             onSupportTap: () => _showPreferencesDialog(context, initialTab: 4),
@@ -927,7 +1057,10 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                         backgroundColor: const Color(0xFF3F0B24),
                         content: Row(
                           children: [
-                            const Icon(Icons.error_outline, color: Color(0xFFFF4D88)),
+                            const Icon(
+                              Icons.error_outline,
+                              color: Color(0xFFFF4D88),
+                            ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
@@ -952,17 +1085,25 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                 final repo = context.read<VaultBloc>().repository;
                 final isUnlocked = state is VaultUnlockedState;
                 final isLoading = state is VaultLoadingState;
-                final loadingMessage = state is VaultLoadingState ? state.message : null;
+                final loadingMessage = state is VaultLoadingState
+                    ? state.message
+                    : null;
 
                 final rememberedVaults = repo.getRememberedVaults();
-                final sidebarVaults = rememberedVaults.map((v) => VaultSidebarItem(
-                  id: v.path,
-                  name: v.name,
-                  path: v.path,
-                  isUnlocked: isUnlocked && repo.getVaultPath() == v.path,
-                )).toList();
+                final sidebarVaults = rememberedVaults
+                    .map(
+                      (v) => VaultSidebarItem(
+                        id: v.path,
+                        name: v.name,
+                        path: v.path,
+                        isUnlocked: isUnlocked && repo.getVaultPath() == v.path,
+                      ),
+                    )
+                    .toList();
 
-                if (state is VaultUninitializedState || sidebarVaults.isEmpty || !repo.isVaultCreated) {
+                if (state is VaultUninitializedState ||
+                    sidebarVaults.isEmpty ||
+                    !repo.isVaultCreated) {
                   return Row(
                     children: [
                       VaultSidebar(
@@ -972,22 +1113,27 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                         onCreateVault: () => _showCreateVaultDialog(context),
                         onOpenVault: () => _showOpenVaultDialog(context),
                         onAddFtpDrive: () => _showAddFtpDriveDialog(context),
-                        onOpenAlerts: () => _showSecurityRecoveryDialog(context),
-                        onOpenPreferences: () => _showPreferencesDialog(context),
+                        onOpenAlerts: () =>
+                            _showSecurityRecoveryDialog(context),
+                        onOpenPreferences: () =>
+                            _showPreferencesDialog(context),
                         onDeleteVault: (id) => _showDeleteVaultDialog(context),
                       ),
-                      Expanded(
-                        child: _buildEmptyVaultsView(context, isDark),
-                      ),
+                      Expanded(child: _buildEmptyVaultsView(context, isDark)),
                     ],
                   );
                 }
 
-                String rawName = p.basename(repo.getVaultPath()).replaceAll('.ampcrypt_vault_', '');
-                if (rawName.isEmpty || rawName == '.' || rawName == '/') rawName = 'Data';
+                String rawName = p
+                    .basename(repo.getVaultPath())
+                    .replaceAll('.ampcrypt_vault_', '');
+                if (rawName.isEmpty || rawName == '.' || rawName == '/')
+                  rawName = 'Data';
                 final vaultName = rawName;
                 final vaultPath = repo.getVaultPath();
-                final driveLetter = repo.getDriveLetter().isNotEmpty ? repo.getDriveLetter() : 'G:';
+                final driveLetter = repo.getDriveLetter().isNotEmpty
+                    ? repo.getDriveLetter()
+                    : 'G:';
 
                 return Row(
                   children: [
@@ -1018,10 +1164,15 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                           context.read<VaultBloc>().add(LockVaultEvent());
                         },
                         onUnlock: (password) {
-                          context.read<VaultBloc>().add(UnlockVaultEvent(password));
+                          context.read<VaultBloc>().add(
+                            UnlockVaultEvent(password),
+                          );
                         },
                         onLocateEncryptedFile: () {
-                          CipherToolsDialog.showLocateEncryptedFileDialog(context, vaultPath);
+                          CipherToolsDialog.showLocateEncryptedFileDialog(
+                            context,
+                            vaultPath,
+                          );
                         },
                         onDecryptFileName: () {
                           CipherToolsDialog.showDecryptFileNameDialog(context);
@@ -1054,7 +1205,8 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
 
   Widget _buildSidebar(BuildContext context, VaultState state) {
     final isUnlocked = state is VaultUnlockedState;
-    final isCreated = state is! VaultUninitializedState && state is! VaultInitialState;
+    final isCreated =
+        state is! VaultUninitializedState && state is! VaultInitialState;
 
     Widget navItem({
       required String title,
@@ -1074,12 +1226,12 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: isSelected 
+              color: isSelected
                   ? kPrimaryColor.withValues(alpha: 0.12)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: isSelected 
+                color: isSelected
                     ? kPrimaryColor.withValues(alpha: 0.25)
                     : Colors.transparent,
                 width: 1,
@@ -1098,8 +1250,12 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                     title,
                     style: GoogleFonts.outfit(
                       fontSize: 13,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                      color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.w500,
+                      color: isSelected
+                          ? Colors.white
+                          : const Color(0xFF94A3B8),
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1139,7 +1295,11 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                       width: 1,
                     ),
                   ),
-                  child: Icon(Icons.security_rounded, color: kPrimaryColor, size: 18),
+                  child: Icon(
+                    Icons.security_rounded,
+                    color: kPrimaryColor,
+                    size: 18,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1159,10 +1319,22 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
           ),
           Divider(color: Colors.white.withValues(alpha: 0.06), height: 1),
           const SizedBox(height: 12),
-          
-          navItem(title: 'Dashboard', icon: Icons.dashboard_outlined, view: ActiveView.dashboard),
-          navItem(title: 'Security Recovery', icon: Icons.vpn_key_outlined, view: ActiveView.recovery),
-          navItem(title: 'App Settings', icon: Icons.settings_outlined, view: ActiveView.settings),
+
+          navItem(
+            title: 'Dashboard',
+            icon: Icons.dashboard_outlined,
+            view: ActiveView.dashboard,
+          ),
+          navItem(
+            title: 'Security Recovery',
+            icon: Icons.vpn_key_outlined,
+            view: ActiveView.recovery,
+          ),
+          navItem(
+            title: 'App Settings',
+            icon: Icons.settings_outlined,
+            view: ActiveView.settings,
+          ),
 
           const SizedBox(height: 16),
           Padding(
@@ -1198,7 +1370,9 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                         Row(
                           children: [
                             Icon(
-                              isUnlocked ? Icons.lock_open_outlined : Icons.lock_outline,
+                              isUnlocked
+                                  ? Icons.lock_open_outlined
+                                  : Icons.lock_outline,
                               color: isUnlocked ? kSuccessColor : kErrorColor,
                               size: 16,
                             ),
@@ -1217,7 +1391,8 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          context.read<VaultBloc>().repository.storageType == 'ftp'
+                          context.read<VaultBloc>().repository.storageType ==
+                                  'ftp'
                               ? 'FTP: ${context.read<VaultBloc>().repository.getFtpHost()}'
                               : 'Path: ${context.read<VaultBloc>().repository.getVaultPath()}',
                           style: GoogleFonts.shareTechMono(
@@ -1240,7 +1415,10 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                   )
                 else
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
                     child: Text(
                       'No vaults initialized.',
                       style: GoogleFonts.outfit(
@@ -1260,9 +1438,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
               children: [
                 Expanded(
                   child: Theme(
-                    data: Theme.of(context).copyWith(
-                      cardColor: kSurfaceColor,
-                    ),
+                    data: Theme.of(context).copyWith(cardColor: kSurfaceColor),
                     child: PopupMenuButton<String>(
                       tooltip: 'Add or Open Vault',
                       offset: const Offset(0, -120),
@@ -1280,9 +1456,16 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                           value: 'new',
                           child: Row(
                             children: [
-                              Icon(Icons.add_circle_outline, color: kPrimaryColor, size: 16),
+                              Icon(
+                                Icons.add_circle_outline,
+                                color: kPrimaryColor,
+                                size: 16,
+                              ),
                               const SizedBox(width: 8),
-                              Text('Create New Vault', style: GoogleFonts.outfit(fontSize: 12)),
+                              Text(
+                                'Create New Vault',
+                                style: GoogleFonts.outfit(fontSize: 12),
+                              ),
                             ],
                           ),
                         ),
@@ -1290,9 +1473,16 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                           value: 'open',
                           child: Row(
                             children: [
-                              Icon(Icons.folder_open_outlined, color: kPrimaryColor, size: 16),
+                              Icon(
+                                Icons.folder_open_outlined,
+                                color: kPrimaryColor,
+                                size: 16,
+                              ),
                               const SizedBox(width: 8),
-                              Text('Open Existing Vault', style: GoogleFonts.outfit(fontSize: 12)),
+                              Text(
+                                'Open Existing Vault',
+                                style: GoogleFonts.outfit(fontSize: 12),
+                              ),
                             ],
                           ),
                         ),
@@ -1300,15 +1490,25 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                           value: 'ftp',
                           child: Row(
                             children: [
-                              Icon(Icons.cloud_queue_outlined, color: kPrimaryColor, size: 16),
+                              Icon(
+                                Icons.cloud_queue_outlined,
+                                color: kPrimaryColor,
+                                size: 16,
+                              ),
                               const SizedBox(width: 8),
-                              Text('Add FTP Drive', style: GoogleFonts.outfit(fontSize: 12)),
+                              Text(
+                                'Add FTP Drive',
+                                style: GoogleFonts.outfit(fontSize: 12),
+                              ),
                             ],
                           ),
                         ),
                       ],
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 10,
+                          horizontal: 12,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFF1E2228),
                           borderRadius: BorderRadius.circular(8),
@@ -1317,7 +1517,11 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.add, size: 16, color: Colors.white),
+                            const Icon(
+                              Icons.add,
+                              size: 16,
+                              color: Colors.white,
+                            ),
                             const SizedBox(width: 8),
                             Text(
                               'ADD VAULT',
@@ -1327,7 +1531,11 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                                 color: Colors.white,
                               ),
                             ),
-                            const Icon(Icons.arrow_drop_up, size: 16, color: Colors.white70),
+                            const Icon(
+                              Icons.arrow_drop_up,
+                              size: 16,
+                              color: Colors.white70,
+                            ),
                           ],
                         ),
                       ),
@@ -1342,8 +1550,6 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
     );
   }
 
-
-
   void _showAddFtpDriveDialog(BuildContext context) {
     final repository = context.read<VaultBloc>().repository;
     final hostController = TextEditingController(text: '127.0.0.1');
@@ -1353,13 +1559,13 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
     final pathController = TextEditingController(text: '/');
     final driveController = TextEditingController(text: 'Z:');
     final vaultPasswordController = TextEditingController();
-    
+
     bool isOpenMode = true;
     int selectedAuthLevel = 4;
     bool isTesting = false;
     bool isConnecting = false;
     String? connectionError;
-    
+
     showDialog(
       context: context,
       builder: (dialogContext) {
@@ -1369,7 +1575,10 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
               backgroundColor: kSurfaceColor,
               title: Text(
                 'Add FTP Drive',
-                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
+                style: GoogleFonts.outfit(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               content: SizedBox(
                 width: 500,
@@ -1382,24 +1591,40 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                           Expanded(
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: isOpenMode ? kPrimaryColor : const Color(0xFF1E2228),
+                                backgroundColor: isOpenMode
+                                    ? kPrimaryColor
+                                    : const Color(0xFF1E2228),
                                 foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
                               ),
-                              onPressed: () => setDialogState(() => isOpenMode = true),
-                              child: Text('Open Existing Vault', style: GoogleFonts.outfit(fontSize: 12)),
+                              onPressed: () =>
+                                  setDialogState(() => isOpenMode = true),
+                              child: Text(
+                                'Open Existing Vault',
+                                style: GoogleFonts.outfit(fontSize: 12),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: !isOpenMode ? kPrimaryColor : const Color(0xFF1E2228),
+                                backgroundColor: !isOpenMode
+                                    ? kPrimaryColor
+                                    : const Color(0xFF1E2228),
                                 foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
                               ),
-                              onPressed: () => setDialogState(() => isOpenMode = false),
-                              child: Text('Create New Vault', style: GoogleFonts.outfit(fontSize: 12)),
+                              onPressed: () =>
+                                  setDialogState(() => isOpenMode = false),
+                              child: Text(
+                                'Create New Vault',
+                                style: GoogleFonts.outfit(fontSize: 12),
+                              ),
                             ),
                           ),
                         ],
@@ -1421,12 +1646,24 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                             flex: 3,
                             child: TextField(
                               controller: hostController,
-                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                              style: GoogleFonts.outfit(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
                               decoration: InputDecoration(
                                 labelText: 'FTP Server Host',
-                                labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                                labelStyle: GoogleFonts.outfit(
+                                  color: const Color(0xFF94A3B8),
+                                  fontSize: 12,
+                                ),
+                                enabledBorder: const UnderlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: Color(0xFF334155),
+                                  ),
+                                ),
+                                focusedBorder: UnderlineInputBorder(
+                                  borderSide: BorderSide(color: kPrimaryColor),
+                                ),
                               ),
                             ),
                           ),
@@ -1436,12 +1673,24 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                             child: TextField(
                               controller: portController,
                               keyboardType: TextInputType.number,
-                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                              style: GoogleFonts.outfit(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
                               decoration: InputDecoration(
                                 labelText: 'Port',
-                                labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                                labelStyle: GoogleFonts.outfit(
+                                  color: const Color(0xFF94A3B8),
+                                  fontSize: 12,
+                                ),
+                                enabledBorder: const UnderlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: Color(0xFF334155),
+                                  ),
+                                ),
+                                focusedBorder: UnderlineInputBorder(
+                                  borderSide: BorderSide(color: kPrimaryColor),
+                                ),
                               ),
                             ),
                           ),
@@ -1453,12 +1702,24 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                           Expanded(
                             child: TextField(
                               controller: usernameController,
-                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                              style: GoogleFonts.outfit(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
                               decoration: InputDecoration(
                                 labelText: 'Username',
-                                labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                                labelStyle: GoogleFonts.outfit(
+                                  color: const Color(0xFF94A3B8),
+                                  fontSize: 12,
+                                ),
+                                enabledBorder: const UnderlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: Color(0xFF334155),
+                                  ),
+                                ),
+                                focusedBorder: UnderlineInputBorder(
+                                  borderSide: BorderSide(color: kPrimaryColor),
+                                ),
                               ),
                             ),
                           ),
@@ -1467,12 +1728,24 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                             child: TextField(
                               controller: passwordController,
                               obscureText: true,
-                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                              style: GoogleFonts.outfit(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
                               decoration: InputDecoration(
                                 labelText: 'Password',
-                                labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                                labelStyle: GoogleFonts.outfit(
+                                  color: const Color(0xFF94A3B8),
+                                  fontSize: 12,
+                                ),
+                                enabledBorder: const UnderlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: Color(0xFF334155),
+                                  ),
+                                ),
+                                focusedBorder: UnderlineInputBorder(
+                                  borderSide: BorderSide(color: kPrimaryColor),
+                                ),
                               ),
                             ),
                           ),
@@ -1488,31 +1761,56 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                                 Expanded(
                                   child: TextField(
                                     controller: pathController,
-                                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                                    style: GoogleFonts.outfit(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                    ),
                                     decoration: InputDecoration(
                                       labelText: 'Remote Vault Directory Path',
-                                      labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                                      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                                      focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                                      labelStyle: GoogleFonts.outfit(
+                                        color: const Color(0xFF94A3B8),
+                                        fontSize: 12,
+                                      ),
+                                      enabledBorder: const UnderlineInputBorder(
+                                        borderSide: BorderSide(
+                                          color: Color(0xFF334155),
+                                        ),
+                                      ),
+                                      focusedBorder: UnderlineInputBorder(
+                                        borderSide: BorderSide(
+                                          color: kPrimaryColor,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.folder_open, color: Colors.white, size: 20),
+                                  icon: const Icon(
+                                    Icons.folder_open,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
                                   tooltip: 'Browse FTP Directories',
                                   onPressed: () {
                                     final host = hostController.text;
-                                    final port = int.tryParse(portController.text) ?? 21;
+                                    final port =
+                                        int.tryParse(portController.text) ?? 21;
                                     final user = usernameController.text;
                                     final pass = passwordController.text;
-                                    
+
                                     if (host.isEmpty) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Please enter FTP Host first.')),
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Please enter FTP Host first.',
+                                          ),
+                                        ),
                                       );
                                       return;
                                     }
-                                    
+
                                     showDialog(
                                       context: context,
                                       builder: (browseContext) {
@@ -1521,10 +1819,14 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                                           port: port,
                                           user: user,
                                           pass: pass,
-                                          initialPath: pathController.text.isEmpty ? '/' : pathController.text,
+                                          initialPath:
+                                              pathController.text.isEmpty
+                                              ? '/'
+                                              : pathController.text,
                                           onPathSelected: (selectedPath) {
                                             setDialogState(() {
-                                              pathController.text = selectedPath;
+                                              pathController.text =
+                                                  selectedPath;
                                             });
                                           },
                                         );
@@ -1539,20 +1841,49 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                           Expanded(
                             flex: 1,
                             child: DropdownButtonFormField<String>(
-                              value: driveController.text,
+                              initialValue: driveController.text,
                               dropdownColor: const Color(0xFF1E293B),
                               decoration: InputDecoration(
                                 labelText: 'Drive',
-                                labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                                labelStyle: GoogleFonts.outfit(
+                                  color: const Color(0xFF94A3B8),
+                                  fontSize: 12,
+                                ),
+                                enabledBorder: const UnderlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: Color(0xFF334155),
+                                  ),
+                                ),
                               ),
-                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
-                              items: ['D:', 'E:', 'F:', 'G:', 'H:', 'V:', 'W:', 'X:', 'Y:', 'Z:']
-                                  .map((drive) => DropdownMenuItem(
-                                        value: drive,
-                                        child: Text(drive, style: GoogleFonts.outfit(color: Colors.white)),
-                                      ))
-                                  .toList(),
+                              style: GoogleFonts.outfit(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                              items:
+                                  [
+                                        'D:',
+                                        'E:',
+                                        'F:',
+                                        'G:',
+                                        'H:',
+                                        'V:',
+                                        'W:',
+                                        'X:',
+                                        'Y:',
+                                        'Z:',
+                                      ]
+                                      .map(
+                                        (drive) => DropdownMenuItem(
+                                          value: drive,
+                                          child: Text(
+                                            drive,
+                                            style: GoogleFonts.outfit(
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
                               onChanged: (val) {
                                 if (val != null) {
                                   setDialogState(() {
@@ -1578,12 +1909,22 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                       TextField(
                         controller: vaultPasswordController,
                         obscureText: true,
-                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
                         decoration: InputDecoration(
                           labelText: 'Vault Password',
-                          labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                          labelStyle: GoogleFonts.outfit(
+                            color: const Color(0xFF94A3B8),
+                            fontSize: 12,
+                          ),
+                          enabledBorder: const UnderlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF334155)),
+                          ),
+                          focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: kPrimaryColor),
+                          ),
                         ),
                       ),
                       if (!isOpenMode) ...[
@@ -1593,17 +1934,35 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                           children: [
                             Text(
                               '4FA Biometric Protection Level',
-                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                              style: GoogleFonts.outfit(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
                             ),
                             DropdownButton<int>(
                               value: selectedAuthLevel,
                               dropdownColor: const Color(0xFF1E293B),
-                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                              style: GoogleFonts.outfit(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
                               items: const [
-                                DropdownMenuItem(value: 1, child: Text('1FA (Password Only)')),
-                                DropdownMenuItem(value: 2, child: Text('2FA (+Fingerprint)')),
-                                DropdownMenuItem(value: 3, child: Text('3FA (+Face Scan)')),
-                                DropdownMenuItem(value: 4, child: Text('4FA (+Voice Print)')),
+                                DropdownMenuItem(
+                                  value: 1,
+                                  child: Text('1FA (Password Only)'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 2,
+                                  child: Text('2FA (+Fingerprint)'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 3,
+                                  child: Text('3FA (+Face Scan)'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 4,
+                                  child: Text('4FA (+Voice Print)'),
+                                ),
                               ],
                               onChanged: (val) {
                                 if (val != null) {
@@ -1618,7 +1977,10 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                         const SizedBox(height: 12),
                         Text(
                           connectionError!,
-                          style: GoogleFonts.outfit(color: kPrimaryHoverColor, fontSize: 11),
+                          style: GoogleFonts.outfit(
+                            color: kPrimaryHoverColor,
+                            fontSize: 11,
+                          ),
                         ),
                       ],
                     ],
@@ -1639,24 +2001,40 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                           final user = usernameController.text;
                           final pass = passwordController.text;
                           final remotePath = pathController.text;
-                          final success = await repository.testFtpConnection(host, port, user, pass, remotePath);
+                          final success = await repository.testFtpConnection(
+                            host,
+                            port,
+                            user,
+                            pass,
+                            remotePath,
+                          );
                           setDialogState(() {
                             isTesting = false;
                             if (success) {
                               connectionError = "Connection successful!";
                             } else {
-                              connectionError = "Failed to connect to FTP server.";
+                              connectionError =
+                                  "Failed to connect to FTP server.";
                             }
                           });
                         },
                   child: Text(
                     isTesting ? 'Testing...' : 'Test Connection',
-                    style: GoogleFonts.outfit(color: kPrimaryHoverColor, fontSize: 12),
+                    style: GoogleFonts.outfit(
+                      color: kPrimaryHoverColor,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext),
-                  child: Text('Cancel', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12)),
+                  child: Text(
+                    'Cancel',
+                    style: GoogleFonts.outfit(
+                      color: const Color(0xFF94A3B8),
+                      fontSize: 12,
+                    ),
+                  ),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
@@ -1667,14 +2045,17 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                       ? null
                       : () async {
                           if (vaultPasswordController.text.isEmpty) {
-                            setDialogState(() => connectionError = "Please enter vault password.");
+                            setDialogState(
+                              () => connectionError =
+                                  "Please enter vault password.",
+                            );
                             return;
                           }
                           setDialogState(() {
                             isConnecting = true;
                             connectionError = null;
                           });
-                          
+
                           final host = hostController.text;
                           final port = int.tryParse(portController.text) ?? 21;
                           final user = usernameController.text;
@@ -1682,7 +2063,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                           final remotePath = pathController.text;
                           final driveLetter = driveController.text;
                           final vaultPassword = vaultPasswordController.text;
-                          
+
                           bool success = false;
                           if (isOpenMode) {
                             success = await repository.openFtpVault(
@@ -1697,52 +2078,77 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                             if (!success) {
                               setDialogState(() {
                                 isConnecting = false;
-                                connectionError = "Failed to open vault. Check FTP settings or password.";
+                                connectionError =
+                                    "Failed to open vault. Check FTP settings or password.";
                               });
                             } else {
                               Navigator.pop(dialogContext);
-                              context.read<VaultBloc>().add(CheckVaultStatusEvent());
+                              context.read<VaultBloc>().add(
+                                CheckVaultStatusEvent(),
+                              );
                             }
                           } else {
                             try {
-                              final recoveryPhrases = await repository.createFtpVault(
-                                vaultPassword,
-                                host: host,
-                                port: port,
-                                user: user,
-                                pass: pass,
-                                path: remotePath,
-                                driveLetter: driveLetter,
-                                authLevel: selectedAuthLevel,
-                              );
+                              final recoveryPhrases = await repository
+                                  .createFtpVault(
+                                    vaultPassword,
+                                    host: host,
+                                    port: port,
+                                    user: user,
+                                    pass: pass,
+                                    path: remotePath,
+                                    driveLetter: driveLetter,
+                                    authLevel: selectedAuthLevel,
+                                  );
                               Navigator.pop(dialogContext);
-                              context.read<VaultBloc>().add(CheckVaultStatusEvent());
-                              
+                              context.read<VaultBloc>().add(
+                                CheckVaultStatusEvent(),
+                              );
+
                               showDialog(
                                 context: context,
                                 builder: (phrasesContext) => AlertDialog(
                                   backgroundColor: kSurfaceColor,
-                                  title: Text('Recovery Phrases', style: GoogleFonts.outfit(color: Colors.white)),
+                                  title: Text(
+                                    'Recovery Phrases',
+                                    style: GoogleFonts.outfit(
+                                      color: Colors.white,
+                                    ),
+                                  ),
                                   content: Column(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
                                         'Please write down these backup recovery phrases (2-of-3 required to restore):',
-                                        style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                                        style: GoogleFonts.outfit(
+                                          color: const Color(0xFF94A3B8),
+                                          fontSize: 12,
+                                        ),
                                       ),
                                       const SizedBox(height: 12),
-                                      ...List.generate(recoveryPhrases.length, (index) {
+                                      ...List.generate(recoveryPhrases.length, (
+                                        index,
+                                      ) {
                                         return Text(
-                                          '${index+1}. ${recoveryPhrases[index]}',
-                                          style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 12),
+                                          '${index + 1}. ${recoveryPhrases[index]}',
+                                          style: GoogleFonts.shareTechMono(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                          ),
                                         );
                                       }),
                                     ],
                                   ),
                                   actions: [
                                     TextButton(
-                                      onPressed: () => Navigator.pop(phrasesContext),
-                                      child: Text('OK', style: GoogleFonts.outfit(color: kPrimaryColor)),
+                                      onPressed: () =>
+                                          Navigator.pop(phrasesContext),
+                                      child: Text(
+                                        'OK',
+                                        style: GoogleFonts.outfit(
+                                          color: kPrimaryColor,
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -1756,8 +2162,13 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                           }
                         },
                   child: Text(
-                    isConnecting ? 'Connecting...' : (isOpenMode ? 'Open & Mount' : 'Create & Setup'),
-                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12),
+                    isConnecting
+                        ? 'Connecting...'
+                        : (isOpenMode ? 'Open & Mount' : 'Create & Setup'),
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ],
@@ -1770,7 +2181,8 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
 
   Widget _buildDesktopMainContent(BuildContext context, VaultState state) {
     final isUnlocked = state is VaultUnlockedState;
-    final isCreated = state is! VaultUninitializedState && state is! VaultInitialState;
+    final isCreated =
+        state is! VaultUninitializedState && state is! VaultInitialState;
 
     String viewTitle = 'Welcome to AMPCrypt';
     String viewSubtitle = 'Secure Zero-Trust System';
@@ -1814,11 +2226,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
               const SizedBox(height: 4),
               Row(
                 children: [
-                  Icon(
-                    viewIcon,
-                    size: 14,
-                    color: viewColor,
-                  ),
+                  Icon(viewIcon, size: 14, color: viewColor),
                   const SizedBox(width: 6),
                   Text(
                     viewSubtitle,
@@ -1839,9 +2247,7 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Container(
-                constraints: const BoxConstraints(
-                  maxWidth: 850,
-                ),
+                constraints: const BoxConstraints(maxWidth: 850),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.015),
                   borderRadius: BorderRadius.circular(16),
@@ -1865,15 +2271,17 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
                         ? SettingsView(
                             onClose: () {
                               _loadSettings();
-                              setState(() => _activeView = ActiveView.dashboard);
+                              setState(
+                                () => _activeView = ActiveView.dashboard,
+                              );
                             },
                             onQuit: _quitApp,
                           )
                         : (_activeView == ActiveView.recovery
-                            ? const InlineRecoveryView()
-                            : (isUnlocked 
-                                ? UnlockedDashboardView(state: state)
-                                : _buildVaultConsoleView(context, state))),
+                              ? const InlineRecoveryView()
+                              : (isUnlocked
+                                    ? UnlockedDashboardView(state: state)
+                                    : _buildVaultConsoleView(context, state))),
                   ),
                 ),
               ),
@@ -1886,7 +2294,9 @@ class _VaultPageState extends State<VaultPage> with WindowListener, TrayListener
 
   Widget _buildVaultConsoleView(BuildContext context, VaultState state) {
     if (state is VaultInitialState) {
-      return const VaultLoadingView(message: 'Initializing Secure Environment...');
+      return const VaultLoadingView(
+        message: 'Initializing Secure Environment...',
+      );
     } else if (state is VaultLoadingState) {
       return VaultLoadingView(message: state.message);
     } else if (state is VaultUninitializedState) {
@@ -1961,13 +2371,13 @@ class _SettingsViewState extends State<SettingsView> {
   @override
   void initState() {
     super.initState();
-    
+
     final repository = context.read<VaultBloc>().repository;
     pathController = TextEditingController(text: repository.getVaultPath());
     selectedDrive = repository.getDriveLetter();
     selectedSensitivity = repository.monitorSensitivity;
     selectedAutoLock = repository.autoLockMinutes;
-    
+
     _loadStartupStatus();
     _loadSettings();
     _runDiagnostic();
@@ -2024,7 +2434,9 @@ class _SettingsViewState extends State<SettingsView> {
         SnackBar(
           backgroundColor: kSuccessColor,
           content: Text(
-            val ? 'AMPCrypt registered to launch at startup.' : 'Startup launch disabled.',
+            val
+                ? 'AMPCrypt registered to launch at startup.'
+                : 'Startup launch disabled.',
             style: GoogleFonts.outfit(),
           ),
         ),
@@ -2047,7 +2459,10 @@ class _SettingsViewState extends State<SettingsView> {
           backgroundColor: kSurfaceColor,
           title: Text(
             'Software Update',
-            style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
+            style: GoogleFonts.outfit(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           content: Text(
             'You are running the latest version of AMPCrypt ($kAppVersion).',
@@ -2056,7 +2471,13 @@ class _SettingsViewState extends State<SettingsView> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('OK', style: GoogleFonts.outfit(color: kPrimaryColor, fontWeight: FontWeight.bold)),
+              child: Text(
+                'OK',
+                style: GoogleFonts.outfit(
+                  color: kPrimaryColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         ),
@@ -2071,7 +2492,9 @@ class _SettingsViewState extends State<SettingsView> {
     bool fingerprint = false;
     try {
       final localAuth = LocalAuthentication();
-      fingerprint = await localAuth.isDeviceSupported() || await localAuth.canCheckBiometrics;
+      fingerprint =
+          await localAuth.isDeviceSupported() ||
+          await localAuth.canCheckBiometrics;
     } catch (_) {}
 
     bool cameraAvailable = false;
@@ -2085,11 +2508,14 @@ class _SettingsViewState extends State<SettingsView> {
       try {
         final result = await Process.run('powershell', [
           '-Command',
-          'Get-CimInstance -ClassName Win32_PnPEntity | Where-Object { \$_.PNPClass -eq \'AudioEndpoint\' } | Select-Object -ExpandProperty Name'
+          'Get-CimInstance -ClassName Win32_PnPEntity | Where-Object { \$_.PNPClass -eq \'AudioEndpoint\' } | Select-Object -ExpandProperty Name',
         ]);
         if (result.exitCode == 0) {
           final output = result.stdout.toString().toLowerCase();
-          micAvailable = output.contains('microphone') || output.contains('mic') || output.contains('input');
+          micAvailable =
+              output.contains('microphone') ||
+              output.contains('mic') ||
+              output.contains('input');
         }
       } catch (_) {}
     } else {
@@ -2112,9 +2538,19 @@ class _SettingsViewState extends State<SettingsView> {
       statusWidget = Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(width: 8, height: 8, child: CircularProgressIndicator(strokeWidth: 1.5, color: kPrimaryColor)),
+          SizedBox(
+            width: 8,
+            height: 8,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              color: kPrimaryColor,
+            ),
+          ),
           const SizedBox(width: 8),
-          const Text('Checking...', style: TextStyle(color: Color(0xFF64748B), fontSize: 11)),
+          const Text(
+            'Checking...',
+            style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+          ),
         ],
       );
     } else if (detected) {
@@ -2123,7 +2559,14 @@ class _SettingsViewState extends State<SettingsView> {
         children: [
           Icon(Icons.check_circle_rounded, color: kSuccessColor, size: 14),
           const SizedBox(width: 4),
-          Text('Detected', style: TextStyle(color: kSuccessColor, fontSize: 11, fontWeight: FontWeight.bold)),
+          Text(
+            'Detected',
+            style: TextStyle(
+              color: kSuccessColor,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ],
       );
     } else {
@@ -2132,7 +2575,10 @@ class _SettingsViewState extends State<SettingsView> {
         children: [
           Icon(Icons.info_outline, color: kErrorColor, size: 14),
           const SizedBox(width: 4),
-          Text('Not Detected', style: TextStyle(color: kErrorColor, fontSize: 11)),
+          Text(
+            'Not Detected',
+            style: TextStyle(color: kErrorColor, fontSize: 11),
+          ),
         ],
       );
     }
@@ -2147,7 +2593,10 @@ class _SettingsViewState extends State<SettingsView> {
             children: [
               Icon(icon, color: const Color(0xFF94A3B8), size: 16),
               const SizedBox(width: 10),
-              Text(name, style: GoogleFonts.outfit(color: Colors.white, fontSize: 12)),
+              Text(
+                name,
+                style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+              ),
             ],
           ),
           statusWidget,
@@ -2156,7 +2605,11 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  Widget _buildSidebarItem(SettingsSection section, String title, IconData icon) {
+  Widget _buildSidebarItem(
+    SettingsSection section,
+    String title,
+    IconData icon,
+  ) {
     final isSelected = _selectedSection == section;
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -2167,10 +2620,14 @@ class _SettingsViewState extends State<SettingsView> {
           margin: const EdgeInsets.symmetric(vertical: 3),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? kPrimaryColor.withValues(alpha: 0.15) : Colors.transparent,
+            color: isSelected
+                ? kPrimaryColor.withValues(alpha: 0.15)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isSelected ? kPrimaryColor.withValues(alpha: 0.3) : Colors.transparent,
+              color: isSelected
+                  ? kPrimaryColor.withValues(alpha: 0.3)
+                  : Colors.transparent,
               width: 1,
             ),
           ),
@@ -2188,7 +2645,9 @@ class _SettingsViewState extends State<SettingsView> {
                   style: GoogleFonts.outfit(
                     color: isSelected ? Colors.white : const Color(0xFF94A3B8),
                     fontSize: 11,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                   ),
                 ),
               ),
@@ -2220,19 +2679,30 @@ class _SettingsViewState extends State<SettingsView> {
                 Expanded(
                   child: TextField(
                     controller: pathController,
-                    style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 12),
+                    style: GoogleFonts.shareTechMono(
+                      color: Colors.white,
+                      fontSize: 12,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'Vault Folder Path',
-                      labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                      focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                      labelStyle: GoogleFonts.outfit(
+                        color: const Color(0xFF94A3B8),
+                        fontSize: 12,
+                      ),
+                      enabledBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF334155)),
+                      ),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: kPrimaryColor),
+                      ),
                     ),
                   ),
                 ),
                 IconButton(
                   icon: Icon(Icons.folder_open, color: kPrimaryColor, size: 18),
                   onPressed: () async {
-                    String? selectedDirectory = await FilePicker.getDirectoryPath();
+                    String? selectedDirectory =
+                        await FilePicker.getDirectoryPath();
                     if (selectedDirectory != null) {
                       setState(() {
                         pathController.text = selectedDirectory;
@@ -2251,16 +2721,43 @@ class _SettingsViewState extends State<SettingsView> {
                     dropdownColor: const Color(0xFF1E293B),
                     decoration: InputDecoration(
                       labelText: 'Virtual Drive Letter',
-                      labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                      labelStyle: GoogleFonts.outfit(
+                        color: const Color(0xFF94A3B8),
+                        fontSize: 12,
+                      ),
+                      enabledBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF334155)),
+                      ),
                     ),
-                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
-                    items: ['D:', 'E:', 'F:', 'G:', 'H:', 'V:', 'W:', 'X:', 'Y:', 'Z:']
-                        .map((drive) => DropdownMenuItem(
-                              value: drive,
-                              child: Text(drive, style: GoogleFonts.outfit(color: Colors.white)),
-                            ))
-                        .toList(),
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontSize: 12,
+                    ),
+                    items:
+                        [
+                              'D:',
+                              'E:',
+                              'F:',
+                              'G:',
+                              'H:',
+                              'V:',
+                              'W:',
+                              'X:',
+                              'Y:',
+                              'Z:',
+                            ]
+                            .map(
+                              (drive) => DropdownMenuItem(
+                                value: drive,
+                                child: Text(
+                                  drive,
+                                  style: GoogleFonts.outfit(
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(),
                     onChanged: (val) {
                       if (val != null) {
                         setState(() {
@@ -2277,10 +2774,18 @@ class _SettingsViewState extends State<SettingsView> {
                     dropdownColor: const Color(0xFF1E293B),
                     decoration: InputDecoration(
                       labelText: 'Auto-Lock Timeout',
-                      labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                      labelStyle: GoogleFonts.outfit(
+                        color: const Color(0xFF94A3B8),
+                        fontSize: 12,
+                      ),
+                      enabledBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF334155)),
+                      ),
                     ),
-                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontSize: 12,
+                    ),
                     items: const [
                       DropdownMenuItem(value: 0, child: Text('Never')),
                       DropdownMenuItem(value: 5, child: Text('5 Minutes')),
@@ -2327,12 +2832,23 @@ class _SettingsViewState extends State<SettingsView> {
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(
-                      Platform.isMacOS 
-                          ? 'Run at macOS Startup' 
-                          : (Platform.isWindows ? 'Run at Windows Startup' : 'Run at System Startup'),
-                      style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                      Platform.isMacOS
+                          ? 'Run at macOS Startup'
+                          : (Platform.isWindows
+                                ? 'Run at Windows Startup'
+                                : 'Run at System Startup'),
+                      style: GoogleFonts.outfit(
+                        color: Colors.white,
+                        fontSize: 13,
+                      ),
                     ),
-                    subtitle: Text('Launch AMPCrypt silently when your system boots', style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 11)),
+                    subtitle: Text(
+                      'Launch AMPCrypt silently when your system boots',
+                      style: GoogleFonts.outfit(
+                        color: const Color(0xFF64748B),
+                        fontSize: 11,
+                      ),
+                    ),
                     activeThumbColor: kPrimaryColor,
                     value: isStartupEnabled,
                     onChanged: _toggleStartup,
@@ -2340,8 +2856,20 @@ class _SettingsViewState extends State<SettingsView> {
                   const Divider(color: Colors.white10, height: 1),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: Text('Minimize to System Tray on Close', style: GoogleFonts.outfit(color: Colors.white, fontSize: 13)),
-                    subtitle: Text('Keep the app running in the background when window is closed', style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 11)),
+                    title: Text(
+                      'Minimize to System Tray on Close',
+                      style: GoogleFonts.outfit(
+                        color: Colors.white,
+                        fontSize: 13,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Keep the app running in the background when window is closed',
+                      style: GoogleFonts.outfit(
+                        color: const Color(0xFF64748B),
+                        fontSize: 11,
+                      ),
+                    ),
                     activeThumbColor: kPrimaryColor,
                     value: minimizeToTray,
                     onChanged: _toggleMinimizeToTray,
@@ -2369,7 +2897,11 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
                 Text(
                   selectedSensitivity.toStringAsFixed(2),
-                  style: GoogleFonts.shareTechMono(color: kPrimaryColor, fontWeight: FontWeight.bold, fontSize: 12),
+                  style: GoogleFonts.shareTechMono(
+                    color: kPrimaryColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
@@ -2389,7 +2921,11 @@ class _SettingsViewState extends State<SettingsView> {
             const SizedBox(height: 12),
             Text(
               'Higher sensitivity monitors folder changes and entropy variation more aggressively. If a sudden file mass modification or encryption operation is detected, a lock alarm will trigger automatically.',
-              style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 11, height: 1.4),
+              style: GoogleFonts.outfit(
+                color: const Color(0xFF64748B),
+                fontSize: 11,
+                height: 1.4,
+              ),
             ),
           ],
         );
@@ -2413,7 +2949,11 @@ class _SettingsViewState extends State<SettingsView> {
                   onTap: isScanning ? null : _runDiagnostic,
                   child: Text(
                     isScanning ? 'SCANNING...' : 'RE-RUN SCAN',
-                    style: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 10, fontWeight: FontWeight.bold),
+                    style: GoogleFonts.outfit(
+                      color: kPrimaryColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
@@ -2500,24 +3040,46 @@ class _SettingsViewState extends State<SettingsView> {
                               children: [
                                 Text(
                                   'Made by ',
-                                  style: GoogleFonts.outfit(fontSize: 10, color: const Color(0xFF64748B)),
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 10,
+                                    color: const Color(0xFF64748B),
+                                  ),
                                 ),
                                 InkWell(
-                                  onTap: () => launchUrl(Uri.parse('https://itsupport.com.bd/'), mode: LaunchMode.externalApplication),
+                                  onTap: () => launchUrl(
+                                    Uri.parse('https://itsupport.com.bd/'),
+                                    mode: LaunchMode.externalApplication,
+                                  ),
                                   child: Text(
                                     'IT Support BD',
-                                    style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: kPrimaryColor, decoration: TextDecoration.underline),
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: kPrimaryColor,
+                                      decoration: TextDecoration.underline,
+                                    ),
                                   ),
                                 ),
                                 Text(
                                   ' | Contributor: ',
-                                  style: GoogleFonts.outfit(fontSize: 10, color: const Color(0xFF64748B)),
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 10,
+                                    color: const Color(0xFF64748B),
+                                  ),
                                 ),
                                 InkWell(
-                                  onTap: () => launchUrl(Uri.parse('https://arifmahmud.com/'), mode: LaunchMode.externalApplication),
+                                  onTap: () => launchUrl(
+                                    Uri.parse('https://arifmahmud.com/'),
+                                    mode: LaunchMode.externalApplication,
+                                  ),
                                   child: Text(
                                     'Arif Mahmud Pranto',
-                                    style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: kPrimaryColor, decoration: TextDecoration.underline),
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: kPrimaryColor,
+                                      decoration: TextDecoration.underline,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -2528,12 +3090,18 @@ class _SettingsViewState extends State<SettingsView> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
+                  Divider(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    height: 1,
+                  ),
                   const SizedBox(height: 12),
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: kSuccessColor.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(4),
@@ -2579,7 +3147,10 @@ class _SettingsViewState extends State<SettingsView> {
                     },
                     borderRadius: BorderRadius.circular(6),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 4.0,
+                        horizontal: 2.0,
+                      ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -2615,14 +3186,28 @@ class _SettingsViewState extends State<SettingsView> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1E2228),
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        textStyle: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        textStyle: GoogleFonts.outfit(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
                         side: const BorderSide(color: Colors.white10),
                       ),
                       icon: isCheckingUpdates
-                          ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: Colors.white))
+                          ? const SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                                color: Colors.white,
+                              ),
+                            )
                           : const Icon(Icons.sync_rounded, size: 14),
-                      label: Text(isCheckingUpdates ? 'CHECKING...' : 'CHECK FOR UPDATES'),
+                      label: Text(
+                        isCheckingUpdates ? 'CHECKING...' : 'CHECK FOR UPDATES',
+                      ),
                       onPressed: isCheckingUpdates ? null : _checkUpdates,
                     ),
                   ),
@@ -2635,11 +3220,21 @@ class _SettingsViewState extends State<SettingsView> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: kErrorColor.withValues(alpha: 0.15),
                         foregroundColor: kErrorColor,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        textStyle: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold),
-                        side: BorderSide(color: kErrorColor.withValues(alpha: 0.3)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        textStyle: GoogleFonts.outfit(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        side: BorderSide(
+                          color: kErrorColor.withValues(alpha: 0.3),
+                        ),
                       ),
-                      icon: const Icon(Icons.power_settings_new_rounded, size: 14),
+                      icon: const Icon(
+                        Icons.power_settings_new_rounded,
+                        size: 14,
+                      ),
                       label: const Text('QUIT APP'),
                       onPressed: () => widget.onQuit(),
                     ),
@@ -2668,7 +3263,9 @@ class _SettingsViewState extends State<SettingsView> {
                   Container(
                     width: 180,
                     decoration: const BoxDecoration(
-                      border: Border(right: BorderSide(color: Colors.white10, width: 1)),
+                      border: Border(
+                        right: BorderSide(color: Colors.white10, width: 1),
+                      ),
                     ),
                     padding: const EdgeInsets.only(right: 12),
                     child: Column(
@@ -2684,12 +3281,36 @@ class _SettingsViewState extends State<SettingsView> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        _buildSidebarItem(SettingsSection.general, 'General Settings', Icons.settings_outlined),
-                        _buildSidebarItem(SettingsSection.system, 'System Integration', Icons.power_outlined),
-                        _buildSidebarItem(SettingsSection.ransomware, 'Ransomware Shield', Icons.security_outlined),
-                        _buildSidebarItem(SettingsSection.diagnostics, 'Hardware Scan', Icons.analytics_outlined),
-                        _buildSidebarItem(SettingsSection.recovery, 'Recovery Mechanisms', Icons.contact_mail_outlined),
-                        _buildSidebarItem(SettingsSection.about, 'About & Updates', Icons.info_outline),
+                        _buildSidebarItem(
+                          SettingsSection.general,
+                          'General Settings',
+                          Icons.settings_outlined,
+                        ),
+                        _buildSidebarItem(
+                          SettingsSection.system,
+                          'System Integration',
+                          Icons.power_outlined,
+                        ),
+                        _buildSidebarItem(
+                          SettingsSection.ransomware,
+                          'Ransomware Shield',
+                          Icons.security_outlined,
+                        ),
+                        _buildSidebarItem(
+                          SettingsSection.diagnostics,
+                          'Hardware Scan',
+                          Icons.analytics_outlined,
+                        ),
+                        _buildSidebarItem(
+                          SettingsSection.recovery,
+                          'Recovery Mechanisms',
+                          Icons.contact_mail_outlined,
+                        ),
+                        _buildSidebarItem(
+                          SettingsSection.about,
+                          'About & Updates',
+                          Icons.info_outline,
+                        ),
                       ],
                     ),
                   ),
@@ -2723,16 +3344,24 @@ class _SettingsViewState extends State<SettingsView> {
                   isPrimary: true,
                   onPressed: () async {
                     if (pathController.text.isNotEmpty) {
-                      await repository.updateVaultSettings(pathController.text, selectedDrive);
-                      await repository.setMonitorSensitivity(selectedSensitivity);
+                      await repository.updateVaultSettings(
+                        pathController.text,
+                        selectedDrive,
+                      );
+                      await repository.setMonitorSensitivity(
+                        selectedSensitivity,
+                      );
                       await repository.setAutoLockMinutes(selectedAutoLock);
-                      
+
                       if (context.mounted) {
                         context.read<VaultBloc>().add(CheckVaultStatusEvent());
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             backgroundColor: kSuccessColor,
-                            content: Text('Settings saved successfully.', style: GoogleFonts.outfit()),
+                            content: Text(
+                              'Settings saved successfully.',
+                              style: GoogleFonts.outfit(),
+                            ),
                           ),
                         );
                         widget.onClose();
@@ -2787,10 +3416,14 @@ class _SettingsViewState extends State<SettingsView> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isEnabled ? kSuccessColor.withValues(alpha: 0.1) : Colors.white10,
+                  color: isEnabled
+                      ? kSuccessColor.withValues(alpha: 0.1)
+                      : Colors.white10,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: isEnabled ? kSuccessColor.withValues(alpha: 0.3) : Colors.white24,
+                    color: isEnabled
+                        ? kSuccessColor.withValues(alpha: 0.3)
+                        : Colors.white24,
                   ),
                 ),
                 child: Text(
@@ -2809,7 +3442,10 @@ class _SettingsViewState extends State<SettingsView> {
             isEnabled
                 ? 'Master Password recovery is active. Linked to email: $email.'
                 : 'Configure 3 security questions and an email verification code to recover your Master Password if forgotten.',
-            style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 11),
+            style: GoogleFonts.outfit(
+              color: const Color(0xFF64748B),
+              fontSize: 11,
+            ),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -2819,8 +3455,12 @@ class _SettingsViewState extends State<SettingsView> {
                 ? OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
                       foregroundColor: kErrorColor,
-                      side: BorderSide(color: kErrorColor.withValues(alpha: 0.3)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      side: BorderSide(
+                        color: kErrorColor.withValues(alpha: 0.3),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                     icon: const Icon(Icons.delete_outline, size: 14),
                     label: const Text('DEACTIVATE RECOVERY'),
@@ -2844,7 +3484,9 @@ class _SettingsViewState extends State<SettingsView> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kPrimaryColor,
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                     icon: const Icon(Icons.settings_outlined, size: 14),
                     label: const Text('CONFIGURE RECOVERY'),
@@ -2858,11 +3500,20 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  void _showConfigureQuestionsDialog(BuildContext context, VaultRepository repository) {
+  void _showConfigureQuestionsDialog(
+    BuildContext context,
+    VaultRepository repository,
+  ) {
     final emailController = TextEditingController();
-    final q1Controller = TextEditingController(text: 'What was the name of your first pet?');
-    final q2Controller = TextEditingController(text: 'In what city were you born?');
-    final q3Controller = TextEditingController(text: 'What is your mother\'s maiden name?');
+    final q1Controller = TextEditingController(
+      text: 'What was the name of your first pet?',
+    );
+    final q2Controller = TextEditingController(
+      text: 'In what city were you born?',
+    );
+    final q3Controller = TextEditingController(
+      text: 'What is your mother\'s maiden name?',
+    );
     final a1Controller = TextEditingController();
     final a2Controller = TextEditingController();
     final a3Controller = TextEditingController();
@@ -2883,10 +3534,15 @@ class _SettingsViewState extends State<SettingsView> {
           builder: (context, setDialogState) {
             return AlertDialog(
               backgroundColor: kSurfaceColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               title: Text(
                 'Configure Recovery Questions & Email',
-                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold),
+                style: GoogleFonts.outfit(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               content: SizedBox(
                 width: 500,
@@ -2897,31 +3553,59 @@ class _SettingsViewState extends State<SettingsView> {
                     children: [
                       Text(
                         'This will encrypt your Master Key with answers to your security questions. If you forget your password, you can recover it by completing this verification and matching the email OTP code.',
-                        style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11),
+                        style: GoogleFonts.outfit(
+                          color: const Color(0xFF94A3B8),
+                          fontSize: 11,
+                        ),
                       ),
                       const SizedBox(height: 16),
                       TextField(
                         controller: emailController,
-                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
                         decoration: InputDecoration(
                           labelText: 'Recovery Email Address',
-                          labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                          labelStyle: GoogleFonts.outfit(
+                            color: const Color(0xFF94A3B8),
+                            fontSize: 12,
+                          ),
+                          enabledBorder: const UnderlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF334155)),
+                          ),
+                          focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: kPrimaryColor),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
                       // Question 1
                       DropdownButtonFormField<String>(
-                        initialValue: predefinedQuestions.contains(q1Controller.text) ? q1Controller.text : predefinedQuestions[0],
+                        initialValue:
+                            predefinedQuestions.contains(q1Controller.text)
+                            ? q1Controller.text
+                            : predefinedQuestions[0],
                         dropdownColor: kSurfaceColor,
-                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
                         decoration: InputDecoration(
                           labelText: 'Security Question 1',
-                          labelStyle: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 11, fontWeight: FontWeight.bold),
+                          labelStyle: GoogleFonts.outfit(
+                            color: kPrimaryColor,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         items: predefinedQuestions
-                            .map((q) => DropdownMenuItem(value: q, child: Text(q, overflow: TextOverflow.ellipsis)))
+                            .map(
+                              (q) => DropdownMenuItem(
+                                value: q,
+                                child: Text(q, overflow: TextOverflow.ellipsis),
+                              ),
+                            )
                             .toList(),
                         onChanged: (val) {
                           if (val != null) {
@@ -2931,26 +3615,51 @@ class _SettingsViewState extends State<SettingsView> {
                       ),
                       TextField(
                         controller: a1Controller,
-                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
                         decoration: InputDecoration(
                           labelText: 'Answer 1',
-                          labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                          labelStyle: GoogleFonts.outfit(
+                            color: const Color(0xFF94A3B8),
+                            fontSize: 12,
+                          ),
+                          enabledBorder: const UnderlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF334155)),
+                          ),
+                          focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: kPrimaryColor),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
                       // Question 2
                       DropdownButtonFormField<String>(
-                        initialValue: predefinedQuestions.contains(q2Controller.text) ? q2Controller.text : predefinedQuestions[1],
+                        initialValue:
+                            predefinedQuestions.contains(q2Controller.text)
+                            ? q2Controller.text
+                            : predefinedQuestions[1],
                         dropdownColor: kSurfaceColor,
-                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
                         decoration: InputDecoration(
                           labelText: 'Security Question 2',
-                          labelStyle: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 11, fontWeight: FontWeight.bold),
+                          labelStyle: GoogleFonts.outfit(
+                            color: kPrimaryColor,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         items: predefinedQuestions
-                            .map((q) => DropdownMenuItem(value: q, child: Text(q, overflow: TextOverflow.ellipsis)))
+                            .map(
+                              (q) => DropdownMenuItem(
+                                value: q,
+                                child: Text(q, overflow: TextOverflow.ellipsis),
+                              ),
+                            )
                             .toList(),
                         onChanged: (val) {
                           if (val != null) {
@@ -2960,26 +3669,51 @@ class _SettingsViewState extends State<SettingsView> {
                       ),
                       TextField(
                         controller: a2Controller,
-                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
                         decoration: InputDecoration(
                           labelText: 'Answer 2',
-                          labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                          labelStyle: GoogleFonts.outfit(
+                            color: const Color(0xFF94A3B8),
+                            fontSize: 12,
+                          ),
+                          enabledBorder: const UnderlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF334155)),
+                          ),
+                          focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: kPrimaryColor),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
                       // Question 3
                       DropdownButtonFormField<String>(
-                        initialValue: predefinedQuestions.contains(q3Controller.text) ? q3Controller.text : predefinedQuestions[2],
+                        initialValue:
+                            predefinedQuestions.contains(q3Controller.text)
+                            ? q3Controller.text
+                            : predefinedQuestions[2],
                         dropdownColor: kSurfaceColor,
-                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
                         decoration: InputDecoration(
                           labelText: 'Security Question 3',
-                          labelStyle: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 11, fontWeight: FontWeight.bold),
+                          labelStyle: GoogleFonts.outfit(
+                            color: kPrimaryColor,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         items: predefinedQuestions
-                            .map((q) => DropdownMenuItem(value: q, child: Text(q, overflow: TextOverflow.ellipsis)))
+                            .map(
+                              (q) => DropdownMenuItem(
+                                value: q,
+                                child: Text(q, overflow: TextOverflow.ellipsis),
+                              ),
+                            )
                             .toList(),
                         onChanged: (val) {
                           if (val != null) {
@@ -2989,12 +3723,22 @@ class _SettingsViewState extends State<SettingsView> {
                       ),
                       TextField(
                         controller: a3Controller,
-                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
                         decoration: InputDecoration(
                           labelText: 'Answer 3',
-                          labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                          labelStyle: GoogleFonts.outfit(
+                            color: const Color(0xFF94A3B8),
+                            fontSize: 12,
+                          ),
+                          enabledBorder: const UnderlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF334155)),
+                          ),
+                          focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: kPrimaryColor),
+                          ),
                         ),
                       ),
                     ],
@@ -3004,13 +3748,18 @@ class _SettingsViewState extends State<SettingsView> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: Text('Cancel', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8))),
+                  child: Text(
+                    'Cancel',
+                    style: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
+                  ),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: kPrimaryColor,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                   onPressed: () async {
                     final email = emailController.text.trim();
@@ -3018,11 +3767,17 @@ class _SettingsViewState extends State<SettingsView> {
                     final a2 = a2Controller.text.trim();
                     final a3 = a3Controller.text.trim();
 
-                    if (email.isEmpty || a1.isEmpty || a2.isEmpty || a3.isEmpty) {
+                    if (email.isEmpty ||
+                        a1.isEmpty ||
+                        a2.isEmpty ||
+                        a3.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           backgroundColor: kErrorColor,
-                          content: Text('Please fill in email and all 3 answers.', style: GoogleFonts.outfit()),
+                          content: Text(
+                            'Please fill in email and all 3 answers.',
+                            style: GoogleFonts.outfit(),
+                          ),
                         ),
                       );
                       return;
@@ -3032,7 +3787,11 @@ class _SettingsViewState extends State<SettingsView> {
                       Navigator.of(dialogContext).pop();
                       await repository.enableQuestionsRecovery(
                         email,
-                        [q1Controller.text, q2Controller.text, q3Controller.text],
+                        [
+                          q1Controller.text,
+                          q2Controller.text,
+                          q3Controller.text,
+                        ],
                         [a1, a2, a3],
                       );
                       setState(() {});
@@ -3040,7 +3799,10 @@ class _SettingsViewState extends State<SettingsView> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             backgroundColor: kSuccessColor,
-                            content: Text('Security questions recovery enabled successfully!', style: GoogleFonts.outfit()),
+                            content: Text(
+                              'Security questions recovery enabled successfully!',
+                              style: GoogleFonts.outfit(),
+                            ),
                           ),
                         );
                       }
@@ -3049,13 +3811,19 @@ class _SettingsViewState extends State<SettingsView> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             backgroundColor: kErrorColor,
-                            content: Text('Failed to set up recovery: ${e.toString()}', style: GoogleFonts.outfit()),
+                            content: Text(
+                              'Failed to set up recovery: ${e.toString()}',
+                              style: GoogleFonts.outfit(),
+                            ),
                           ),
                         );
                       }
                     }
                   },
-                  child: Text('Save Setup', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                  child: Text(
+                    'Save Setup',
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             );
@@ -3156,7 +3924,8 @@ class _CreateVaultViewState extends State<CreateVaultView> {
     if (val.length >= 8) strength += 0.25;
     if (RegExp(r'[A-Z]').hasMatch(val)) strength += 0.25;
     if (RegExp(r'[a-z]').hasMatch(val)) strength += 0.25;
-    if (RegExp(r'[0-9]').hasMatch(val) || RegExp(r'[!@#\$&*~]').hasMatch(val)) strength += 0.25;
+    if (RegExp(r'[0-9]').hasMatch(val) || RegExp(r'[!@#\$&*~]').hasMatch(val))
+      strength += 0.25;
 
     setState(() {
       _strength = strength;
@@ -3179,7 +3948,10 @@ class _CreateVaultViewState extends State<CreateVaultView> {
   void _submitSetup() {
     if (_formKey.currentState!.validate()) {
       context.read<VaultBloc>().add(
-        CreateVaultEvent(_passwordController.text, authLevel: _selectedAuthLevel),
+        CreateVaultEvent(
+          _passwordController.text,
+          authLevel: _selectedAuthLevel,
+        ),
       );
     }
   }
@@ -3204,16 +3976,24 @@ class _CreateVaultViewState extends State<CreateVaultView> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? accent.withValues(alpha: 0.12) : const Color(0xFF1E1E38).withValues(alpha: 0.4),
+          color: isSelected
+              ? accent.withValues(alpha: 0.12)
+              : const Color(0xFF1E1E38).withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? accent.withValues(alpha: 0.6) : const Color(0xFF2E3556),
+            color: isSelected
+                ? accent.withValues(alpha: 0.6)
+                : const Color(0xFF2E3556),
             width: isSelected ? 1.5 : 1.0,
           ),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 18, color: isSelected ? accent : const Color(0xFF64748B)),
+            Icon(
+              icon,
+              size: 18,
+              color: isSelected ? accent : const Color(0xFF64748B),
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
@@ -3225,7 +4005,9 @@ class _CreateVaultViewState extends State<CreateVaultView> {
                     style: GoogleFonts.outfit(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
-                      color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                      color: isSelected
+                          ? Colors.white
+                          : const Color(0xFF94A3B8),
                     ),
                   ),
                   Text(
@@ -3271,9 +4053,16 @@ class _CreateVaultViewState extends State<CreateVaultView> {
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: kPrimaryColor.withValues(alpha: 0.1),
-                              border: Border.all(color: kPrimaryColor.withValues(alpha: 0.3), width: 1.5),
+                              border: Border.all(
+                                color: kPrimaryColor.withValues(alpha: 0.3),
+                                width: 1.5,
+                              ),
                             ),
-                            child: Icon(Icons.shield_outlined, size: 24, color: kPrimaryColor),
+                            child: Icon(
+                              Icons.shield_outlined,
+                              size: 24,
+                              color: kPrimaryColor,
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Text(
@@ -3346,18 +4135,28 @@ class _CreateVaultViewState extends State<CreateVaultView> {
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: kSuccessColor.withValues(alpha: 0.05),
-                          border: Border.all(color: kSuccessColor.withValues(alpha: 0.2), width: 1),
+                          border: Border.all(
+                            color: kSuccessColor.withValues(alpha: 0.2),
+                            width: 1,
+                          ),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.info_outline, color: kSuccessColor, size: 16),
+                            Icon(
+                              Icons.info_outline,
+                              color: kSuccessColor,
+                              size: 16,
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 'Offline generation using SLIP-0039. Shares are protected locally.',
-                                style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFF94A3B8)),
+                                style: GoogleFonts.outfit(
+                                  fontSize: 11,
+                                  color: const Color(0xFF94A3B8),
+                                ),
                               ),
                             ),
                           ],
@@ -3386,23 +4185,32 @@ class _CreateVaultViewState extends State<CreateVaultView> {
                       TextFormField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
-                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
                         onChanged: _checkPasswordStrength,
                         decoration: _inputDecoration(
                           hint: 'Enter strong password',
                           prefix: Icons.lock_open_outlined,
                           suffix: IconButton(
                             icon: Icon(
-                              _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              _obscurePassword
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
                               color: const Color(0xFF94A3B8),
                               size: 18,
                             ),
-                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                            onPressed: () => setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
                           ),
                         ),
                         validator: (val) {
-                          if (val == null || val.isEmpty) return 'Password is required';
-                          if (val.length < 8) return 'Password must be at least 8 characters';
+                          if (val == null || val.isEmpty)
+                            return 'Password is required';
+                          if (val.length < 8)
+                            return 'Password must be at least 8 characters';
                           return null;
                         },
                       ),
@@ -3416,7 +4224,9 @@ class _CreateVaultViewState extends State<CreateVaultView> {
                               child: LinearProgressIndicator(
                                 value: _strength,
                                 backgroundColor: const Color(0xFF1E1E38),
-                                valueColor: AlwaysStoppedAnimation<Color>(_strengthColor),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  _strengthColor,
+                                ),
                                 minHeight: 4,
                               ),
                             ),
@@ -3446,22 +4256,31 @@ class _CreateVaultViewState extends State<CreateVaultView> {
                       TextFormField(
                         controller: _confirmController,
                         obscureText: _obscureConfirm,
-                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
                         decoration: _inputDecoration(
                           hint: 'Retype password',
                           prefix: Icons.lock_outline,
                           suffix: IconButton(
                             icon: Icon(
-                              _obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              _obscureConfirm
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
                               color: const Color(0xFF94A3B8),
                               size: 18,
                             ),
-                            onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                            onPressed: () => setState(
+                              () => _obscureConfirm = !_obscureConfirm,
+                            ),
                           ),
                         ),
                         validator: (val) {
-                          if (val == null || val.isEmpty) return 'Please confirm your password';
-                          if (val != _passwordController.text) return 'Passwords do not match';
+                          if (val == null || val.isEmpty)
+                            return 'Please confirm your password';
+                          if (val != _passwordController.text)
+                            return 'Passwords do not match';
                           return null;
                         },
                       ),
@@ -3481,7 +4300,11 @@ class _CreateVaultViewState extends State<CreateVaultView> {
                           onPressed: _submitSetup,
                           child: Text(
                             'GENERATE VAULT',
-                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 13),
+                            style: GoogleFonts.outfit(
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.5,
+                              fontSize: 13,
+                            ),
                           ),
                         ),
                       ),
@@ -3491,12 +4314,17 @@ class _CreateVaultViewState extends State<CreateVaultView> {
                           onPressed: () {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (context) => const RecoveryPage()),
+                              MaterialPageRoute(
+                                builder: (context) => const RecoveryPage(),
+                              ),
                             );
                           },
                           child: Text(
                             'Already have recovery mnemonics?',
-                            style: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 12),
+                            style: GoogleFonts.outfit(
+                              color: kPrimaryColor,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                       ),
@@ -3504,10 +4332,17 @@ class _CreateVaultViewState extends State<CreateVaultView> {
                       Center(
                         child: TextButton.icon(
                           onPressed: widget.onShowVaultsManager,
-                          icon: Icon(Icons.folder_open_outlined, size: 14, color: kPrimaryColor),
+                          icon: Icon(
+                            Icons.folder_open_outlined,
+                            size: 14,
+                            color: kPrimaryColor,
+                          ),
                           label: Text(
                             'Open or Manage Existing Vaults',
-                            style: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 12),
+                            style: GoogleFonts.outfit(
+                              color: kPrimaryColor,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                       ),
@@ -3594,7 +4429,10 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: kSuccessColor,
-            content: Text('Fingerprint factor validated!', style: GoogleFonts.outfit()),
+            content: Text(
+              'Fingerprint factor validated!',
+              style: GoogleFonts.outfit(),
+            ),
           ),
         );
       } else {
@@ -3605,7 +4443,10 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: kPrimaryHoverColor,
-          content: Text('Biometric hardware unavailable. Simulating share verification...', style: GoogleFonts.outfit()),
+          content: Text(
+            'Biometric hardware unavailable. Simulating share verification...',
+            style: GoogleFonts.outfit(),
+          ),
         ),
       );
     }
@@ -3613,7 +4454,9 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
 
   void _verifyVoiceBiometric() async {
     final prefs = await SharedPreferences.getInstance();
-    final registeredEmbeddingStr = prefs.getString('registered_voice_embedding');
+    final registeredEmbeddingStr = prefs.getString(
+      'registered_voice_embedding',
+    );
     final isEnrolled = registeredEmbeddingStr != null;
 
     if (!mounted) return;
@@ -3639,7 +4482,10 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: const Color(0xFF3F0B24),
-          content: Text('Please enter your vault password', style: GoogleFonts.outfit()),
+          content: Text(
+            'Please enter your vault password',
+            style: GoogleFonts.outfit(),
+          ),
         ),
       );
       return;
@@ -3696,9 +4542,16 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: kPrimaryHoverColor.withValues(alpha: 0.1),
-                            border: Border.all(color: kPrimaryHoverColor.withValues(alpha: 0.3), width: 1.5),
+                            border: Border.all(
+                              color: kPrimaryHoverColor.withValues(alpha: 0.3),
+                              width: 1.5,
+                            ),
                           ),
-                          child: Icon(Icons.lock_outline, size: 24, color: kPrimaryHoverColor),
+                          child: Icon(
+                            Icons.lock_outline,
+                            size: 24,
+                            color: kPrimaryHoverColor,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Text(
@@ -3714,7 +4567,10 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
                     const SizedBox(height: 12),
                     Text(
                       'Provide password and biometric factors to reconstruct the Master Key.',
-                      style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF94A3B8)),
+                      style: GoogleFonts.outfit(
+                        fontSize: 12,
+                        color: const Color(0xFF94A3B8),
+                      ),
                     ),
                     const SizedBox(height: 20),
                     Text(
@@ -3730,17 +4586,24 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
-                      style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                      style: GoogleFonts.outfit(
+                        color: Colors.white,
+                        fontSize: 13,
+                      ),
                       decoration: _inputDecoration(
                         hint: 'Enter vault password',
                         prefix: Icons.key_outlined,
                         suffix: IconButton(
                           icon: Icon(
-                            _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                            _obscurePassword
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
                             color: const Color(0xFF94A3B8),
                             size: 18,
                           ),
-                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
                         ),
                       ),
                     ),
@@ -3754,13 +4617,25 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8),
-                            side: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.05),
+                            ),
                           ),
                           elevation: 0,
                         ),
                         onPressed: widget.onShowVaultsManager,
-                        icon: Icon(Icons.swap_horiz, size: 16, color: kPrimaryHoverColor),
-                        label: Text('Manage & Switch Vaults', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold)),
+                        icon: Icon(
+                          Icons.swap_horiz,
+                          size: 16,
+                          color: kPrimaryHoverColor,
+                        ),
+                        label: Text(
+                          'Manage & Switch Vaults',
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -3768,20 +4643,34 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         TextButton.icon(
-                          onPressed: () => showSecurityQuestionsRecoveryDialog(context),
-                          icon: const Icon(Icons.help_outline, size: 14, color: Color(0xFF00F0FF)),
+                          onPressed: () =>
+                              showSecurityQuestionsRecoveryDialog(context),
+                          icon: const Icon(
+                            Icons.help_outline,
+                            size: 14,
+                            color: Color(0xFF00F0FF),
+                          ),
                           label: Text(
                             'Forgot Password? (3 Security Answers Recovery)',
-                            style: GoogleFonts.outfit(color: const Color(0xFF00F0FF), fontSize: 12, fontWeight: FontWeight.bold),
+                            style: GoogleFonts.outfit(
+                              color: const Color(0xFF00F0FF),
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                         TextButton(
                           onPressed: () {
-                            context.read<VaultBloc>().add(ResetToUninitializedEvent());
+                            context.read<VaultBloc>().add(
+                              ResetToUninitializedEvent(),
+                            );
                           },
                           child: Text(
                             'Reset & Wipe Vault',
-                            style: GoogleFonts.outfit(color: kErrorColor, fontSize: 12),
+                            style: GoogleFonts.outfit(
+                              color: kErrorColor,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                       ],
@@ -3809,7 +4698,10 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
                       const SizedBox(height: 4),
                       Text(
                         'Validate each factor to reconstruct the SLIP-39 master key.',
-                        style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFF64748B)),
+                        style: GoogleFonts.outfit(
+                          fontSize: 11,
+                          color: const Color(0xFF64748B),
+                        ),
                       ),
                       const SizedBox(height: 12),
                       _biometricSwitch(
@@ -3869,17 +4761,26 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: kSuccessColor.withValues(alpha: 0.05),
-                          border: Border.all(color: kSuccessColor.withValues(alpha: 0.2)),
+                          border: Border.all(
+                            color: kSuccessColor.withValues(alpha: 0.2),
+                          ),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.lock_outlined, color: kSuccessColor, size: 16),
+                            Icon(
+                              Icons.lock_outlined,
+                              color: kSuccessColor,
+                              size: 16,
+                            ),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
                                 '1FA Vault — password is the only required factor.',
-                                style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF94A3B8)),
+                                style: GoogleFonts.outfit(
+                                  fontSize: 12,
+                                  color: const Color(0xFF94A3B8),
+                                ),
                               ),
                             ),
                           ],
@@ -3902,7 +4803,11 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
                         onPressed: _submitUnlock,
                         child: Text(
                           'UNLOCK VAULT',
-                          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 13),
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.5,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     ),
@@ -3925,16 +4830,24 @@ class _UnlockVaultViewState extends State<UnlockVaultView> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: value ? kPrimaryHoverColor.withValues(alpha: 0.08) : const Color(0xFF1E1E38).withValues(alpha: 0.4),
+        color: value
+            ? kPrimaryHoverColor.withValues(alpha: 0.08)
+            : const Color(0xFF1E1E38).withValues(alpha: 0.4),
         border: Border.all(
-          color: value ? kPrimaryHoverColor.withValues(alpha: 0.3) : const Color(0xFF1E1E38).withValues(alpha: 0.5),
+          color: value
+              ? kPrimaryHoverColor.withValues(alpha: 0.3)
+              : const Color(0xFF1E1E38).withValues(alpha: 0.5),
           width: 1,
         ),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
-          Icon(icon, color: value ? kPrimaryHoverColor : const Color(0xFF94A3B8), size: 16),
+          Icon(
+            icon,
+            color: value ? kPrimaryHoverColor : const Color(0xFF94A3B8),
+            size: 16,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -3979,7 +4892,6 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
     return kErrorColor;
   }
 
-
   Widget _featureMetric(String label, String value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3987,7 +4899,11 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
       children: [
         Text(
           label.toUpperCase(),
-          style: GoogleFonts.outfit(fontSize: 8, color: const Color(0xFF64748B), fontWeight: FontWeight.bold),
+          style: GoogleFonts.outfit(
+            fontSize: 8,
+            color: const Color(0xFF64748B),
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 2),
         Text(
@@ -4039,9 +4955,15 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                               decoration: BoxDecoration(
                                 color: kSuccessColor.withValues(alpha: 0.1),
                                 shape: BoxShape.circle,
-                                border: Border.all(color: kSuccessColor.withValues(alpha: 0.3)),
+                                border: Border.all(
+                                  color: kSuccessColor.withValues(alpha: 0.3),
+                                ),
                               ),
-                              child: Icon(Icons.lock_open_outlined, color: kSuccessColor, size: 20),
+                              child: Icon(
+                                Icons.lock_open_outlined,
+                                color: kSuccessColor,
+                                size: 20,
+                              ),
                             ),
                             const SizedBox(width: 10),
                             Column(
@@ -4057,7 +4979,10 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                 ),
                                 Text(
                                   'Zero-Trust Local Encryption Active',
-                                  style: GoogleFonts.outfit(fontSize: 10, color: kSuccessColor),
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 10,
+                                    color: kSuccessColor,
+                                  ),
                                 ),
                               ],
                             ),
@@ -4067,13 +4992,22 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF334155),
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(6),
                             ),
                           ),
                           icon: const Icon(Icons.lock_outlined, size: 12),
-                          label: Text('LOCK', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 11)),
+                          label: Text(
+                            'LOCK',
+                            style: GoogleFonts.outfit(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                            ),
+                          ),
                           onPressed: () {
                             context.read<VaultBloc>().add(LockVaultEvent());
                           },
@@ -4093,7 +5027,9 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                             kSurfaceColor.withValues(alpha: 0.6),
                           ],
                         ),
-                        border: Border.all(color: kSuccessColor.withValues(alpha: 0.2)),
+                        border: Border.all(
+                          color: kSuccessColor.withValues(alpha: 0.2),
+                        ),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Column(
@@ -4127,7 +5063,10 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: kSuccessColor,
                                   foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 6,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(6),
                                   ),
@@ -4141,43 +5080,37 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                   ),
                                 ),
                                 onPressed: () async {
-
                                   // Re-read drive letter at click time
 
                                   // (mount detection updates prefs async after build() ran)
 
-                                  final liveLetter = repository.getDriveLetter();
+                                  final liveLetter = repository
+                                      .getDriveLetter();
 
-                                  if (liveLetter.isNotEmpty && liveLetter != 'Z:') {
-
+                                  if (liveLetter.isNotEmpty &&
+                                      liveLetter != 'Z:') {
                                     Process.run('explorer.exe', [liveLetter]);
-
                                   } else {
-
                                     // Fallback: scan for 'AMPCrypt' volume label
 
-                                    final res = await Process.run('powershell.exe', [
+                                    final res = await Process.run(
+                                      'powershell.exe',
+                                      [
+                                        '-Command',
 
-                                      '-Command',
-
-                                      "(Get-Volume -EA SilentlyContinue | Where-Object { \$_.FileSystemLabel -eq 'AMPCrypt' } | Select-Object -First 1).DriveLetter"
-
-                                    ]);
+                                        "(Get-Volume -EA SilentlyContinue | Where-Object { \$_.FileSystemLabel -eq 'AMPCrypt' } | Select-Object -First 1).DriveLetter",
+                                      ],
+                                    );
 
                                     final sl = res.stdout.toString().trim();
 
-                                    if (sl.length == 1 && sl.codeUnitAt(0) >= 65) {
-
+                                    if (sl.length == 1 &&
+                                        sl.codeUnitAt(0) >= 65) {
                                       Process.run('explorer.exe', ['\${sl}:']);
-
                                     } else {
-
                                       Process.run('explorer.exe', [liveLetter]);
-
                                     }
-
                                   }
-
                                 },
                               ),
                             ],
@@ -4208,7 +5141,10 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                     ),
                     const SizedBox(height: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: kSurfaceColor.withValues(alpha: 0.6),
                         border: Border.all(color: const Color(0xFF1E293B)),
@@ -4236,10 +5172,13 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                             constraints: const BoxConstraints(),
                             icon: Icon(
                               _copied ? Icons.check : Icons.copy,
-                              color: _copied ? kSuccessColor : const Color(0xFF94A3B8),
+                              color: _copied
+                                  ? kSuccessColor
+                                  : const Color(0xFF94A3B8),
                               size: 14,
                             ),
-                            onPressed: () => _copyKey(widget.state.masterKeyHex),
+                            onPressed: () =>
+                                _copyKey(widget.state.masterKeyHex),
                           ),
                         ],
                       ),
@@ -4251,8 +5190,14 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFF9E0B).withValues(alpha: 0.05),
-                          border: Border.all(color: const Color(0xFFFF9E0B).withValues(alpha: 0.2)),
+                          color: const Color(
+                            0xFFFF9E0B,
+                          ).withValues(alpha: 0.05),
+                          border: Border.all(
+                            color: const Color(
+                              0xFFFF9E0B,
+                            ).withValues(alpha: 0.2),
+                          ),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Column(
@@ -4271,41 +5216,70 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                 ),
                                 InkWell(
                                   onTap: () {
-                                    final allPhrases = widget.state.backupRecoveryPhrases!.join('\n\n');
-                                    Clipboard.setData(ClipboardData(text: allPhrases));
+                                    final allPhrases = widget
+                                        .state
+                                        .backupRecoveryPhrases!
+                                        .join('\n\n');
+                                    Clipboard.setData(
+                                      ClipboardData(text: allPhrases),
+                                    );
                                   },
                                   child: Text(
                                     'Copy All',
-                                    style: GoogleFonts.outfit(color: const Color(0xFFFF9E0B), fontSize: 10, fontWeight: FontWeight.bold),
+                                    style: GoogleFonts.outfit(
+                                      color: const Color(0xFFFF9E0B),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 6),
-                            ...List.generate(widget.state.backupRecoveryPhrases!.length, (index) {
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 2.0),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(3),
-                                      decoration: BoxDecoration(color: kPrimaryColor, shape: BoxShape.circle),
-                                      child: Text('${index + 1}', style: const TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold)),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: SingleChildScrollView(
-                                        scrollDirection: Axis.horizontal,
+                            ...List.generate(
+                              widget.state.backupRecoveryPhrases!.length,
+                              (index) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 2.0,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(3),
+                                        decoration: BoxDecoration(
+                                          color: kPrimaryColor,
+                                          shape: BoxShape.circle,
+                                        ),
                                         child: Text(
-                                          widget.state.backupRecoveryPhrases![index],
-                                          style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 10.5),
+                                          '${index + 1}',
+                                          style: const TextStyle(
+                                            fontSize: 8,
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: SingleChildScrollView(
+                                          scrollDirection: Axis.horizontal,
+                                          child: Text(
+                                            widget
+                                                .state
+                                                .backupRecoveryPhrases![index],
+                                            style: GoogleFonts.shareTechMono(
+                                              color: Colors.white,
+                                              fontSize: 10.5,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
                           ],
                         ),
                       ),
@@ -4325,9 +5299,13 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                           Expanded(
                             child: _statusItem(
                               label: 'Device Status',
-                              value: (status['is_trusted'] ?? false) ? 'Trusted' : 'Untrusted',
+                              value: (status['is_trusted'] ?? false)
+                                  ? 'Trusted'
+                                  : 'Untrusted',
                               icon: Icons.devices,
-                              color: (status['is_trusted'] ?? false) ? kSuccessColor : Colors.orange,
+                              color: (status['is_trusted'] ?? false)
+                                  ? kSuccessColor
+                                  : Colors.orange,
                             ),
                           ),
                           Expanded(
@@ -4360,8 +5338,10 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                               children: [
                                 Icon(
                                   Icons.shield_outlined,
-                                  color: monitorState.isMonitoring 
-                                      ? (monitorState.isCalibrating ? Colors.orange : kSuccessColor) 
+                                  color: monitorState.isMonitoring
+                                      ? (monitorState.isCalibrating
+                                            ? Colors.orange
+                                            : kSuccessColor)
                                       : const Color(0xFF94A3B8),
                                   size: 16,
                                 ),
@@ -4372,35 +5352,58 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 1.0,
-                                    color: monitorState.isMonitoring 
-                                        ? (monitorState.isCalibrating ? Colors.orange : kSuccessColor) 
+                                    color: monitorState.isMonitoring
+                                        ? (monitorState.isCalibrating
+                                              ? Colors.orange
+                                              : kSuccessColor)
                                         : const Color(0xFF94A3B8),
                                   ),
                                 ),
                               ],
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
-                                color: monitorState.isMonitoring 
-                                    ? (monitorState.isCalibrating ? Colors.orange.withValues(alpha: 0.1) : kSuccessColor.withValues(alpha: 0.1)) 
-                                    : const Color(0xFF334155).withValues(alpha: 0.3),
+                                color: monitorState.isMonitoring
+                                    ? (monitorState.isCalibrating
+                                          ? Colors.orange.withValues(alpha: 0.1)
+                                          : kSuccessColor.withValues(
+                                              alpha: 0.1,
+                                            ))
+                                    : const Color(
+                                        0xFF334155,
+                                      ).withValues(alpha: 0.3),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
-                                  color: monitorState.isMonitoring 
-                                      ? (monitorState.isCalibrating ? Colors.orange.withValues(alpha: 0.3) : kSuccessColor.withValues(alpha: 0.3)) 
-                                      : const Color(0xFF334155).withValues(alpha: 0.4),
+                                  color: monitorState.isMonitoring
+                                      ? (monitorState.isCalibrating
+                                            ? Colors.orange.withValues(
+                                                alpha: 0.3,
+                                              )
+                                            : kSuccessColor.withValues(
+                                                alpha: 0.3,
+                                              ))
+                                      : const Color(
+                                          0xFF334155,
+                                        ).withValues(alpha: 0.4),
                                 ),
                               ),
                               child: Text(
-                                monitorState.isMonitoring 
-                                    ? (monitorState.isCalibrating ? 'CALIBRATING' : 'ACTIVE') 
+                                monitorState.isMonitoring
+                                    ? (monitorState.isCalibrating
+                                          ? 'CALIBRATING'
+                                          : 'ACTIVE')
                                     : 'INACTIVE',
                                 style: GoogleFonts.outfit(
                                   fontSize: 8,
                                   fontWeight: FontWeight.bold,
-                                  color: monitorState.isMonitoring 
-                                      ? (monitorState.isCalibrating ? Colors.orange : kSuccessColor) 
+                                  color: monitorState.isMonitoring
+                                      ? (monitorState.isCalibrating
+                                            ? Colors.orange
+                                            : kSuccessColor)
                                       : const Color(0xFF94A3B8),
                                 ),
                               ),
@@ -4411,24 +5414,35 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                         if (!monitorState.isMonitoring) ...[
                           Text(
                             'Select folder to scan for rapid file changes.',
-                            style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF94A3B8)),
+                            style: GoogleFonts.outfit(
+                              fontSize: 12,
+                              color: const Color(0xFF94A3B8),
+                            ),
                           ),
                           const SizedBox(height: 10),
                           Row(
                             children: [
                               Expanded(
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 8,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: kSurfaceColor.withValues(alpha: 0.5),
-                                    border: Border.all(color: const Color(0xFF1E293B)),
+                                    border: Border.all(
+                                      color: const Color(0xFF1E293B),
+                                    ),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
-                                    _selectedMonitorPath ?? 'No directory selected',
+                                    _selectedMonitorPath ??
+                                        'No directory selected',
                                     style: GoogleFonts.shareTechMono(
                                       fontSize: 11,
-                                      color: _selectedMonitorPath != null ? Colors.white : const Color(0xFF475569),
+                                      color: _selectedMonitorPath != null
+                                          ? Colors.white
+                                          : const Color(0xFF475569),
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -4436,9 +5450,14 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                               ),
                               const SizedBox(width: 8),
                               IconButton(
-                                icon: Icon(Icons.folder_open, size: 20, color: kPrimaryColor),
+                                icon: Icon(
+                                  Icons.folder_open,
+                                  size: 20,
+                                  color: kPrimaryColor,
+                                ),
                                 onPressed: () async {
-                                  final path = await FilePicker.getDirectoryPath();
+                                  final path =
+                                      await FilePicker.getDirectoryPath();
                                   if (path != null) {
                                     setState(() => _selectedMonitorPath = path);
                                   }
@@ -4454,15 +5473,29 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: kPrimaryHoverColor,
                                 foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
                               ),
-                              onPressed: _selectedMonitorPath == null 
-                                  ? null 
+                              onPressed: _selectedMonitorPath == null
+                                  ? null
                                   : () {
-                                      context.read<MonitorBloc>().add(StartMonitoringEvent(_selectedMonitorPath!));
+                                      context.read<MonitorBloc>().add(
+                                        StartMonitoringEvent(
+                                          _selectedMonitorPath!,
+                                        ),
+                                      );
                                     },
-                              child: Text('START MONITORING', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12)),
+                              child: Text(
+                                'START MONITORING',
+                                style: GoogleFonts.outfit(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
                             ),
                           ),
                         ] else ...[
@@ -4475,11 +5508,18 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                   children: [
                                     Text(
                                       'WATCHED FOLDER:',
-                                      style: GoogleFonts.outfit(fontSize: 8, fontWeight: FontWeight.bold, color: const Color(0xFF475569)),
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF475569),
+                                      ),
                                     ),
                                     Text(
                                       monitorState.watchedPath ?? '',
-                                      style: GoogleFonts.shareTechMono(fontSize: 10.5, color: Colors.white),
+                                      style: GoogleFonts.shareTechMono(
+                                        fontSize: 10.5,
+                                        color: Colors.white,
+                                      ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ],
@@ -4489,13 +5529,31 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                               OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
                                   side: BorderSide(color: kErrorColor),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 6,
+                                  ),
                                 ),
-                                icon: Icon(Icons.stop, size: 12, color: kErrorColor),
-                                label: Text('STOP', style: GoogleFonts.outfit(fontSize: 10, color: kErrorColor, fontWeight: FontWeight.bold)),
+                                icon: Icon(
+                                  Icons.stop,
+                                  size: 12,
+                                  color: kErrorColor,
+                                ),
+                                label: Text(
+                                  'STOP',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 10,
+                                    color: kErrorColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                                 onPressed: () {
-                                  context.read<MonitorBloc>().add(StopMonitoringEvent());
+                                  context.read<MonitorBloc>().add(
+                                    StopMonitoringEvent(),
+                                  );
                                 },
                               ),
                             ],
@@ -4507,11 +5565,19 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                               children: [
                                 Text(
                                   'CALIBRATING DETECTOR...',
-                                  style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.orange),
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.orange,
+                                  ),
                                 ),
                                 Text(
                                   '${(monitorState.calibrationProgress * 100).toInt()}%',
-                                  style: GoogleFonts.shareTechMono(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold),
+                                  style: GoogleFonts.shareTechMono(
+                                    fontSize: 11,
+                                    color: Colors.orange,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ],
                             ),
@@ -4530,22 +5596,31 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
                                     color: kSurfaceColor.withValues(alpha: 0.5),
-                                    border: Border.all(color: const Color(0xFF1E293B)),
+                                    border: Border.all(
+                                      color: const Color(0xFF1E293B),
+                                    ),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Column(
                                     children: [
                                       Text(
                                         'ANOMALY',
-                                        style: GoogleFonts.outfit(fontSize: 8, fontWeight: FontWeight.bold, color: const Color(0xFF64748B)),
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 8,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(0xFF64748B),
+                                        ),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        monitorState.currentAnomalyScore.toStringAsFixed(3),
+                                        monitorState.currentAnomalyScore
+                                            .toStringAsFixed(3),
                                         style: GoogleFonts.shareTechMono(
                                           fontSize: 16,
                                           fontWeight: FontWeight.bold,
-                                          color: _getScoreColor(monitorState.currentAnomalyScore),
+                                          color: _getScoreColor(
+                                            monitorState.currentAnomalyScore,
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -4555,33 +5630,53 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                 Expanded(
                                   child: Container(
                                     height: 54,
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: kSurfaceColor.withValues(alpha: 0.5),
-                                      border: Border.all(color: const Color(0xFF1E293B)),
+                                      color: kSurfaceColor.withValues(
+                                        alpha: 0.5,
+                                      ),
+                                      border: Border.all(
+                                        color: const Color(0xFF1E293B),
+                                      ),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           'REAL-TIME ANOMALY TRACK',
-                                          style: GoogleFonts.outfit(fontSize: 8, fontWeight: FontWeight.bold, color: const Color(0xFF64748B)),
+                                          style: GoogleFonts.outfit(
+                                            fontSize: 8,
+                                            fontWeight: FontWeight.bold,
+                                            color: const Color(0xFF64748B),
+                                          ),
                                         ),
                                         const Spacer(),
                                         Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          crossAxisAlignment: CrossAxisAlignment.end,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.end,
                                           children: List.generate(15, (index) {
-                                            final double val = index < monitorState.recentScores.length
-                                                ? monitorState.recentScores[index]
+                                            final double val =
+                                                index <
+                                                    monitorState
+                                                        .recentScores
+                                                        .length
+                                                ? monitorState
+                                                      .recentScores[index]
                                                 : 0.0;
                                             return Container(
                                               width: 10,
                                               height: 25 * val + 2,
                                               decoration: BoxDecoration(
                                                 color: _getScoreColor(val),
-                                                borderRadius: BorderRadius.circular(2),
+                                                borderRadius:
+                                                    BorderRadius.circular(2),
                                               ),
                                             );
                                           }),
@@ -4595,19 +5690,41 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                             if (monitorState.recentFeatures.isNotEmpty) ...[
                               const SizedBox(height: 10),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 6,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF1E1E38).withValues(alpha: 0.2),
-                                  border: Border.all(color: const Color(0xFF1E293B).withValues(alpha: 0.5)),
+                                  color: const Color(
+                                    0xFF1E1E38,
+                                  ).withValues(alpha: 0.2),
+                                  border: Border.all(
+                                    color: const Color(
+                                      0xFF1E293B,
+                                    ).withValues(alpha: 0.5),
+                                  ),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
-                                    _featureMetric('Writes', '${(monitorState.recentFeatures.last.writeRate * 5).toInt()}'),
-                                    _featureMetric('Deletes', '${(monitorState.recentFeatures.last.deleteRate * 5).toInt()}'),
-                                    _featureMetric('Entropy', '${(monitorState.recentFeatures.last.extensionEntropy * 100).toInt()}%'),
-                                    _featureMetric('Avg Size', '${monitorState.recentFeatures.last.sizeDifference.toStringAsFixed(0)}K'),
+                                    _featureMetric(
+                                      'Writes',
+                                      '${(monitorState.recentFeatures.last.writeRate * 5).toInt()}',
+                                    ),
+                                    _featureMetric(
+                                      'Deletes',
+                                      '${(monitorState.recentFeatures.last.deleteRate * 5).toInt()}',
+                                    ),
+                                    _featureMetric(
+                                      'Entropy',
+                                      '${(monitorState.recentFeatures.last.extensionEntropy * 100).toInt()}%',
+                                    ),
+                                    _featureMetric(
+                                      'Avg Size',
+                                      '${monitorState.recentFeatures.last.sizeDifference.toStringAsFixed(0)}K',
+                                    ),
                                   ],
                                 ),
                               ),
@@ -4649,7 +5766,10 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
               const SizedBox(width: 4),
               Text(
                 label,
-                style: GoogleFonts.outfit(fontSize: 9, color: const Color(0xFF94A3B8)),
+                style: GoogleFonts.outfit(
+                  fontSize: 9,
+                  color: const Color(0xFF94A3B8),
+                ),
               ),
             ],
           ),
@@ -4694,7 +5814,8 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
   final _a2Controller = TextEditingController();
   final _a3Controller = TextEditingController();
 
-  int _recoveryStep = 1; // 1: Email verify/send, 2: Code verify, 3: Answer questions
+  int _recoveryStep =
+      1; // 1: Email verify/send, 2: Code verify, 3: Answer questions
   String _generatedCode = '';
   List<String> _recoveryQuestions = [];
   bool _sendingCode = false;
@@ -4775,7 +5896,8 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
 
     if (!repository.isQuestionsRecoveryEnabled) {
       setState(() {
-        _localError = 'Security questions recovery is not configured for this vault.';
+        _localError =
+            'Security questions recovery is not configured for this vault.';
         _sendingCode = false;
       });
       return;
@@ -4852,7 +5974,11 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
     });
 
     final repository = context.read<VaultBloc>().repository;
-    final masterKey = await repository.recoverWithQuestionsAndEmail([a1, a2, a3]);
+    final masterKey = await repository.recoverWithQuestionsAndEmail([
+      a1,
+      a2,
+      a3,
+    ]);
 
     if (masterKey != null) {
       if (mounted) {
@@ -4860,7 +5986,8 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
       }
     } else {
       setState(() {
-        _localError = 'Decryption failed. Please verify your security question answers.';
+        _localError =
+            'Decryption failed. Please verify your security question answers.';
       });
     }
   }
@@ -4872,7 +5999,9 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: active ? kPrimaryColor.withValues(alpha: 0.12) : Colors.transparent,
+          color: active
+              ? kPrimaryColor.withValues(alpha: 0.12)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: active ? kPrimaryColor : Colors.transparent,
@@ -4929,10 +6058,21 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: const Color(0xFFFF9E0B).withValues(alpha: 0.1),
-                              border: Border.all(color: const Color(0xFFFF9E0B).withValues(alpha: 0.3), width: 1.5),
+                              color: const Color(
+                                0xFFFF9E0B,
+                              ).withValues(alpha: 0.1),
+                              border: Border.all(
+                                color: const Color(
+                                  0xFFFF9E0B,
+                                ).withValues(alpha: 0.3),
+                                width: 1.5,
+                              ),
                             ),
-                            child: const Icon(Icons.vpn_key_outlined, size: 24, color: Color(0xFFFF9E0B)),
+                            child: const Icon(
+                              Icons.vpn_key_outlined,
+                              size: 24,
+                              color: Color(0xFFFF9E0B),
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Text(
@@ -4948,21 +6088,29 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                       // Mode Selector
                       Row(
                         children: [
-                          _tabButton('SLIP-39 Phrases', !_useQuestionsRecovery, () {
-                            setState(() {
-                              _useQuestionsRecovery = false;
-                              _localError = null;
-                              _localSuccess = null;
-                            });
-                          }),
+                          _tabButton(
+                            'SLIP-39 Phrases',
+                            !_useQuestionsRecovery,
+                            () {
+                              setState(() {
+                                _useQuestionsRecovery = false;
+                                _localError = null;
+                                _localSuccess = null;
+                              });
+                            },
+                          ),
                           const SizedBox(width: 8),
-                          _tabButton('Questions & Email OTP', _useQuestionsRecovery, () {
-                            setState(() {
-                              _useQuestionsRecovery = true;
-                              _localError = null;
-                              _localSuccess = null;
-                            });
-                          }),
+                          _tabButton(
+                            'Questions & Email OTP',
+                            _useQuestionsRecovery,
+                            () {
+                              setState(() {
+                                _useQuestionsRecovery = true;
+                                _localError = null;
+                                _localSuccess = null;
+                              });
+                            },
+                          ),
                         ],
                       ),
                     ],
@@ -4972,7 +6120,10 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                     _useQuestionsRecovery
                         ? 'Recover your primary vault using your pre-configured 3 security questions and an email verification code.'
                         : 'Input at least 2 of your 24-word backup mnemonics to recover your primary vault master key.',
-                    style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF94A3B8)),
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      color: const Color(0xFF94A3B8),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   if (errorMsg != null) ...[
@@ -4981,12 +6132,17 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                       width: double.infinity,
                       decoration: BoxDecoration(
                         color: kErrorColor.withValues(alpha: 0.1),
-                        border: Border.all(color: kErrorColor.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: kErrorColor.withValues(alpha: 0.3),
+                        ),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         errorMsg,
-                        style: GoogleFonts.outfit(color: kErrorColor, fontSize: 12),
+                        style: GoogleFonts.outfit(
+                          color: kErrorColor,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -4997,12 +6153,17 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                       width: double.infinity,
                       decoration: BoxDecoration(
                         color: kSuccessColor.withValues(alpha: 0.1),
-                        border: Border.all(color: kSuccessColor.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: kSuccessColor.withValues(alpha: 0.3),
+                        ),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         _localSuccess!,
-                        style: GoogleFonts.outfit(color: kSuccessColor, fontSize: 12),
+                        style: GoogleFonts.outfit(
+                          color: kSuccessColor,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -5028,13 +6189,21 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                               TextFormField(
                                 controller: _phrase1Controller,
                                 maxLines: 2,
-                                style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 12),
+                                style: GoogleFonts.shareTechMono(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
                                 decoration: _inputDecoration(
                                   hint: 'Paste or type recovery mnemonic 1',
                                   prefix: Icons.password,
                                   suffix: IconButton(
-                                    icon: const Icon(Icons.paste, color: Color(0xFFFF9E0B), size: 18),
-                                    onPressed: () => _pastePhrase(_phrase1Controller),
+                                    icon: const Icon(
+                                      Icons.paste,
+                                      color: Color(0xFFFF9E0B),
+                                      size: 18,
+                                    ),
+                                    onPressed: () =>
+                                        _pastePhrase(_phrase1Controller),
                                   ),
                                 ),
                               ),
@@ -5059,13 +6228,21 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                               TextFormField(
                                 controller: _phrase2Controller,
                                 maxLines: 2,
-                                style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 12),
+                                style: GoogleFonts.shareTechMono(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
                                 decoration: _inputDecoration(
                                   hint: 'Paste or type recovery mnemonic 2',
                                   prefix: Icons.password,
                                   suffix: IconButton(
-                                    icon: const Icon(Icons.paste, color: Color(0xFFFF9E0B), size: 18),
-                                    onPressed: () => _pastePhrase(_phrase2Controller),
+                                    icon: const Icon(
+                                      Icons.paste,
+                                      color: Color(0xFFFF9E0B),
+                                      size: 18,
+                                    ),
+                                    onPressed: () =>
+                                        _pastePhrase(_phrase2Controller),
                                   ),
                                 ),
                               ),
@@ -5091,11 +6268,18 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
                               )
                             : Text(
                                 'RECONSTRUCT & UNLOCK VAULT',
-                                style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 1.2, fontSize: 13),
+                                style: GoogleFonts.outfit(
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.2,
+                                  fontSize: 13,
+                                ),
                               ),
                       ),
                     ),
@@ -5107,17 +6291,33 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                           Expanded(
                             child: TextField(
                               controller: _pathController,
-                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                              style: GoogleFonts.outfit(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
                               decoration: InputDecoration(
                                 labelText: 'Vault Folder Path',
-                                labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                                enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                                labelStyle: GoogleFonts.outfit(
+                                  color: const Color(0xFF94A3B8),
+                                  fontSize: 12,
+                                ),
+                                enabledBorder: const UnderlineInputBorder(
+                                  borderSide: BorderSide(
+                                    color: Color(0xFF334155),
+                                  ),
+                                ),
+                                focusedBorder: UnderlineInputBorder(
+                                  borderSide: BorderSide(color: kPrimaryColor),
+                                ),
                               ),
                             ),
                           ),
                           IconButton(
-                            icon: Icon(Icons.folder_open, color: kPrimaryColor, size: 18),
+                            icon: Icon(
+                              Icons.folder_open,
+                              color: kPrimaryColor,
+                              size: 18,
+                            ),
                             onPressed: () async {
                               final path = await FilePicker.getDirectoryPath();
                               if (path != null) {
@@ -5130,12 +6330,22 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                       const SizedBox(height: 16),
                       TextField(
                         controller: _emailController,
-                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
                         decoration: InputDecoration(
                           labelText: 'Recovery Email Address',
-                          labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                          labelStyle: GoogleFonts.outfit(
+                            color: const Color(0xFF94A3B8),
+                            fontSize: 12,
+                          ),
+                          enabledBorder: const UnderlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF334155)),
+                          ),
+                          focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: kPrimaryColor),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -5146,28 +6356,50 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: kPrimaryColor,
                             foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                           onPressed: _sendingCode ? null : _sendCode,
                           child: _sendingCode
                               ? const SizedBox(
                                   width: 20,
                                   height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
                                 )
-                              : Text('SEND VERIFICATION CODE', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12)),
+                              : Text(
+                                  'SEND VERIFICATION CODE',
+                                  style: GoogleFonts.outfit(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
                         ),
                       ),
                     ] else if (_recoveryStep == 2) ...[
                       TextField(
                         controller: _codeController,
                         keyboardType: TextInputType.number,
-                        style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 16, letterSpacing: 4),
+                        style: GoogleFonts.shareTechMono(
+                          color: Colors.white,
+                          fontSize: 16,
+                          letterSpacing: 4,
+                        ),
                         decoration: InputDecoration(
                           labelText: '6-Digit Verification Code',
-                          labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                          labelStyle: GoogleFonts.outfit(
+                            color: const Color(0xFF94A3B8),
+                            fontSize: 12,
+                          ),
+                          enabledBorder: const UnderlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF334155)),
+                          ),
+                          focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: kPrimaryColor),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -5178,52 +6410,93 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: kPrimaryColor,
                             foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                           onPressed: _verifyCode,
-                          child: Text('VERIFY CODE', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12)),
+                          child: Text(
+                            'VERIFY CODE',
+                            style: GoogleFonts.outfit(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
                         ),
                       ),
                     ] else if (_recoveryStep == 3) ...[
                       Text(
                         '1. ${_recoveryQuestions.isNotEmpty ? _recoveryQuestions[0] : 'Security Question 1'}',
-                        style: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 11, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.outfit(
+                          color: kPrimaryColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       TextField(
                         controller: _a1Controller,
-                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
                         decoration: InputDecoration(
                           hintText: 'Answer 1',
-                          enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                          enabledBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF334155)),
+                          ),
+                          focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: kPrimaryColor),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
                       Text(
                         '2. ${_recoveryQuestions.length > 1 ? _recoveryQuestions[1] : 'Security Question 2'}',
-                        style: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 11, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.outfit(
+                          color: kPrimaryColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       TextField(
                         controller: _a2Controller,
-                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
                         decoration: InputDecoration(
                           hintText: 'Answer 2',
-                          enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                          enabledBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF334155)),
+                          ),
+                          focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: kPrimaryColor),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
                       Text(
                         '3. ${_recoveryQuestions.length > 2 ? _recoveryQuestions[2] : 'Security Question 3'}',
-                        style: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 11, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.outfit(
+                          color: kPrimaryColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       TextField(
                         controller: _a3Controller,
-                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
                         decoration: InputDecoration(
                           hintText: 'Answer 3',
-                          enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                          focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                          enabledBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF334155)),
+                          ),
+                          focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: kPrimaryColor),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -5234,16 +6507,29 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: kPrimaryColor,
                             foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
-                          onPressed: isLoading ? null : _submitQuestionsRecovery,
+                          onPressed: isLoading
+                              ? null
+                              : _submitQuestionsRecovery,
                           child: isLoading
                               ? const SizedBox(
                                   width: 20,
                                   height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
                                 )
-                              : Text('RECOVER & UNLOCK VAULT', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12)),
+                              : Text(
+                                  'RECOVER & UNLOCK VAULT',
+                                  style: GoogleFonts.outfit(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
                         ),
                       ),
                     ],
@@ -5257,6 +6543,7 @@ class _InlineRecoveryViewState extends State<InlineRecoveryView> {
     );
   }
 }
+
 // ==========================================
 // 5. Recovery View / Page (Input recovery mnemonics)
 // ==========================================
@@ -5285,7 +6572,8 @@ class _RecoveryPageState extends State<RecoveryPage> {
   final _a2Controller = TextEditingController();
   final _a3Controller = TextEditingController();
 
-  int _recoveryStep = 1; // 1: Email verify/send, 2: Code verify, 3: Answer questions
+  int _recoveryStep =
+      1; // 1: Email verify/send, 2: Code verify, 3: Answer questions
   String _generatedCode = '';
   List<String> _recoveryQuestions = [];
   bool _sendingCode = false;
@@ -5367,7 +6655,8 @@ class _RecoveryPageState extends State<RecoveryPage> {
 
     if (!repository.isQuestionsRecoveryEnabled) {
       setState(() {
-        _localError = 'Security questions recovery is not configured for this vault.';
+        _localError =
+            'Security questions recovery is not configured for this vault.';
         _sendingCode = false;
       });
       return;
@@ -5444,7 +6733,11 @@ class _RecoveryPageState extends State<RecoveryPage> {
     });
 
     final repository = context.read<VaultBloc>().repository;
-    final masterKey = await repository.recoverWithQuestionsAndEmail([a1, a2, a3]);
+    final masterKey = await repository.recoverWithQuestionsAndEmail([
+      a1,
+      a2,
+      a3,
+    ]);
 
     if (masterKey != null) {
       if (mounted) {
@@ -5452,7 +6745,8 @@ class _RecoveryPageState extends State<RecoveryPage> {
       }
     } else {
       setState(() {
-        _localError = 'Decryption failed. Please verify your security question answers.';
+        _localError =
+            'Decryption failed. Please verify your security question answers.';
       });
     }
   }
@@ -5464,7 +6758,9 @@ class _RecoveryPageState extends State<RecoveryPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: active ? kPrimaryColor.withValues(alpha: 0.12) : Colors.transparent,
+          color: active
+              ? kPrimaryColor.withValues(alpha: 0.12)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: active ? kPrimaryColor : Colors.transparent,
@@ -5488,7 +6784,13 @@ class _RecoveryPageState extends State<RecoveryPage> {
     return Scaffold(
       backgroundColor: kScaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text('Recovery Mode', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text(
+          'Recovery Mode',
+          style: GoogleFonts.outfit(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
@@ -5504,11 +6806,7 @@ class _RecoveryPageState extends State<RecoveryPage> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF080D21),
-              Color(0xFF130925),
-              Color(0xFF05060F),
-            ],
+            colors: [Color(0xFF080D21), Color(0xFF130925), Color(0xFF05060F)],
           ),
         ),
         child: BlocConsumer<VaultBloc, VaultState>(
@@ -5545,10 +6843,21 @@ class _RecoveryPageState extends State<RecoveryPage> {
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
-                                      color: const Color(0xFFFF9E0B).withValues(alpha: 0.1),
-                                      border: Border.all(color: const Color(0xFFFF9E0B).withValues(alpha: 0.3), width: 1.5),
+                                      color: const Color(
+                                        0xFFFF9E0B,
+                                      ).withValues(alpha: 0.1),
+                                      border: Border.all(
+                                        color: const Color(
+                                          0xFFFF9E0B,
+                                        ).withValues(alpha: 0.3),
+                                        width: 1.5,
+                                      ),
                                     ),
-                                    child: const Icon(Icons.restore_outlined, size: 28, color: Color(0xFFFF9E0B)),
+                                    child: const Icon(
+                                      Icons.restore_outlined,
+                                      size: 28,
+                                      color: Color(0xFFFF9E0B),
+                                    ),
                                   ),
                                   const SizedBox(width: 12),
                                   Text(
@@ -5563,21 +6872,29 @@ class _RecoveryPageState extends State<RecoveryPage> {
                               ),
                               Row(
                                 children: [
-                                  _tabButton('SLIP-39 Phrases', !_useQuestionsRecovery, () {
-                                    setState(() {
-                                      _useQuestionsRecovery = false;
-                                      _localError = null;
-                                      _localSuccess = null;
-                                    });
-                                  }),
+                                  _tabButton(
+                                    'SLIP-39 Phrases',
+                                    !_useQuestionsRecovery,
+                                    () {
+                                      setState(() {
+                                        _useQuestionsRecovery = false;
+                                        _localError = null;
+                                        _localSuccess = null;
+                                      });
+                                    },
+                                  ),
                                   const SizedBox(width: 8),
-                                  _tabButton('Questions & Email OTP', _useQuestionsRecovery, () {
-                                    setState(() {
-                                      _useQuestionsRecovery = true;
-                                      _localError = null;
-                                      _localSuccess = null;
-                                    });
-                                  }),
+                                  _tabButton(
+                                    'Questions & Email OTP',
+                                    _useQuestionsRecovery,
+                                    () {
+                                      setState(() {
+                                        _useQuestionsRecovery = true;
+                                        _localError = null;
+                                        _localSuccess = null;
+                                      });
+                                    },
+                                  ),
                                 ],
                               ),
                             ],
@@ -5587,7 +6904,10 @@ class _RecoveryPageState extends State<RecoveryPage> {
                             _useQuestionsRecovery
                                 ? 'Recover your primary vault using your pre-configured 3 security questions and an email verification code.'
                                 : 'Provide 2 out of the 3 generated SLIP-39 backup phrases to restore your vault.',
-                            style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF94A3B8)),
+                            style: GoogleFonts.outfit(
+                              fontSize: 12,
+                              color: const Color(0xFF94A3B8),
+                            ),
                           ),
                           if (errorMsg != null) ...[
                             const SizedBox(height: 20),
@@ -5595,17 +6915,26 @@ class _RecoveryPageState extends State<RecoveryPage> {
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: kErrorColor.withValues(alpha: 0.08),
-                                border: Border.all(color: kErrorColor.withValues(alpha: 0.3)),
+                                border: Border.all(
+                                  color: kErrorColor.withValues(alpha: 0.3),
+                                ),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
                                 children: [
-                                  Icon(Icons.error_outline, color: kErrorColor, size: 18),
+                                  Icon(
+                                    Icons.error_outline,
+                                    color: kErrorColor,
+                                    size: 18,
+                                  ),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
                                       errorMsg,
-                                      style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFFFDA4AF)),
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 12,
+                                        color: const Color(0xFFFDA4AF),
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -5618,17 +6947,26 @@ class _RecoveryPageState extends State<RecoveryPage> {
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: kSuccessColor.withValues(alpha: 0.08),
-                                border: Border.all(color: kSuccessColor.withValues(alpha: 0.3)),
+                                border: Border.all(
+                                  color: kSuccessColor.withValues(alpha: 0.3),
+                                ),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
                                 children: [
-                                  Icon(Icons.check_circle_outline, color: kSuccessColor, size: 18),
+                                  Icon(
+                                    Icons.check_circle_outline,
+                                    color: kSuccessColor,
+                                    size: 18,
+                                  ),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
                                       _localSuccess!,
-                                      style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFFA7F3D0)),
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 12,
+                                        color: const Color(0xFFA7F3D0),
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -5650,9 +6988,21 @@ class _RecoveryPageState extends State<RecoveryPage> {
                                   ),
                                 ),
                                 TextButton.icon(
-                                  icon: const Icon(Icons.paste, size: 12, color: Color(0xFFFF9E0B)),
-                                  label: Text('Paste', style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFFFF9E0B))),
-                                  onPressed: isLoading ? null : () => _pastePhrase(_phrase1Controller),
+                                  icon: const Icon(
+                                    Icons.paste,
+                                    size: 12,
+                                    color: Color(0xFFFF9E0B),
+                                  ),
+                                  label: Text(
+                                    'Paste',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 11,
+                                      color: const Color(0xFFFF9E0B),
+                                    ),
+                                  ),
+                                  onPressed: isLoading
+                                      ? null
+                                      : () => _pastePhrase(_phrase1Controller),
                                 ),
                               ],
                             ),
@@ -5660,9 +7010,13 @@ class _RecoveryPageState extends State<RecoveryPage> {
                             TextFormField(
                               controller: _phrase1Controller,
                               enabled: !isLoading,
-                              style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 13),
+                              style: GoogleFonts.shareTechMono(
+                                color: Colors.white,
+                                fontSize: 13,
+                              ),
                               decoration: _inputDecoration(
-                                hint: 'Enter first recovery phrase (word string)',
+                                hint:
+                                    'Enter first recovery phrase (word string)',
                                 prefix: Icons.menu_book_outlined,
                               ),
                               maxLines: 3,
@@ -5681,9 +7035,21 @@ class _RecoveryPageState extends State<RecoveryPage> {
                                   ),
                                 ),
                                 TextButton.icon(
-                                  icon: const Icon(Icons.paste, size: 12, color: Color(0xFFFF9E0B)),
-                                  label: Text('Paste', style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFFFF9E0B))),
-                                  onPressed: isLoading ? null : () => _pastePhrase(_phrase2Controller),
+                                  icon: const Icon(
+                                    Icons.paste,
+                                    size: 12,
+                                    color: Color(0xFFFF9E0B),
+                                  ),
+                                  label: Text(
+                                    'Paste',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 11,
+                                      color: const Color(0xFFFF9E0B),
+                                    ),
+                                  ),
+                                  onPressed: isLoading
+                                      ? null
+                                      : () => _pastePhrase(_phrase2Controller),
                                 ),
                               ],
                             ),
@@ -5691,9 +7057,13 @@ class _RecoveryPageState extends State<RecoveryPage> {
                             TextFormField(
                               controller: _phrase2Controller,
                               enabled: !isLoading,
-                              style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 13),
+                              style: GoogleFonts.shareTechMono(
+                                color: Colors.white,
+                                fontSize: 13,
+                              ),
                               decoration: _inputDecoration(
-                                hint: 'Enter second recovery phrase (word string)',
+                                hint:
+                                    'Enter second recovery phrase (word string)',
                                 prefix: Icons.menu_book_outlined,
                               ),
                               maxLines: 3,
@@ -5718,12 +7088,18 @@ class _RecoveryPageState extends State<RecoveryPage> {
                                         height: 20,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                Colors.black,
+                                              ),
                                         ),
                                       )
                                     : Text(
                                         'RECOVER MASTER KEY',
-                                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 1.5),
+                                        style: GoogleFonts.outfit(
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1.5,
+                                        ),
                                       ),
                               ),
                             ),
@@ -5734,21 +7110,43 @@ class _RecoveryPageState extends State<RecoveryPage> {
                                   Expanded(
                                     child: TextField(
                                       controller: _pathController,
-                                      style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                                      style: GoogleFonts.outfit(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                      ),
                                       decoration: InputDecoration(
                                         labelText: 'Vault Folder Path',
-                                        labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                                        enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                                        labelStyle: GoogleFonts.outfit(
+                                          color: const Color(0xFF94A3B8),
+                                          fontSize: 12,
+                                        ),
+                                        enabledBorder:
+                                            const UnderlineInputBorder(
+                                              borderSide: BorderSide(
+                                                color: Color(0xFF334155),
+                                              ),
+                                            ),
+                                        focusedBorder: UnderlineInputBorder(
+                                          borderSide: BorderSide(
+                                            color: kPrimaryColor,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
                                   IconButton(
-                                    icon: Icon(Icons.folder_open, color: kPrimaryColor, size: 18),
+                                    icon: Icon(
+                                      Icons.folder_open,
+                                      color: kPrimaryColor,
+                                      size: 18,
+                                    ),
                                     onPressed: () async {
-                                      final path = await FilePicker.getDirectoryPath();
+                                      final path =
+                                          await FilePicker.getDirectoryPath();
                                       if (path != null) {
-                                        setState(() => _pathController.text = path);
+                                        setState(
+                                          () => _pathController.text = path,
+                                        );
                                       }
                                     },
                                   ),
@@ -5757,12 +7155,26 @@ class _RecoveryPageState extends State<RecoveryPage> {
                               const SizedBox(height: 16),
                               TextField(
                                 controller: _emailController,
-                                style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                ),
                                 decoration: InputDecoration(
                                   labelText: 'Recovery Email Address',
-                                  labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                                  enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                                  labelStyle: GoogleFonts.outfit(
+                                    color: const Color(0xFF94A3B8),
+                                    fontSize: 12,
+                                  ),
+                                  enabledBorder: const UnderlineInputBorder(
+                                    borderSide: BorderSide(
+                                      color: Color(0xFF334155),
+                                    ),
+                                  ),
+                                  focusedBorder: UnderlineInputBorder(
+                                    borderSide: BorderSide(
+                                      color: kPrimaryColor,
+                                    ),
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 32),
@@ -5773,28 +7185,55 @@ class _RecoveryPageState extends State<RecoveryPage> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: kPrimaryColor,
                                     foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
                                   onPressed: _sendingCode ? null : _sendCode,
                                   child: _sendingCode
                                       ? const SizedBox(
                                           width: 20,
                                           height: 20,
-                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
                                         )
-                                      : Text('SEND VERIFICATION CODE', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1.2)),
+                                      : Text(
+                                          'SEND VERIFICATION CODE',
+                                          style: GoogleFonts.outfit(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                            letterSpacing: 1.2,
+                                          ),
+                                        ),
                                 ),
                               ),
                             ] else if (_recoveryStep == 2) ...[
                               TextField(
                                 controller: _codeController,
                                 keyboardType: TextInputType.number,
-                                style: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 18, letterSpacing: 6),
+                                style: GoogleFonts.shareTechMono(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  letterSpacing: 6,
+                                ),
                                 decoration: InputDecoration(
                                   labelText: '6-Digit Verification Code',
-                                  labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
-                                  enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                                  labelStyle: GoogleFonts.outfit(
+                                    color: const Color(0xFF94A3B8),
+                                    fontSize: 12,
+                                  ),
+                                  enabledBorder: const UnderlineInputBorder(
+                                    borderSide: BorderSide(
+                                      color: Color(0xFF334155),
+                                    ),
+                                  ),
+                                  focusedBorder: UnderlineInputBorder(
+                                    borderSide: BorderSide(
+                                      color: kPrimaryColor,
+                                    ),
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 32),
@@ -5805,52 +7244,106 @@ class _RecoveryPageState extends State<RecoveryPage> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: kPrimaryColor,
                                     foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
                                   onPressed: _verifyCode,
-                                  child: Text('VERIFY CODE', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1.2)),
+                                  child: Text(
+                                    'VERIFY CODE',
+                                    style: GoogleFonts.outfit(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      letterSpacing: 1.2,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ] else if (_recoveryStep == 3) ...[
                               Text(
                                 '1. ${_recoveryQuestions.isNotEmpty ? _recoveryQuestions[0] : 'Security Question 1'}',
-                                style: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 11, fontWeight: FontWeight.bold),
+                                style: GoogleFonts.outfit(
+                                  color: kPrimaryColor,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                               TextField(
                                 controller: _a1Controller,
-                                style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                ),
                                 decoration: InputDecoration(
                                   hintText: 'Answer 1',
-                                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                                  enabledBorder: UnderlineInputBorder(
+                                    borderSide: BorderSide(
+                                      color: Color(0xFF334155),
+                                    ),
+                                  ),
+                                  focusedBorder: UnderlineInputBorder(
+                                    borderSide: BorderSide(
+                                      color: kPrimaryColor,
+                                    ),
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 16),
                               Text(
                                 '2. ${_recoveryQuestions.length > 1 ? _recoveryQuestions[1] : 'Security Question 2'}',
-                                style: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 11, fontWeight: FontWeight.bold),
+                                style: GoogleFonts.outfit(
+                                  color: kPrimaryColor,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                               TextField(
                                 controller: _a2Controller,
-                                style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                ),
                                 decoration: InputDecoration(
                                   hintText: 'Answer 2',
-                                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                                  enabledBorder: UnderlineInputBorder(
+                                    borderSide: BorderSide(
+                                      color: Color(0xFF334155),
+                                    ),
+                                  ),
+                                  focusedBorder: UnderlineInputBorder(
+                                    borderSide: BorderSide(
+                                      color: kPrimaryColor,
+                                    ),
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 16),
                               Text(
                                 '3. ${_recoveryQuestions.length > 2 ? _recoveryQuestions[2] : 'Security Question 3'}',
-                                style: GoogleFonts.outfit(color: kPrimaryColor, fontSize: 11, fontWeight: FontWeight.bold),
+                                style: GoogleFonts.outfit(
+                                  color: kPrimaryColor,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                               TextField(
                                 controller: _a3Controller,
-                                style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                ),
                                 decoration: InputDecoration(
                                   hintText: 'Answer 3',
-                                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                                  enabledBorder: UnderlineInputBorder(
+                                    borderSide: BorderSide(
+                                      color: Color(0xFF334155),
+                                    ),
+                                  ),
+                                  focusedBorder: UnderlineInputBorder(
+                                    borderSide: BorderSide(
+                                      color: kPrimaryColor,
+                                    ),
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 32),
@@ -5861,16 +7354,30 @@ class _RecoveryPageState extends State<RecoveryPage> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: kPrimaryColor,
                                     foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
-                                  onPressed: isLoading ? null : _submitQuestionsRecovery,
+                                  onPressed: isLoading
+                                      ? null
+                                      : _submitQuestionsRecovery,
                                   child: isLoading
                                       ? const SizedBox(
                                           width: 20,
                                           height: 20,
-                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
                                         )
-                                      : Text('RECOVER & UNLOCK VAULT', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1.2)),
+                                      : Text(
+                                          'RECOVER & UNLOCK VAULT',
+                                          style: GoogleFonts.outfit(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                            letterSpacing: 1.2,
+                                          ),
+                                        ),
                                 ),
                               ),
                             ],
@@ -5888,7 +7395,6 @@ class _RecoveryPageState extends State<RecoveryPage> {
     );
   }
 }
-
 
 // ==========================================
 // Reusable Premium Glassmorphic Container
@@ -5932,10 +7438,7 @@ class GlassmorphicCard extends StatelessWidget {
           ],
         ),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: child,
-      ),
+      child: ClipRRect(borderRadius: BorderRadius.circular(24), child: child),
     );
   }
 }
@@ -5981,7 +7484,8 @@ class RansomwareAlarmOverlay extends StatefulWidget {
   State<RansomwareAlarmOverlay> createState() => _RansomwareAlarmOverlayState();
 }
 
-class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with SingleTickerProviderStateMixin {
+class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay>
+    with SingleTickerProviderStateMixin {
   final _passwordController = TextEditingController();
   late AnimationController _pulseController;
   bool _isDeescalating = false;
@@ -6009,7 +7513,7 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
       setState(() => _error = 'Please enter your password to de-escalate');
       return;
     }
-    
+
     setState(() {
       _isDeescalating = true;
       _error = null;
@@ -6028,7 +7532,10 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: kSuccessColor,
-              content: Text('Security alarm cleared. Vault unlocked.', style: GoogleFonts.outfit()),
+              content: Text(
+                'Security alarm cleared. Vault unlocked.',
+                style: GoogleFonts.outfit(),
+              ),
             ),
           );
         } else if (vaultState is VaultFailureState) {
@@ -6045,9 +7552,7 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
             Positioned.fill(
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
-                child: Container(
-                  color: kErrorColor.withValues(alpha: 0.08),
-                ),
+                child: Container(color: kErrorColor.withValues(alpha: 0.08)),
               ),
             ),
             Center(
@@ -6058,7 +7563,10 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
                   padding: const EdgeInsets.all(32),
                   decoration: BoxDecoration(
                     color: const Color(0xFF1E1111).withValues(alpha: 0.8),
-                    border: Border.all(color: kErrorColor.withValues(alpha: 0.4), width: 1.5),
+                    border: Border.all(
+                      color: kErrorColor.withValues(alpha: 0.4),
+                      width: 1.5,
+                    ),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
@@ -6077,10 +7585,14 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
                           return Container(
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: kErrorColor.withValues(alpha: 0.1 + (_pulseController.value * 0.15)),
+                              color: kErrorColor.withValues(
+                                alpha: 0.1 + (_pulseController.value * 0.15),
+                              ),
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: kErrorColor.withValues(alpha: 0.3 + (_pulseController.value * 0.4)),
+                                color: kErrorColor.withValues(
+                                  alpha: 0.3 + (_pulseController.value * 0.4),
+                                ),
                                 width: 2,
                               ),
                             ),
@@ -6119,7 +7631,9 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.4),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: kErrorColor.withValues(alpha: 0.15)),
+                          border: Border.all(
+                            color: kErrorColor.withValues(alpha: 0.15),
+                          ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -6136,17 +7650,27 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
                             const SizedBox(height: 8),
                             Text(
                               'Unusual frequency of file modifications, additions, or renames occurred inside the watched directory:',
-                              style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF94A3B8)),
+                              style: GoogleFonts.outfit(
+                                fontSize: 12,
+                                color: const Color(0xFF94A3B8),
+                              ),
                             ),
                             const SizedBox(height: 8),
                             Text(
                               widget.watchedPath,
-                              style: GoogleFonts.shareTechMono(fontSize: 12, color: Colors.white),
+                              style: GoogleFonts.shareTechMono(
+                                fontSize: 12,
+                                color: Colors.white,
+                              ),
                             ),
                             const SizedBox(height: 12),
                             Text(
                               'Actions Taken: Cryptographic keys wiped from RAM, decryption cache invalidated, local database locked.',
-                              style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFFF43F5E), fontWeight: FontWeight.w600),
+                              style: GoogleFonts.outfit(
+                                fontSize: 12,
+                                color: const Color(0xFFF43F5E),
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ],
                         ),
@@ -6168,12 +7692,16 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
                         style: GoogleFonts.outfit(color: Colors.white),
                         decoration: InputDecoration(
                           hintText: 'Enter vault password',
-                          hintStyle: GoogleFonts.outfit(color: const Color(0xFF475569)),
+                          hintStyle: GoogleFonts.outfit(
+                            color: const Color(0xFF475569),
+                          ),
                           filled: true,
                           fillColor: kSurfaceColor.withValues(alpha: 0.5),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Color(0xFF334155)),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF334155),
+                            ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -6195,16 +7723,24 @@ class _RansomwareAlarmOverlayState extends State<RansomwareAlarmOverlay> with Si
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          onPressed: _isDeescalating ? null : () => _deescalate(context),
+                          onPressed: _isDeescalating
+                              ? null
+                              : () => _deescalate(context),
                           child: _isDeescalating
                               ? const SizedBox(
                                   height: 20,
                                   width: 20,
-                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : Text(
                                   'RESET ALARM & RE-AUTHENTICATE',
-                                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 1.0),
+                                  style: GoogleFonts.outfit(
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.0,
+                                  ),
                                 ),
                         ),
                       ),
@@ -6244,8 +7780,8 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
   @override
   void initState() {
     super.initState();
-    _statusMessage = widget.isEnrolled 
-        ? 'Please select your face image to verify.' 
+    _statusMessage = widget.isEnrolled
+        ? 'Please select your face image to verify.'
         : 'No face enrolled. Please select a face image to register.';
     _faceService.loadModel();
     if (Platform.isWindows) {
@@ -6309,8 +7845,8 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
       if (result == null || result.files.single.path == null) {
         setState(() {
           _isLoading = false;
-          _statusMessage = widget.isEnrolled 
-              ? 'Select face image to verify.' 
+          _statusMessage = widget.isEnrolled
+              ? 'Select face image to verify.'
               : 'Select face image to register.';
         });
         return;
@@ -6330,7 +7866,7 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
       if (!widget.isEnrolled) {
         final embeddingJson = jsonEncode(embedding);
         await prefs.setString('registered_face_embedding', embeddingJson);
-        
+
         setState(() {
           _isLoading = false;
           _statusMessage = 'Face Enrollment Successful!';
@@ -6351,14 +7887,24 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
           return;
         }
 
-        final List<double> registeredEmbedding = List<double>.from(jsonDecode(registeredStr));
-        final distance = _faceService.calculateDistance(embedding, registeredEmbedding);
-        final matches = _faceService.verifyMatch(embedding, registeredEmbedding, threshold: 0.6);
+        final List<double> registeredEmbedding = List<double>.from(
+          jsonDecode(registeredStr),
+        );
+        final distance = _faceService.calculateDistance(
+          embedding,
+          registeredEmbedding,
+        );
+        final matches = _faceService.verifyMatch(
+          embedding,
+          registeredEmbedding,
+          threshold: 0.6,
+        );
 
         if (matches) {
           setState(() {
             _isLoading = false;
-            _statusMessage = 'Face Verified! (Distance: ${distance.toStringAsFixed(4)})';
+            _statusMessage =
+                'Face Verified! (Distance: ${distance.toStringAsFixed(4)})';
           });
 
           await Future.delayed(const Duration(milliseconds: 1000));
@@ -6370,7 +7916,8 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
           setState(() {
             _isLoading = false;
             _selectedFile = null;
-            _errorMessage = 'Face verification failed.\nDistance: ${distance.toStringAsFixed(4)} (Threshold is < 0.60).\nEnsure you upload the same image.';
+            _errorMessage =
+                'Face verification failed.\nDistance: ${distance.toStringAsFixed(4)} (Threshold is < 0.60).\nEnsure you upload the same image.';
             _statusMessage = 'Verification failed. Try again.';
           });
         }
@@ -6389,11 +7936,15 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
     return Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
-        width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width - 32,
+        width: MediaQuery.of(context).size.width > 500
+            ? 450
+            : MediaQuery.of(context).size.width - 32,
         padding: const EdgeInsets.all(28),
         decoration: BoxDecoration(
           color: kSurfaceColor.withValues(alpha: 0.95),
-          border: Border.all(color: const Color(0xFF334155).withValues(alpha: 0.5)),
+          border: Border.all(
+            color: const Color(0xFF334155).withValues(alpha: 0.5),
+          ),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -6403,7 +7954,9 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  widget.isEnrolled ? 'FACE VERIFICATION (OFFLINE)' : 'ENROLL FACE BIOMETRIC',
+                  widget.isEnrolled
+                      ? 'FACE VERIFICATION (OFFLINE)'
+                      : 'ENROLL FACE BIOMETRIC',
                   style: GoogleFonts.outfit(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -6412,14 +7965,20 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Color(0xFF94A3B8), size: 18),
-                  onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                  icon: const Icon(
+                    Icons.close,
+                    color: Color(0xFF94A3B8),
+                    size: 18,
+                  ),
+                  onPressed: _isLoading
+                      ? null
+                      : () => Navigator.of(context).pop(),
                 ),
               ],
             ),
             const Divider(color: Color(0xFF1E293B), height: 20),
             const SizedBox(height: 16),
-            
+
             Container(
               height: 150,
               width: 150,
@@ -6427,8 +7986,8 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
                 color: const Color(0xFF1E1E38).withValues(alpha: 0.5),
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: _errorMessage != null 
-                      ? kErrorColor.withValues(alpha: 0.5) 
+                  color: _errorMessage != null
+                      ? kErrorColor.withValues(alpha: 0.5)
                       : kPrimaryHoverColor.withValues(alpha: 0.3),
                   width: 2,
                 ),
@@ -6437,14 +7996,18 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
                 child: _selectedFile != null
                     ? Image.file(_selectedFile!, fit: BoxFit.cover)
                     : Icon(
-                        widget.isEnrolled ? Icons.face : Icons.add_a_photo_outlined,
+                        widget.isEnrolled
+                            ? Icons.face
+                            : Icons.add_a_photo_outlined,
                         size: 64,
-                        color: _errorMessage != null ? kErrorColor : kPrimaryHoverColor,
+                        color: _errorMessage != null
+                            ? kErrorColor
+                            : kPrimaryHoverColor,
                       ),
               ),
             ),
             const SizedBox(height: 20),
-            
+
             Text(
               _statusMessage,
               style: GoogleFonts.outfit(
@@ -6454,21 +8017,18 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
               ),
               textAlign: TextAlign.center,
             ),
-            
+
             if (_errorMessage != null) ...[
               const SizedBox(height: 12),
               Text(
                 _errorMessage!,
-                style: GoogleFonts.outfit(
-                  fontSize: 11,
-                  color: kErrorColor,
-                ),
+                style: GoogleFonts.outfit(fontSize: 11, color: kErrorColor),
                 textAlign: TextAlign.center,
               ),
             ],
-            
+
             const SizedBox(height: 28),
-            
+
             if (_isLoading)
               CircularProgressIndicator(color: kPrimaryHoverColor)
             else
@@ -6478,11 +8038,19 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Color(0xFF334155)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       onPressed: () => Navigator.of(context).pop(),
-                      child: Text('CANCEL', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontWeight: FontWeight.bold)),
+                      child: Text(
+                        'CANCEL',
+                        style: GoogleFonts.outfit(
+                          color: const Color(0xFF94A3B8),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -6491,7 +8059,9 @@ class _FaceVerificationDialogState extends State<FaceVerificationDialog> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: kPrimaryHoverColor,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       onPressed: _pickAndProcessImage,
@@ -6521,7 +8091,8 @@ class VoiceVerificationDialog extends StatefulWidget {
   });
 
   @override
-  State<VoiceVerificationDialog> createState() => _VoiceVerificationDialogState();
+  State<VoiceVerificationDialog> createState() =>
+      _VoiceVerificationDialogState();
 }
 
 class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
@@ -6534,8 +8105,8 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
   @override
   void initState() {
     super.initState();
-    _statusMessage = widget.isEnrolled 
-        ? 'Please select your voice WAV/MP3 file to verify.' 
+    _statusMessage = widget.isEnrolled
+        ? 'Please select your voice WAV/MP3 file to verify.'
         : 'No voice enrolled. Please select a WAV/MP3 file to register.';
   }
 
@@ -6556,8 +8127,8 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
       if (result == null || result.files.single.path == null) {
         setState(() {
           _isLoading = false;
-          _statusMessage = widget.isEnrolled 
-              ? 'Select voice WAV/MP3 to verify.' 
+          _statusMessage = widget.isEnrolled
+              ? 'Select voice WAV/MP3 to verify.'
               : 'Select voice WAV/MP3 to register.';
         });
         return;
@@ -6577,7 +8148,7 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
       if (!widget.isEnrolled) {
         final embeddingJson = jsonEncode(embedding);
         await prefs.setString('registered_voice_embedding', embeddingJson);
-        
+
         setState(() {
           _isLoading = false;
           _statusMessage = 'Voice Enrollment Successful!';
@@ -6593,19 +8164,30 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
         if (registeredStr == null) {
           setState(() {
             _isLoading = false;
-            _errorMessage = 'Registered voice data corrupted. Please re-enroll.';
+            _errorMessage =
+                'Registered voice data corrupted. Please re-enroll.';
           });
           return;
         }
 
-        final List<double> registeredEmbedding = List<double>.from(jsonDecode(registeredStr));
-        final similarity = _voiceService.calculateCosineSimilarity(embedding, registeredEmbedding);
-        final matches = _voiceService.verifyVoiceMatch(embedding, registeredEmbedding, threshold: 0.8);
+        final List<double> registeredEmbedding = List<double>.from(
+          jsonDecode(registeredStr),
+        );
+        final similarity = _voiceService.calculateCosineSimilarity(
+          embedding,
+          registeredEmbedding,
+        );
+        final matches = _voiceService.verifyVoiceMatch(
+          embedding,
+          registeredEmbedding,
+          threshold: 0.8,
+        );
 
         if (matches) {
           setState(() {
             _isLoading = false;
-            _statusMessage = 'Voice Signature Verified! (Similarity: ${similarity.toStringAsFixed(4)})';
+            _statusMessage =
+                'Voice Signature Verified! (Similarity: ${similarity.toStringAsFixed(4)})';
           });
 
           await Future.delayed(const Duration(milliseconds: 1000));
@@ -6617,7 +8199,8 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
           setState(() {
             _isLoading = false;
             _selectedFile = null;
-            _errorMessage = 'Voice verification failed.\nSimilarity: ${similarity.toStringAsFixed(4)} (Threshold is >= 0.80).\nEnsure you upload the same signature file.';
+            _errorMessage =
+                'Voice verification failed.\nSimilarity: ${similarity.toStringAsFixed(4)} (Threshold is >= 0.80).\nEnsure you upload the same signature file.';
             _statusMessage = 'Verification failed. Try again.';
           });
         }
@@ -6636,11 +8219,15 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
     return Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
-        width: MediaQuery.of(context).size.width > 500 ? 450 : MediaQuery.of(context).size.width - 32,
+        width: MediaQuery.of(context).size.width > 500
+            ? 450
+            : MediaQuery.of(context).size.width - 32,
         padding: const EdgeInsets.all(28),
         decoration: BoxDecoration(
           color: kSurfaceColor.withValues(alpha: 0.95),
-          border: Border.all(color: const Color(0xFF334155).withValues(alpha: 0.5)),
+          border: Border.all(
+            color: const Color(0xFF334155).withValues(alpha: 0.5),
+          ),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -6650,7 +8237,9 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  widget.isEnrolled ? 'VOICE VERIFICATION (OFFLINE)' : 'ENROLL VOICE SIGNATURE',
+                  widget.isEnrolled
+                      ? 'VOICE VERIFICATION (OFFLINE)'
+                      : 'ENROLL VOICE SIGNATURE',
                   style: GoogleFonts.outfit(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -6659,14 +8248,20 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Color(0xFF94A3B8), size: 18),
-                  onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+                  icon: const Icon(
+                    Icons.close,
+                    color: Color(0xFF94A3B8),
+                    size: 18,
+                  ),
+                  onPressed: _isLoading
+                      ? null
+                      : () => Navigator.of(context).pop(),
                 ),
               ],
             ),
             const Divider(color: Color(0xFF1E293B), height: 20),
             const SizedBox(height: 16),
-            
+
             Container(
               height: 150,
               width: 150,
@@ -6674,8 +8269,8 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
                 color: const Color(0xFF1E1E38).withValues(alpha: 0.5),
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: _errorMessage != null 
-                      ? kErrorColor.withValues(alpha: 0.5) 
+                  color: _errorMessage != null
+                      ? kErrorColor.withValues(alpha: 0.5)
                       : kPrimaryHoverColor.withValues(alpha: 0.3),
                   width: 2,
                 ),
@@ -6693,12 +8288,14 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
                     : Icon(
                         widget.isEnrolled ? Icons.mic : Icons.mic_none_outlined,
                         size: 64,
-                        color: _errorMessage != null ? kErrorColor : kPrimaryHoverColor,
+                        color: _errorMessage != null
+                            ? kErrorColor
+                            : kPrimaryHoverColor,
                       ),
               ),
             ),
             const SizedBox(height: 20),
-            
+
             Text(
               _statusMessage,
               style: GoogleFonts.outfit(
@@ -6708,21 +8305,18 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
               ),
               textAlign: TextAlign.center,
             ),
-            
+
             if (_errorMessage != null) ...[
               const SizedBox(height: 12),
               Text(
                 _errorMessage!,
-                style: GoogleFonts.outfit(
-                  fontSize: 11,
-                  color: kErrorColor,
-                ),
+                style: GoogleFonts.outfit(fontSize: 11, color: kErrorColor),
                 textAlign: TextAlign.center,
               ),
             ],
-            
+
             const SizedBox(height: 28),
-            
+
             if (_isLoading)
               CircularProgressIndicator(color: kPrimaryHoverColor)
             else
@@ -6732,11 +8326,19 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
                     child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Color(0xFF334155)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       onPressed: () => Navigator.of(context).pop(),
-                      child: Text('CANCEL', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontWeight: FontWeight.bold)),
+                      child: Text(
+                        'CANCEL',
+                        style: GoogleFonts.outfit(
+                          color: const Color(0xFF94A3B8),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -6745,7 +8347,9 @@ class _VoiceVerificationDialogState extends State<VoiceVerificationDialog> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: kPrimaryHoverColor,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
                       onPressed: _pickAndProcessAudio,
@@ -6824,20 +8428,19 @@ class _WebLandingPageState extends State<WebLandingPage> {
     try {
       final response = await http_pkg.post(
         Uri.parse('https://ampcrypt.itsupport.com.bd/api/send-email'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'to': ['pranto48@gmail.com'],
           'subject': '[AMPCrypt Contact] ${_subjectController.text.trim()}',
-          'html': '''
+          'html':
+              '''
             <h3>New Contact Form Message</h3>
             <p><strong>Name:</strong> ${_nameController.text.trim()}</p>
             <p><strong>Email:</strong> ${_emailController.text.trim()}</p>
             <p><strong>Subject:</strong> ${_subjectController.text.trim()}</p>
             <p><strong>Message:</strong></p>
             <p>${_messageController.text.trim().replaceAll('\n', '<br>')}</p>
-          '''
+          ''',
         }),
       );
 
@@ -6853,7 +8456,8 @@ class _WebLandingPageState extends State<WebLandingPage> {
       } else {
         setState(() {
           _isSuccess = false;
-          _statusMessage = 'Failed to send message. Server returned code: ${response.statusCode}';
+          _statusMessage =
+              'Failed to send message. Server returned code: ${response.statusCode}';
         });
       }
     } catch (e) {
@@ -6899,11 +8503,14 @@ class _WebLandingPageState extends State<WebLandingPage> {
               controller: _scrollController,
               child: Column(
                 children: [
-                  const SizedBox(height: 70), 
-                  
+                  const SizedBox(height: 70),
+
                   Container(
                     key: _heroKey,
-                    padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 24),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 80,
+                      horizontal: 24,
+                    ),
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
@@ -6924,11 +8531,12 @@ class _WebLandingPageState extends State<WebLandingPage> {
                               'assets/app_icon.ico',
                               width: 96,
                               height: 96,
-                              errorBuilder: (context, error, stackTrace) => Icon(
-                                Icons.verified_user_rounded,
-                                size: 96,
-                                color: kPrimaryColor,
-                              ),
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Icon(
+                                    Icons.verified_user_rounded,
+                                    size: 96,
+                                    color: kPrimaryColor,
+                                  ),
                             ),
                             const SizedBox(height: 24),
                             Text(
@@ -6961,34 +8569,62 @@ class _WebLandingPageState extends State<WebLandingPage> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: kPrimaryColor,
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 28,
+                                      vertical: 18,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                     elevation: 0,
                                   ),
-                                  icon: const Icon(Icons.download_rounded, size: 20),
+                                  icon: const Icon(
+                                    Icons.download_rounded,
+                                    size: 20,
+                                  ),
                                   label: Text(
                                     'DOWNLOAD EXE INSTALLER',
-                                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                                    style: GoogleFonts.outfit(
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                    ),
                                   ),
                                   onPressed: () => launchUrl(
-                                    Uri.parse('https://ampcrypt.itsupport.bd/installers/Ampcrypt-Installer.exe'),
+                                    Uri.parse(
+                                      'https://ampcrypt.itsupport.bd/installers/Ampcrypt-Installer.exe',
+                                    ),
                                     mode: LaunchMode.externalApplication,
                                   ),
                                 ),
                                 OutlinedButton.icon(
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: Colors.white,
-                                    side: const BorderSide(color: Colors.white24),
-                                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    side: const BorderSide(
+                                      color: Colors.white24,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 28,
+                                      vertical: 18,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
-                                  icon: const Icon(Icons.inventory_2_outlined, size: 20),
+                                  icon: const Icon(
+                                    Icons.inventory_2_outlined,
+                                    size: 20,
+                                  ),
                                   label: Text(
                                     'DOWNLOAD MSIX PACKAGE',
-                                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                                    style: GoogleFonts.outfit(
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                    ),
                                   ),
                                   onPressed: () => launchUrl(
-                                    Uri.parse('https://ampcrypt.itsupport.bd/installers/ampcrypt.msix'),
+                                    Uri.parse(
+                                      'https://ampcrypt.itsupport.bd/installers/ampcrypt.msix',
+                                    ),
                                     mode: LaunchMode.externalApplication,
                                   ),
                                 ),
@@ -7002,7 +8638,10 @@ class _WebLandingPageState extends State<WebLandingPage> {
 
                   Container(
                     key: _featuresKey,
-                    padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 24),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 80,
+                      horizontal: 24,
+                    ),
                     color: const Color(0xFF0B0F19),
                     child: Center(
                       child: Container(
@@ -7011,11 +8650,18 @@ class _WebLandingPageState extends State<WebLandingPage> {
                           children: [
                             Text(
                               'Cutting-Edge Security Features',
-                              style: GoogleFonts.outfit(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+                              style: GoogleFonts.outfit(
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
                             const SizedBox(height: 48),
                             GridView.count(
-                              crossAxisCount: MediaQuery.of(context).size.width > 700 ? 2 : 1,
+                              crossAxisCount:
+                                  MediaQuery.of(context).size.width > 700
+                                  ? 2
+                                  : 1,
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
                               crossAxisSpacing: 30,
@@ -7050,14 +8696,14 @@ class _WebLandingPageState extends State<WebLandingPage> {
                     ),
                   ),
 
-                  Container(
-                    key: _downloadsKey,
-                    height: 1, 
-                  ),
+                  Container(key: _downloadsKey, height: 1),
 
                   Container(
                     key: _contactKey,
-                    padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 24),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 80,
+                      horizontal: 24,
+                    ),
                     color: const Color(0xFF0F172A),
                     child: Center(
                       child: Container(
@@ -7095,31 +8741,67 @@ class _WebLandingPageState extends State<WebLandingPage> {
                                   const SizedBox(height: 24),
                                   TextFormField(
                                     controller: _nameController,
-                                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
-                                    decoration: _webInputDecoration('Your Name', Icons.person_outline),
-                                    validator: (val) => val == null || val.trim().isEmpty ? 'Please enter your name' : null,
+                                    style: GoogleFonts.outfit(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                    ),
+                                    decoration: _webInputDecoration(
+                                      'Your Name',
+                                      Icons.person_outline,
+                                    ),
+                                    validator: (val) =>
+                                        val == null || val.trim().isEmpty
+                                        ? 'Please enter your name'
+                                        : null,
                                   ),
                                   const SizedBox(height: 16),
                                   TextFormField(
                                     controller: _emailController,
-                                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
-                                    decoration: _webInputDecoration('Email Address', Icons.email_outlined),
-                                    validator: (val) => val == null || !val.contains('@') ? 'Please enter a valid email address' : null,
+                                    style: GoogleFonts.outfit(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                    ),
+                                    decoration: _webInputDecoration(
+                                      'Email Address',
+                                      Icons.email_outlined,
+                                    ),
+                                    validator: (val) =>
+                                        val == null || !val.contains('@')
+                                        ? 'Please enter a valid email address'
+                                        : null,
                                   ),
                                   const SizedBox(height: 16),
                                   TextFormField(
                                     controller: _subjectController,
-                                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
-                                    decoration: _webInputDecoration('Subject', Icons.title_outlined),
-                                    validator: (val) => val == null || val.trim().isEmpty ? 'Please enter a subject' : null,
+                                    style: GoogleFonts.outfit(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                    ),
+                                    decoration: _webInputDecoration(
+                                      'Subject',
+                                      Icons.title_outlined,
+                                    ),
+                                    validator: (val) =>
+                                        val == null || val.trim().isEmpty
+                                        ? 'Please enter a subject'
+                                        : null,
                                   ),
                                   const SizedBox(height: 16),
                                   TextFormField(
                                     controller: _messageController,
-                                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                                    style: GoogleFonts.outfit(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                    ),
                                     maxLines: 5,
-                                    decoration: _webInputDecoration('Your Message', Icons.message_outlined),
-                                    validator: (val) => val == null || val.trim().isEmpty ? 'Please enter your message' : null,
+                                    decoration: _webInputDecoration(
+                                      'Your Message',
+                                      Icons.message_outlined,
+                                    ),
+                                    validator: (val) =>
+                                        val == null || val.trim().isEmpty
+                                        ? 'Please enter your message'
+                                        : null,
                                   ),
                                   const SizedBox(height: 24),
                                   if (_statusMessage != null) ...[
@@ -7127,18 +8809,28 @@ class _WebLandingPageState extends State<WebLandingPage> {
                                       padding: const EdgeInsets.all(12),
                                       decoration: BoxDecoration(
                                         color: _isSuccess
-                                            ? kSuccessColor.withValues(alpha: 0.15)
-                                            : kErrorColor.withValues(alpha: 0.15),
+                                            ? kSuccessColor.withValues(
+                                                alpha: 0.15,
+                                              )
+                                            : kErrorColor.withValues(
+                                                alpha: 0.15,
+                                              ),
                                         borderRadius: BorderRadius.circular(8),
                                         border: Border.all(
-                                          color: _isSuccess ? kSuccessColor : kErrorColor,
+                                          color: _isSuccess
+                                              ? kSuccessColor
+                                              : kErrorColor,
                                         ),
                                       ),
                                       child: Row(
                                         children: [
                                           Icon(
-                                            _isSuccess ? Icons.check_circle_outline : Icons.error_outline,
-                                            color: _isSuccess ? kSuccessColor : kErrorColor,
+                                            _isSuccess
+                                                ? Icons.check_circle_outline
+                                                : Icons.error_outline,
+                                            color: _isSuccess
+                                                ? kSuccessColor
+                                                : kErrorColor,
                                             size: 16,
                                           ),
                                           const SizedBox(width: 8),
@@ -7146,7 +8838,9 @@ class _WebLandingPageState extends State<WebLandingPage> {
                                             child: Text(
                                               _statusMessage!,
                                               style: GoogleFonts.outfit(
-                                                color: _isSuccess ? kSuccessColor : kErrorColor,
+                                                color: _isSuccess
+                                                    ? kSuccessColor
+                                                    : kErrorColor,
                                                 fontSize: 12,
                                               ),
                                             ),
@@ -7163,9 +8857,15 @@ class _WebLandingPageState extends State<WebLandingPage> {
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: kPrimaryColor,
                                         foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
                                       ),
-                                      onPressed: _isSending ? null : _submitForm,
+                                      onPressed: _isSending
+                                          ? null
+                                          : _submitForm,
                                       child: _isSending
                                           ? const SizedBox(
                                               width: 20,
@@ -7193,13 +8893,13 @@ class _WebLandingPageState extends State<WebLandingPage> {
                     ),
                   ),
 
-                  Container(
-                    key: _aboutKey,
-                    height: 1, 
-                  ),
+                  Container(key: _aboutKey, height: 1),
 
                   Container(
-                    padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 40,
+                      horizontal: 24,
+                    ),
                     color: const Color(0xFF080C16),
                     child: Center(
                       child: Column(
@@ -7210,24 +8910,46 @@ class _WebLandingPageState extends State<WebLandingPage> {
                             children: [
                               Text(
                                 'Made by ',
-                                style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B)),
+                                style: GoogleFonts.outfit(
+                                  fontSize: 12,
+                                  color: const Color(0xFF64748B),
+                                ),
                               ),
                               InkWell(
-                                onTap: () => launchUrl(Uri.parse('https://itsupport.com.bd/'), mode: LaunchMode.externalApplication),
+                                onTap: () => launchUrl(
+                                  Uri.parse('https://itsupport.com.bd/'),
+                                  mode: LaunchMode.externalApplication,
+                                ),
                                 child: Text(
                                   'IT Support BD',
-                                  style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: kPrimaryColor, decoration: TextDecoration.underline),
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: kPrimaryColor,
+                                    decoration: TextDecoration.underline,
+                                  ),
                                 ),
                               ),
                               Text(
                                 ' | Main Contribution: ',
-                                style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B)),
+                                style: GoogleFonts.outfit(
+                                  fontSize: 12,
+                                  color: const Color(0xFF64748B),
+                                ),
                               ),
                               InkWell(
-                                onTap: () => launchUrl(Uri.parse('https://arifmahmud.com/'), mode: LaunchMode.externalApplication),
+                                onTap: () => launchUrl(
+                                  Uri.parse('https://arifmahmud.com/'),
+                                  mode: LaunchMode.externalApplication,
+                                ),
                                 child: Text(
                                   'Arif Mahmud Pranto',
-                                  style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: kPrimaryColor, decoration: TextDecoration.underline),
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: kPrimaryColor,
+                                    decoration: TextDecoration.underline,
+                                  ),
                                 ),
                               ),
                             ],
@@ -7235,7 +8957,10 @@ class _WebLandingPageState extends State<WebLandingPage> {
                           const SizedBox(height: 12),
                           Text(
                             'AMPCrypt Web Portal • Version $kAppVersion',
-                            style: GoogleFonts.shareTechMono(color: const Color(0xFF475569), fontSize: 12),
+                            style: GoogleFonts.shareTechMono(
+                              color: const Color(0xFF475569),
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
@@ -7275,11 +9000,12 @@ class _WebLandingPageState extends State<WebLandingPage> {
                                 'assets/app_icon.ico',
                                 width: 32,
                                 height: 32,
-                                errorBuilder: (context, error, stackTrace) => Icon(
-                                  Icons.verified_user_rounded,
-                                  size: 28,
-                                  color: kPrimaryColor,
-                                ),
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Icon(
+                                      Icons.verified_user_rounded,
+                                      size: 28,
+                                      color: kPrimaryColor,
+                                    ),
                               ),
                               const SizedBox(width: 12),
                               Text(
@@ -7295,14 +9021,26 @@ class _WebLandingPageState extends State<WebLandingPage> {
                           ),
                         ),
                       ),
-                      
+
                       if (MediaQuery.of(context).size.width > 700)
                         Row(
                           children: [
-                            _buildHeaderMenuItem('Features', () => _scrollToKey(_featuresKey)),
-                            _buildHeaderMenuItem('Downloads', () => _scrollToKey(_heroKey)),
-                            _buildHeaderMenuItem('Contact Us', () => _scrollToKey(_contactKey)),
-                            _buildHeaderMenuItem('About', () => _scrollToKey(_aboutKey)),
+                            _buildHeaderMenuItem(
+                              'Features',
+                              () => _scrollToKey(_featuresKey),
+                            ),
+                            _buildHeaderMenuItem(
+                              'Downloads',
+                              () => _scrollToKey(_heroKey),
+                            ),
+                            _buildHeaderMenuItem(
+                              'Contact Us',
+                              () => _scrollToKey(_contactKey),
+                            ),
+                            _buildHeaderMenuItem(
+                              'About',
+                              () => _scrollToKey(_aboutKey),
+                            ),
                           ],
                         ),
 
@@ -7341,12 +9079,20 @@ class _WebLandingPageState extends State<WebLandingPage> {
             const SizedBox(height: 12),
             Text(
               title,
-              style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              style: GoogleFonts.outfit(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               desc,
-              style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF94A3B8), height: 1.4),
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                color: const Color(0xFF94A3B8),
+                height: 1.4,
+              ),
             ),
           ],
         ),
@@ -7357,7 +9103,10 @@ class _WebLandingPageState extends State<WebLandingPage> {
   InputDecoration _webInputDecoration(String labelText, IconData icon) {
     return InputDecoration(
       labelText: labelText,
-      labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+      labelStyle: GoogleFonts.outfit(
+        color: const Color(0xFF94A3B8),
+        fontSize: 12,
+      ),
       prefixIcon: Icon(icon, color: const Color(0xFF64748B), size: 16),
       filled: true,
       fillColor: const Color(0xFF0F172A).withValues(alpha: 0.6),
@@ -7412,10 +9161,12 @@ class _AnimatedGlassButtonState extends State<AnimatedGlassButton> {
   @override
   Widget build(BuildContext context) {
     final baseColor = widget.color ?? kPrimaryColor;
-    final displayColor = widget.isPrimary 
+    final displayColor = widget.isPrimary
         ? (_isHovered ? baseColor.withValues(alpha: 0.85) : baseColor)
-        : (_isHovered ? Colors.white.withValues(alpha: 0.08) : Colors.transparent);
-    
+        : (_isHovered
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.transparent);
+
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
@@ -7424,13 +9175,17 @@ class _AnimatedGlassButtonState extends State<AnimatedGlassButton> {
         curve: Curves.easeOut,
         width: widget.width,
         height: widget.height,
-        transform: Matrix4.diagonal3Values(_isHovered ? 1.03 : 1.0, _isHovered ? 1.03 : 1.0, 1.0),
+        transform: Matrix4.diagonal3Values(
+          _isHovered ? 1.03 : 1.0,
+          _isHovered ? 1.03 : 1.0,
+          1.0,
+        ),
         decoration: BoxDecoration(
           color: displayColor,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: widget.isPrimary 
-                ? Colors.transparent 
+            color: widget.isPrimary
+                ? Colors.transparent
                 : (_isHovered ? baseColor : Colors.white24),
             width: 1.5,
           ),
@@ -7498,10 +9253,12 @@ class _FtpDirectoryExplorerDialog extends StatefulWidget {
   });
 
   @override
-  State<_FtpDirectoryExplorerDialog> createState() => _FtpDirectoryExplorerDialogState();
+  State<_FtpDirectoryExplorerDialog> createState() =>
+      _FtpDirectoryExplorerDialogState();
 }
 
-class _FtpDirectoryExplorerDialogState extends State<_FtpDirectoryExplorerDialog> {
+class _FtpDirectoryExplorerDialogState
+    extends State<_FtpDirectoryExplorerDialog> {
   late String _currentPath;
   List<String> _folders = [];
   bool _isLoading = true;
@@ -7583,7 +9340,7 @@ class _FtpDirectoryExplorerDialogState extends State<_FtpDirectoryExplorerDialog
   Future<void> _createNewFolder() async {
     final name = _newFolderController.text.trim();
     if (name.isEmpty) return;
-    
+
     setState(() {
       _isCreatingFolder = true;
     });
@@ -7603,13 +9360,15 @@ class _FtpDirectoryExplorerDialogState extends State<_FtpDirectoryExplorerDialog
         await _loadFolders();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to create folder. Check permissions.')),
+          const SnackBar(
+            content: Text('Failed to create folder. Check permissions.'),
+          ),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error creating folder: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error creating folder: $e')));
     } finally {
       if (mounted) {
         setState(() {
@@ -7628,7 +9387,11 @@ class _FtpDirectoryExplorerDialogState extends State<_FtpDirectoryExplorerDialog
         children: [
           Text(
             'Browse FTP Server',
-            style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+            style: GoogleFonts.outfit(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.close, color: Colors.white70, size: 20),
@@ -7656,13 +9419,20 @@ class _FtpDirectoryExplorerDialogState extends State<_FtpDirectoryExplorerDialog
                   Expanded(
                     child: Text(
                       _currentPath,
-                      style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                      style: GoogleFonts.outfit(
+                        color: Colors.white,
+                        fontSize: 12,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   if (_currentPath != '/')
                     IconButton(
-                      icon: const Icon(Icons.arrow_upward, color: Colors.white, size: 14),
+                      icon: const Icon(
+                        Icons.arrow_upward,
+                        color: Colors.white,
+                        size: 14,
+                      ),
                       tooltip: 'Go Up',
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -7680,53 +9450,79 @@ class _FtpDirectoryExplorerDialogState extends State<_FtpDirectoryExplorerDialog
                   border: Border.all(color: const Color(0xFF334155)),
                 ),
                 child: _isLoading
-                    ? const Center(child: CircularProgressIndicator(color: Color(0xFF16A34A)))
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF16A34A),
+                        ),
+                      )
                     : _errorMessage != null
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.error_outline, color: kErrorColor, size: 36),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    _errorMessage!,
-                                    textAlign: TextAlign.center,
-                                    style: GoogleFonts.outfit(color: Colors.white70, fontSize: 12),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  ElevatedButton(
-                                    onPressed: _loadFolders,
-                                    style: ElevatedButton.styleFrom(backgroundColor: kPrimaryColor),
-                                    child: Text('Retry', style: GoogleFonts.outfit(fontSize: 12)),
-                                  )
-                                ],
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                color: kErrorColor,
+                                size: 36,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _errorMessage!,
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              ElevatedButton(
+                                onPressed: _loadFolders,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: kPrimaryColor,
+                                ),
+                                child: Text(
+                                  'Retry',
+                                  style: GoogleFonts.outfit(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : _folders.isEmpty
+                    ? Center(
+                        child: Text(
+                          'Empty Folder',
+                          style: GoogleFonts.outfit(
+                            color: Colors.white38,
+                            fontSize: 12,
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: _folders.length,
+                        itemBuilder: (context, index) {
+                          final name = _folders[index];
+                          return ListTile(
+                            leading: const Icon(
+                              Icons.folder,
+                              color: Color(0xFFFBBF24),
+                              size: 20,
+                            ),
+                            title: Text(
+                              name,
+                              style: GoogleFonts.outfit(
+                                color: Colors.white,
+                                fontSize: 13,
                               ),
                             ),
-                          )
-                        : _folders.isEmpty
-                            ? Center(
-                                child: Text(
-                                  'Empty Folder',
-                                  style: GoogleFonts.outfit(color: Colors.white38, fontSize: 12),
-                                ),
-                              )
-                            : ListView.builder(
-                                itemCount: _folders.length,
-                                itemBuilder: (context, index) {
-                                  final name = _folders[index];
-                                  return ListTile(
-                                    leading: const Icon(Icons.folder, color: Color(0xFFFBBF24), size: 20),
-                                    title: Text(
-                                      name,
-                                      style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
-                                    ),
-                                    hoverColor: Colors.white.withValues(alpha: 0.05),
-                                    onTap: () => _navigateInto(name),
-                                  );
-                                },
-                              ),
+                            hoverColor: Colors.white.withValues(alpha: 0.05),
+                            onTap: () => _navigateInto(name),
+                          );
+                        },
+                      ),
               ),
             ),
             const SizedBox(height: 12),
@@ -7735,14 +9531,27 @@ class _FtpDirectoryExplorerDialogState extends State<_FtpDirectoryExplorerDialog
                 Expanded(
                   child: TextField(
                     controller: _newFolderController,
-                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontSize: 12,
+                    ),
                     decoration: InputDecoration(
                       hintText: 'New Folder Name',
-                      hintStyle: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 12),
+                      hintStyle: GoogleFonts.outfit(
+                        color: const Color(0xFF64748B),
+                        fontSize: 12,
+                      ),
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                      focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: kPrimaryColor)),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      enabledBorder: const OutlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF334155)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: kPrimaryColor),
+                      ),
                     ),
                   ),
                 ),
@@ -7751,18 +9560,29 @@ class _FtpDirectoryExplorerDialogState extends State<_FtpDirectoryExplorerDialog
                     ? const SizedBox(
                         width: 24,
                         height: 24,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF16A34A)),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Color(0xFF16A34A),
+                        ),
                       )
                     : ElevatedButton.icon(
                         onPressed: _createNewFolder,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF1E2228),
                           foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                         ),
                         icon: const Icon(Icons.add, size: 14),
-                        label: Text('Create', style: GoogleFonts.outfit(fontSize: 11)),
+                        label: Text(
+                          'Create',
+                          style: GoogleFonts.outfit(fontSize: 11),
+                        ),
                       ),
               ],
             ),
@@ -7772,7 +9592,13 @@ class _FtpDirectoryExplorerDialogState extends State<_FtpDirectoryExplorerDialog
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('Cancel', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12)),
+          child: Text(
+            'Cancel',
+            style: GoogleFonts.outfit(
+              color: const Color(0xFF94A3B8),
+              fontSize: 12,
+            ),
+          ),
         ),
         ElevatedButton(
           onPressed: () {
@@ -7840,14 +9666,21 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
       backgroundColor: kSurfaceColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.08), width: 1.5),
+        side: BorderSide(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 1.5,
+        ),
       ),
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             'Secure Vault Registry',
-            style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+            style: GoogleFonts.outfit(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.close, color: Color(0xFF64748B), size: 20),
@@ -7863,7 +9696,10 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
           children: [
             Text(
               'Select a remembered vault profile to load, or import/register a new vault folder.',
-              style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+              style: GoogleFonts.outfit(
+                color: const Color(0xFF94A3B8),
+                fontSize: 12,
+              ),
             ),
             const SizedBox(height: 16),
             if (_isLoading)
@@ -7880,12 +9716,17 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.01),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.04),
+                  ),
                 ),
                 child: Center(
                   child: Text(
                     'No registered vault profiles. Use options below.',
-                    style: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 12),
+                    style: GoogleFonts.outfit(
+                      color: const Color(0xFF64748B),
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               )
@@ -7895,16 +9736,22 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
                 child: ListView.separated(
                   shrinkWrap: true,
                   itemCount: _vaults.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 8),
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 8),
                   itemBuilder: (context, index) {
                     final vault = _vaults[index];
-                    final isActive = vault.storageType == activeType &&
+                    final isActive =
+                        vault.storageType == activeType &&
                         (vault.storageType == 'local'
                             ? vault.path == activePath
-                            : vault.path == activePath && vault.ftpHost == activeFtpHost);
+                            : vault.path == activePath &&
+                                  vault.ftpHost == activeFtpHost);
 
                     return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
                         color: isActive
                             ? kPrimaryColor.withValues(alpha: 0.08)
@@ -7920,8 +9767,12 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
                       child: Row(
                         children: [
                           Icon(
-                            vault.storageType == 'ftp' ? Icons.cloud_outlined : Icons.folder_open_outlined,
-                            color: isActive ? kPrimaryColor : const Color(0xFF94A3B8),
+                            vault.storageType == 'ftp'
+                                ? Icons.cloud_outlined
+                                : Icons.folder_open_outlined,
+                            color: isActive
+                                ? kPrimaryColor
+                                : const Color(0xFF94A3B8),
                             size: 20,
                           ),
                           const SizedBox(width: 12),
@@ -7954,7 +9805,10 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
                           ),
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: vault.storageType == 'ftp'
                                   ? Colors.blue.withValues(alpha: 0.15)
@@ -7964,7 +9818,9 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
                             child: Text(
                               vault.storageType.toUpperCase(),
                               style: GoogleFonts.outfit(
-                                color: vault.storageType == 'ftp' ? Colors.blue : Colors.green,
+                                color: vault.storageType == 'ftp'
+                                    ? Colors.blue
+                                    : Colors.green,
                                 fontSize: 9,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -7982,39 +9838,60 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
                           const SizedBox(width: 8),
                           if (!isActive) ...[
                             IconButton(
-                              icon: Icon(Icons.login, color: kPrimaryHoverColor, size: 16),
+                              icon: Icon(
+                                Icons.login,
+                                color: kPrimaryHoverColor,
+                                size: 16,
+                              ),
                               tooltip: 'Select Vault',
                               visualDensity: VisualDensity.compact,
                               onPressed: () async {
                                 Navigator.pop(context);
                                 await repo.selectVault(vault);
                                 if (context.mounted) {
-                                  context.read<VaultBloc>().add(CheckVaultStatusEvent());
+                                  context.read<VaultBloc>().add(
+                                    CheckVaultStatusEvent(),
+                                  );
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       backgroundColor: kSuccessColor,
-                                      content: Text('Vault profile loaded: ${vault.name}', style: GoogleFonts.outfit()),
+                                      content: Text(
+                                        'Vault profile loaded: ${vault.name}',
+                                        style: GoogleFonts.outfit(),
+                                      ),
                                     ),
                                   );
                                 }
                               },
                             ),
                             IconButton(
-                              icon: Icon(Icons.delete_outline, color: kErrorColor, size: 16),
+                              icon: Icon(
+                                Icons.delete_outline,
+                                color: kErrorColor,
+                                size: 16,
+                              ),
                               tooltip: 'Forget Vault',
                               visualDensity: VisualDensity.compact,
                               onPressed: () async {
                                 await repo.removeRememberedVault(vault.path);
                                 _loadVaults();
                                 if (context.mounted) {
-                                  context.read<VaultBloc>().add(CheckVaultStatusEvent());
+                                  context.read<VaultBloc>().add(
+                                    CheckVaultStatusEvent(),
+                                  );
                                 }
                               },
                             ),
                           ] else
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                              child: Icon(Icons.check_circle, color: kPrimaryColor, size: 16),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8.0,
+                              ),
+                              child: Icon(
+                                Icons.check_circle,
+                                color: kPrimaryColor,
+                                size: 16,
+                              ),
                             ),
                         ],
                       ),
@@ -8041,17 +9918,29 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white.withValues(alpha: 0.04),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                   ),
                   icon: const Icon(Icons.folder_open_outlined, size: 14),
-                  label: Text('Add Existing Vault', style: GoogleFonts.outfit(fontSize: 11)),
+                  label: Text(
+                    'Add Existing Vault',
+                    style: GoogleFonts.outfit(fontSize: 11),
+                  ),
                   onPressed: () async {
-                    String? selectedDirectory = await FilePicker.getDirectoryPath();
+                    String? selectedDirectory =
+                        await FilePicker.getDirectoryPath();
                     if (selectedDirectory != null) {
                       if (mounted) {
-                        _showAddExistingVaultVerifyDialog(context, selectedDirectory);
+                        _showAddExistingVaultVerifyDialog(
+                          context,
+                          selectedDirectory,
+                        );
                       }
                     }
                   },
@@ -8060,12 +9949,20 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white.withValues(alpha: 0.04),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                   ),
                   icon: const Icon(Icons.cloud_outlined, size: 14),
-                  label: Text('Setup FTP Vault', style: GoogleFonts.outfit(fontSize: 11)),
+                  label: Text(
+                    'Setup FTP Vault',
+                    style: GoogleFonts.outfit(fontSize: 11),
+                  ),
                   onPressed: () {
                     Navigator.pop(context);
                     widget.onAddFtpVault();
@@ -8075,12 +9972,20 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white.withValues(alpha: 0.04),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                   ),
                   icon: const Icon(Icons.add, size: 14),
-                  label: Text('Create New', style: GoogleFonts.outfit(fontSize: 11)),
+                  label: Text(
+                    'Create New',
+                    style: GoogleFonts.outfit(fontSize: 11),
+                  ),
                   onPressed: () async {
                     Navigator.pop(context);
                     context.read<VaultBloc>().add(ResetToUninitializedEvent());
@@ -8098,27 +10003,39 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
                       foregroundColor: const Color(0xFF94A3B8),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+                        side: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.05),
+                        ),
                       ),
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 8),
                     ),
                     icon: const Icon(Icons.upload_file_outlined, size: 13),
-                    label: Text('Import Registry File', style: GoogleFonts.outfit(fontSize: 11)),
+                    label: Text(
+                      'Import Registry File',
+                      style: GoogleFonts.outfit(fontSize: 11),
+                    ),
                     onPressed: () async {
                       final result = await FilePicker.pickFiles(
                         type: FileType.custom,
                         allowedExtensions: ['json'],
                       );
                       if (result != null && result.files.single.path != null) {
-                        await repo.importVaultsHistory(result.files.single.path!);
+                        await repo.importVaultsHistory(
+                          result.files.single.path!,
+                        );
                         _loadVaults();
                         if (context.mounted) {
-                          context.read<VaultBloc>().add(CheckVaultStatusEvent());
+                          context.read<VaultBloc>().add(
+                            CheckVaultStatusEvent(),
+                          );
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               backgroundColor: kSuccessColor,
-                              content: Text('Vault registry imported successfully.', style: GoogleFonts.outfit()),
+                              content: Text(
+                                'Vault registry imported successfully.',
+                                style: GoogleFonts.outfit(),
+                              ),
                             ),
                           );
                         }
@@ -8134,13 +10051,18 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
                       foregroundColor: const Color(0xFF94A3B8),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
-                        side: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
+                        side: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.05),
+                        ),
                       ),
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 8),
                     ),
                     icon: const Icon(Icons.download_outlined, size: 13),
-                    label: Text('Backup Registry File', style: GoogleFonts.outfit(fontSize: 11)),
+                    label: Text(
+                      'Backup Registry File',
+                      style: GoogleFonts.outfit(fontSize: 11),
+                    ),
                     onPressed: () async {
                       final result = await FilePicker.saveFile(
                         dialogTitle: 'Export AMPCrypt Vault Registry',
@@ -8154,7 +10076,10 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               backgroundColor: kSuccessColor,
-                              content: Text('Vault registry backed up successfully.', style: GoogleFonts.outfit()),
+                              content: Text(
+                                'Vault registry backed up successfully.',
+                                style: GoogleFonts.outfit(),
+                              ),
                             ),
                           );
                         }
@@ -8169,7 +10094,6 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
       ),
     );
   }
-
 
   void _showAddExistingVaultVerifyDialog(BuildContext context, String path) {
     final repo = context.read<VaultBloc>().repository;
@@ -8189,11 +10113,18 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
               backgroundColor: kSurfaceColor,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.08), width: 1.5),
+                side: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  width: 1.5,
+                ),
               ),
               title: Text(
                 'Verify & Import Vault',
-                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                style: GoogleFonts.outfit(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
               ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -8201,32 +10132,52 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
                 children: [
                   Text(
                     'Folder Path:',
-                    style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11),
+                    style: GoogleFonts.outfit(
+                      color: const Color(0xFF94A3B8),
+                      fontSize: 11,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     path,
-                    style: GoogleFonts.shareTechMono(color: kPrimaryColor, fontSize: 11),
+                    style: GoogleFonts.shareTechMono(
+                      color: kPrimaryColor,
+                      fontSize: 11,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: nameController,
-                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontSize: 13,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'Vault Name',
-                      labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
-                      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                      labelStyle: GoogleFonts.outfit(
+                        color: const Color(0xFF94A3B8),
+                      ),
+                      enabledBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF334155)),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: passwordController,
                     obscureText: true,
-                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontSize: 13,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'Vault Passphrase',
-                      labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
-                      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                      labelStyle: GoogleFonts.outfit(
+                        color: const Color(0xFF94A3B8),
+                      ),
+                      enabledBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF334155)),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -8235,16 +10186,39 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
                     dropdownColor: kSurfaceColor,
                     decoration: InputDecoration(
                       labelText: 'Virtual Drive Letter',
-                      labelStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
-                      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
+                      labelStyle: GoogleFonts.outfit(
+                        color: const Color(0xFF94A3B8),
+                      ),
+                      enabledBorder: const UnderlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF334155)),
+                      ),
                     ),
                     style: GoogleFonts.outfit(color: Colors.white),
-                    items: ['D:', 'E:', 'F:', 'G:', 'H:', 'V:', 'W:', 'X:', 'Y:', 'Z:']
-                        .map((drive) => DropdownMenuItem(
-                              value: drive,
-                              child: Text(drive, style: GoogleFonts.outfit(color: Colors.white)),
-                            ))
-                        .toList(),
+                    items:
+                        [
+                              'D:',
+                              'E:',
+                              'F:',
+                              'G:',
+                              'H:',
+                              'V:',
+                              'W:',
+                              'X:',
+                              'Y:',
+                              'Z:',
+                            ]
+                            .map(
+                              (drive) => DropdownMenuItem(
+                                value: drive,
+                                child: Text(
+                                  drive,
+                                  style: GoogleFonts.outfit(
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(),
                     onChanged: (val) {
                       if (val != null) {
                         setDialogState(() {
@@ -8257,27 +10231,39 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
                     const SizedBox(height: 12),
                     Text(
                       verifyError!,
-                      style: GoogleFonts.outfit(color: kErrorColor, fontSize: 12),
+                      style: GoogleFonts.outfit(
+                        color: kErrorColor,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ],
               ),
               actions: [
                 TextButton(
-                  onPressed: isVerifying ? null : () => Navigator.of(dialogContext).pop(),
-                  child: Text('Cancel', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8))),
+                  onPressed: isVerifying
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(),
+                  child: Text(
+                    'Cancel',
+                    style: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
+                  ),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: kPrimaryColor,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                   onPressed: isVerifying
                       ? null
                       : () async {
                           if (passwordController.text.isEmpty) {
-                            setDialogState(() => verifyError = 'Passphrase is required');
+                            setDialogState(
+                              () => verifyError = 'Passphrase is required',
+                            );
                             return;
                           }
                           setDialogState(() {
@@ -8296,18 +10282,24 @@ class _VaultsManagerDialogState extends State<VaultsManagerDialog> {
                             Navigator.of(dialogContext).pop();
                             _loadVaults();
                             if (context.mounted) {
-                              context.read<VaultBloc>().add(CheckVaultStatusEvent());
+                              context.read<VaultBloc>().add(
+                                CheckVaultStatusEvent(),
+                              );
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   backgroundColor: kSuccessColor,
-                                  content: Text('Vault verified and registered successfully.', style: GoogleFonts.outfit()),
+                                  content: Text(
+                                    'Vault verified and registered successfully.',
+                                    style: GoogleFonts.outfit(),
+                                  ),
                                 ),
                               );
                             }
                           } else {
                             setDialogState(() {
                               isVerifying = false;
-                              verifyError = 'Failed to verify Master Key. Check passphrase or directory structure.';
+                              verifyError =
+                                  'Failed to verify Master Key. Check passphrase or directory structure.';
                             });
                           }
                         },
@@ -8448,12 +10440,18 @@ class _RealDiskUsageBarState extends State<_RealDiskUsageBar> {
           const SizedBox(
             width: 12,
             height: 12,
-            child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF16A34A)),
+            child: CircularProgressIndicator(
+              strokeWidth: 1.5,
+              color: Color(0xFF16A34A),
+            ),
           ),
           const SizedBox(width: 8),
           Text(
             'Reading disk stats…',
-            style: GoogleFonts.outfit(fontSize: 10, color: const Color(0xFF64748B)),
+            style: GoogleFonts.outfit(
+              fontSize: 10,
+              color: const Color(0xFF64748B),
+            ),
           ),
         ],
       );
@@ -8493,7 +10491,10 @@ class _RealDiskUsageBarState extends State<_RealDiskUsageBar> {
             ),
             Text(
               '${_fmt(usedBytes)} used  ·  ${_fmt(_freeBytes!)} free  /  ${_fmt(_totalBytes!)}',
-              style: GoogleFonts.outfit(fontSize: 9, color: const Color(0xFF94A3B8)),
+              style: GoogleFonts.outfit(
+                fontSize: 9,
+                color: const Color(0xFF94A3B8),
+              ),
             ),
           ],
         ),
@@ -8512,15 +10513,16 @@ class _RealDiskUsageBarState extends State<_RealDiskUsageBar> {
   }
 }
 
-
 // Top-level Security Questions Recovery Dialog
 void showSecurityQuestionsRecoveryDialog(BuildContext context) {
   final repo = context.read<VaultBloc>().repository;
-  final questions = repo.getQuestionsRecoveryQuestions() ?? [
-    'What was the name of your first pet?',
-    'In what city were you born?',
-    'What is your mother\'s maiden name?',
-  ];
+  final questions =
+      repo.getQuestionsRecoveryQuestions() ??
+      [
+        'What was the name of your first pet?',
+        'In what city were you born?',
+        'What is your mother\'s maiden name?',
+      ];
 
   final a1Controller = TextEditingController();
   final a2Controller = TextEditingController();
@@ -8556,21 +10558,34 @@ void showSecurityQuestionsRecoveryDialog(BuildContext context) {
                     color: const Color(0x2600F0FF),
                     border: Border.all(color: const Color(0x6600F0FF)),
                   ),
-                  child: const Icon(Icons.vpn_key_outlined, size: 20, color: Color(0xFF00F0FF)),
+                  child: const Icon(
+                    Icons.vpn_key_outlined,
+                    size: 20,
+                    color: Color(0xFF00F0FF),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isVerified ? 'Reset Master Password' : 'Vault Password Recovery',
-                      style: GoogleFonts.outfit(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                      isVerified
+                          ? 'Reset Master Password'
+                          : 'Vault Password Recovery',
+                      style: GoogleFonts.outfit(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     Text(
                       isVerified
                           ? 'Enter a new primary password for your vault profile'
                           : 'Answer your 3 security questions to recover your main password',
-                      style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 11),
+                      style: GoogleFonts.outfit(
+                        color: const Color(0xFF94A3B8),
+                        fontSize: 11,
+                      ),
                     ),
                   ],
                 ),
@@ -8594,12 +10609,19 @@ void showSecurityQuestionsRecoveryDialog(BuildContext context) {
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.error_outline, color: Color(0xFFFF4D88), size: 16),
+                            const Icon(
+                              Icons.error_outline,
+                              color: Color(0xFFFF4D88),
+                              size: 16,
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 errorMessage!,
-                                style: GoogleFonts.outfit(color: Colors.white, fontSize: 12),
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
                           ],
@@ -8610,100 +10632,178 @@ void showSecurityQuestionsRecoveryDialog(BuildContext context) {
                       // Question 1
                       Text(
                         'QUESTION 1: ${questions[0]}',
-                        style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF00F0FF)),
+                        style: GoogleFonts.outfit(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF00F0FF),
+                        ),
                       ),
                       const SizedBox(height: 4),
                       TextField(
                         controller: a1Controller,
-                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
                         decoration: InputDecoration(
                           hintText: 'Enter answer 1',
-                          hintStyle: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 12),
-                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                          focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00F0FF))),
+                          hintStyle: GoogleFonts.outfit(
+                            color: const Color(0xFF64748B),
+                            fontSize: 12,
+                          ),
+                          enabledBorder: const UnderlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF334155)),
+                          ),
+                          focusedBorder: const UnderlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF00F0FF)),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 14),
                       // Question 2
                       Text(
                         'QUESTION 2: ${questions[1]}',
-                        style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF00F0FF)),
+                        style: GoogleFonts.outfit(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF00F0FF),
+                        ),
                       ),
                       const SizedBox(height: 4),
                       TextField(
                         controller: a2Controller,
-                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
                         decoration: InputDecoration(
                           hintText: 'Enter answer 2',
-                          hintStyle: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 12),
-                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                          focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00F0FF))),
+                          hintStyle: GoogleFonts.outfit(
+                            color: const Color(0xFF64748B),
+                            fontSize: 12,
+                          ),
+                          enabledBorder: const UnderlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF334155)),
+                          ),
+                          focusedBorder: const UnderlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF00F0FF)),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 14),
                       // Question 3
                       Text(
                         'QUESTION 3: ${questions[2]}',
-                        style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF00F0FF)),
+                        style: GoogleFonts.outfit(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF00F0FF),
+                        ),
                       ),
                       const SizedBox(height: 4),
                       TextField(
                         controller: a3Controller,
-                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
                         decoration: InputDecoration(
                           hintText: 'Enter answer 3',
-                          hintStyle: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 12),
-                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                          focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00F0FF))),
+                          hintStyle: GoogleFonts.outfit(
+                            color: const Color(0xFF64748B),
+                            fontSize: 12,
+                          ),
+                          enabledBorder: const UnderlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF334155)),
+                          ),
+                          focusedBorder: const UnderlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF00F0FF)),
+                          ),
                         ),
                       ),
                     ] else ...[
                       Text(
                         'NEW PRIMARY MASTER PASSWORD',
-                        style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF00F0FF)),
+                        style: GoogleFonts.outfit(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF00F0FF),
+                        ),
                       ),
                       const SizedBox(height: 4),
                       TextField(
                         controller: newPassController,
                         obscureText: obscureNewPass,
-                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
                         decoration: InputDecoration(
                           hintText: 'Enter new primary password (8+ chars)',
-                          hintStyle: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 12),
-                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                          focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00F0FF))),
+                          hintStyle: GoogleFonts.outfit(
+                            color: const Color(0xFF64748B),
+                            fontSize: 12,
+                          ),
+                          enabledBorder: const UnderlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF334155)),
+                          ),
+                          focusedBorder: const UnderlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF00F0FF)),
+                          ),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              obscureNewPass ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              obscureNewPass
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
                               color: const Color(0xFF94A3B8),
                               size: 18,
                             ),
-                            onPressed: () => setDialogState(() => obscureNewPass = !obscureNewPass),
+                            onPressed: () => setDialogState(
+                              () => obscureNewPass = !obscureNewPass,
+                            ),
                           ),
                         ),
                       ),
                       const SizedBox(height: 14),
                       Text(
                         'CONFIRM NEW MASTER PASSWORD',
-                        style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF00F0FF)),
+                        style: GoogleFonts.outfit(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF00F0FF),
+                        ),
                       ),
                       const SizedBox(height: 4),
                       TextField(
                         controller: confirmPassController,
                         obscureText: obscureConfirmPass,
-                        style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
                         decoration: InputDecoration(
                           hintText: 'Re-enter new primary password',
-                          hintStyle: GoogleFonts.outfit(color: const Color(0xFF64748B), fontSize: 12),
-                          enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF334155))),
-                          focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF00F0FF))),
+                          hintStyle: GoogleFonts.outfit(
+                            color: const Color(0xFF64748B),
+                            fontSize: 12,
+                          ),
+                          enabledBorder: const UnderlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF334155)),
+                          ),
+                          focusedBorder: const UnderlineInputBorder(
+                            borderSide: BorderSide(color: Color(0xFF00F0FF)),
+                          ),
                           suffixIcon: IconButton(
                             icon: Icon(
-                              obscureConfirmPass ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              obscureConfirmPass
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
                               color: const Color(0xFF94A3B8),
                               size: 18,
                             ),
-                            onPressed: () => setDialogState(() => obscureConfirmPass = !obscureConfirmPass),
+                            onPressed: () => setDialogState(
+                              () => obscureConfirmPass = !obscureConfirmPass,
+                            ),
                           ),
                         ),
                       ),
@@ -8715,30 +10815,48 @@ void showSecurityQuestionsRecoveryDialog(BuildContext context) {
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: Text('Cancel', style: GoogleFonts.outfit(color: const Color(0xFF94A3B8))),
+                child: Text(
+                  'Cancel',
+                  style: GoogleFonts.outfit(color: const Color(0xFF94A3B8)),
+                ),
               ),
               if (!isVerified)
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0072FF),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                   icon: const Icon(Icons.verified_user_outlined, size: 16),
-                  label: Text('Verify Answers', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                  label: Text(
+                    'Verify Answers',
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                  ),
                   onPressed: () async {
                     final a1 = a1Controller.text.trim();
                     final a2 = a2Controller.text.trim();
                     final a3 = a3Controller.text.trim();
 
                     if (a1.isEmpty || a2.isEmpty || a3.isEmpty) {
-                      setDialogState(() => errorMessage = 'Please answer all 3 security questions.');
+                      setDialogState(
+                        () => errorMessage =
+                            'Please answer all 3 security questions.',
+                      );
                       return;
                     }
 
-                    final key = await repo.recoverWithQuestionsAndEmail([a1, a2, a3]);
+                    final key = await repo.recoverWithQuestionsAndEmail([
+                      a1,
+                      a2,
+                      a3,
+                    ]);
                     if (key == null) {
-                      setDialogState(() => errorMessage = 'Incorrect security answers! Recovery failed.');
+                      setDialogState(
+                        () => errorMessage =
+                            'Incorrect security answers! Recovery failed.',
+                      );
                     } else {
                       setDialogState(() {
                         isVerified = true;
@@ -8753,28 +10871,41 @@ void showSecurityQuestionsRecoveryDialog(BuildContext context) {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF10B981),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                   icon: const Icon(Icons.check_circle_outline, size: 16),
-                  label: Text('Reset & Unlock Vault', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                  label: Text(
+                    'Reset & Unlock Vault',
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                  ),
                   onPressed: () async {
                     final newPass = newPassController.text;
                     final confirmPass = confirmPassController.text;
 
                     if (newPass.length < 8) {
-                      setDialogState(() => errorMessage = 'Password must be at least 8 characters long.');
+                      setDialogState(
+                        () => errorMessage =
+                            'Password must be at least 8 characters long.',
+                      );
                       return;
                     }
 
                     if (newPass != confirmPass) {
-                      setDialogState(() => errorMessage = 'Passwords do not match!');
+                      setDialogState(
+                        () => errorMessage = 'Passwords do not match!',
+                      );
                       return;
                     }
 
                     if (recoveredMasterKey != null) {
                       Navigator.of(dialogContext).pop();
 
-                      await repo.resetMasterPasswordWithKey(recoveredMasterKey!, newPass);
+                      await repo.resetMasterPasswordWithKey(
+                        recoveredMasterKey!,
+                        newPass,
+                      );
                       await repo.unlockWithMasterKey(recoveredMasterKey!);
 
                       if (context.mounted) {
@@ -8782,7 +10913,10 @@ void showSecurityQuestionsRecoveryDialog(BuildContext context) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             backgroundColor: kSuccessColor,
-                            content: Text('Master password successfully reset! Vault unlocked.', style: GoogleFonts.outfit()),
+                            content: Text(
+                              'Master password successfully reset! Vault unlocked.',
+                              style: GoogleFonts.outfit(),
+                            ),
                           ),
                         );
                       }

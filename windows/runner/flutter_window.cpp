@@ -203,21 +203,25 @@ bool FlutterWindow::OnCreate() {
             return;
           }
           std::wstring wpath(path_str->begin(), path_str->end());
-          std::wstring rootPath = L"C:\\";
-          bool isLetter0 = (wpath[0] >= L'A' && wpath[0] <= L'Z') || (wpath[0] >= L'a' && wpath[0] <= L'z');
-          bool isLetter1 = wpath.length() >= 2 && ((wpath[1] >= L'A' && wpath[1] <= L'Z') || (wpath[1] >= L'a' && wpath[1] <= L'z'));
+          wchar_t volumePath[MAX_PATH] = L"C:\\";
           
-          if (wpath.length() >= 2 && isLetter0 && wpath[1] == L':') {
-            rootPath = wpath.substr(0, 2) + L"\\";
-          } else if (wpath.length() >= 3 && (wpath[0] == L'/' || wpath[0] == L'\\') && isLetter1 && wpath[2] == L':') {
-            rootPath = wpath.substr(1, 2) + L"\\";
+          if (!GetVolumePathNameW(wpath.c_str(), volumePath, MAX_PATH)) {
+            for (size_t i = 0; i < wpath.length(); ++i) {
+              if (wpath[i] == L':' && i > 0) {
+                volumePath[0] = towupper(wpath[i - 1]);
+                volumePath[1] = L':';
+                volumePath[2] = L'\\';
+                volumePath[3] = L'\0';
+                break;
+              }
+            }
           }
           
           ULARGE_INTEGER freeBytesAvailable;
           ULARGE_INTEGER totalNumberOfBytes;
           ULARGE_INTEGER totalNumberOfFreeBytes;
           
-          if (GetDiskFreeSpaceExW(rootPath.c_str(), &freeBytesAvailable, &totalNumberOfBytes, &totalNumberOfFreeBytes)) {
+          if (GetDiskFreeSpaceExW(volumePath, &freeBytesAvailable, &totalNumberOfBytes, &totalNumberOfFreeBytes)) {
             flutter::EncodableMap resultMap;
             resultMap[flutter::EncodableValue("total")] = static_cast<int64_t>(totalNumberOfBytes.QuadPart);
             resultMap[flutter::EncodableValue("free")] = static_cast<int64_t>(freeBytesAvailable.QuadPart);

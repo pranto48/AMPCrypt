@@ -40,6 +40,9 @@ class WebDavServer {
     _masterKey = Uint8List.fromList(masterKey);
     _storage = storage;
     
+    // Immediately calculate physical storage quota
+    await _updateQuota();
+    
     // Ensure vault storage initialized
     await _storage!.initialize();
     

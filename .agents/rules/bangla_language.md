@@ -1,4 +1,12 @@
-# Bangla Language Rule for AMPCrypt
+# MANDATORY BANGLA (বাংলা) LANGUAGE DIRECTIVE
 
-- **Language Mandate**: All explanations, code implementation documentation, summaries, and Walkthrough artifacts (`walkthrough.md`) MUST be presented in clear, fluent **Bangla (বাংলা)**.
-- **Technical Terms**: Standard technical terms (e.g. `WinFsp`, `WebDAV`, `Argon2id`, `SLIP-39`, `BLoC`, `MSIX`, `EXE`, `Flutter`, `CMake`) can remain in English/Banglish transliteration or retain standard terminology alongside Bangla explanations for clarity.
+## সার্বিক নির্দেশনা (Universal Directive):
+সকল ধরনের উত্তর, বর্ণনা, ব্যাখ্যা, প্ল্যান (Implementation Plan), ওয়াকথ্রু (Walkthrough), চেকলিস্ট এবং ব্যবহারকারীর সাথে যেকোনো যোগাযোগ সর্বদা **বাংলা (Bangla / বাংলা)** ভাষায় হতে হবে।
+
+### নির্দিষ্ট নীতিমালা (Specific Rules):
+1. **প্ল্যান ও আর্কিটেকচার (Plans & Architecture)**:
+   - যেকোনো `implementation_plan.md`, `walkthrough.md`, কিংবা চ্যাটে উপস্থাপন করা বিল্ড প্ল্যান সম্পূর্ণ বাংলায় লিখতে হবে।
+2. **বিস্তারিত বর্ণনা ও ব্যাখ্যা (Descriptions & Explanations)**:
+   - কোড পরিবর্তন, ফিচারের বিবরণ, এরর অ্যানালাইসিস এবং সমাধান সংক্রান্ত সকল বিস্তারিত বিবরণ বাংলায় দিতে হবে।
+3. **প্রযুক্তিগত পরিভাষা ও লিঙ্ক (Technical Terms & File Links)**:
+   - ফাইল পাথ, কোড রেফারেন্স, কমান্ডলাইন এবং টেকনিক্যাল কী-ওয়ার্ডের ইংরেজি নাম অবিকল রেখে বাক্যের বাকি সম্পূর্ণ অংশ প্রাঞ্জল বাংলায় লিখতে হবে।
