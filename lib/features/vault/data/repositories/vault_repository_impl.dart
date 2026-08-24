@@ -535,289 +535,13 @@ class VaultRepositoryImpl implements VaultRepository {
   static const _winFspChannel = MethodChannel('ampcrypt/winfsp');
   static const _helloChannel = MethodChannel('ampcrypt/windows_hello');
 
-  Future<String?> _mountVhdxDiskpart(
-    String vhdxPath,
-    String preferredLetter,
-  ) async {
-    final letterOnly = preferredLetter.replaceAll(':', '');
-    String targetLetter = letterOnly;
-    try {
-      final drivesResult = await Process.run('powershell.exe', [
-        '-Command',
-        '[System.IO.DriveInfo]::GetDrives() | Select-Object -ExpandProperty Name',
-      ]);
-      final activeDrives = drivesResult.stdout
-          .toString()
-          .split('\r\n')
-          .map((d) => d.replaceAll(':\\', '').trim().toUpperCase())
-          .where((d) => d.isNotEmpty)
-          .toList();
 
-      if (activeDrives.contains(letterOnly.toUpperCase())) {
-        final candidates = [
-          'Z',
-          'Y',
-          'X',
-          'W',
-          'V',
-          'U',
-          'T',
-          'S',
-          'R',
-          'Q',
-          'P',
-          'O',
-          'N',
-          'M',
-          'L',
-          'K',
-          'J',
-          'I',
-          'H',
-          'G',
-        ];
-        for (var c in candidates) {
-          if (!activeDrives.contains(c)) {
-            targetLetter = c;
-            break;
-          }
-        }
-      }
-    } catch (_) {}
-
-    final vaultDir = p.dirname(vhdxPath);
-    final tmpDir = Directory(p.join(vaultDir, '.amp_tmp'));
-    if (!tmpDir.existsSync()) {
-      try {
-        tmpDir.createSync(recursive: true);
-      } catch (_) {}
-    }
-    final mountScriptPath = p.join(tmpDir.existsSync() ? tmpDir.path : vaultDir, 'mount_script.txt');
-    final scriptContent = [
-      'select vdisk file="$vhdxPath"',
-      'attach vdisk',
-      'online disk',
-      'attributes disk clear readonly',
-      'select partition 1',
-      'assign letter=$targetLetter',
-    ].join('\r\n');
-
-    await File(mountScriptPath).writeAsString(scriptContent);
-    try {
-      final res = await Process.run('diskpart.exe', ['/s', mountScriptPath]);
-      try {
-        await File(mountScriptPath).delete();
-      } catch (_) {}
-      if (res.exitCode != 0) return null;
-    } catch (_) {
-      return null; // Requires elevation; fall back to WebDAV
-    }
-
-    bool success = false;
-    for (int i = 0; i < 5; i++) {
-      await Future.delayed(const Duration(milliseconds: 1000));
-      try {
-        final checkResult = await Process.run('powershell.exe', [
-          '-Command',
-          '[System.IO.DriveInfo]::GetDrives() | Where-Object { \$_.Name -eq "$targetLetter:\\" } | Select-Object -ExpandProperty Name',
-        ]);
-        if (checkResult.stdout.toString().trim().isNotEmpty) {
-          success = true;
-          break;
-        }
-      } catch (_) {}
-    }
-
-    if (success) {
-      return '$targetLetter:';
-    }
-    return null;
-  }
-
-  Future<void> _dismountVhdxDiskpart(String vhdxPath) async {
-    final vaultDir = p.dirname(vhdxPath);
-    final tmpDir = Directory(p.join(vaultDir, '.amp_tmp'));
-    final unmountScriptPath = p.join(tmpDir.existsSync() ? tmpDir.path : vaultDir, 'unmount_script.txt');
-    final scriptContent = [
-      'select vdisk file="$vhdxPath"',
-      'offline disk',
-      'detach vdisk',
-    ].join('\r\n');
-    await File(unmountScriptPath).writeAsString(scriptContent);
-    try {
-      await Process.run('diskpart.exe', ['/s', unmountScriptPath]);
-      try {
-        await File(unmountScriptPath).delete();
-      } catch (_) {}
-    } catch (_) {}
-  }
 
   Future<void> _startServerAndMount(Uint8List masterKey) async {
     final vaultPath = getVaultPath();
     final driveLetter = getDriveLetter();
 
-    if (Platform.isWindows && storageType == 'local') {
-      try {
-        final vhdxPath = p.join(vaultPath, 'vault.vhdx');
-        final vhdxEncPath = p.join(vaultPath, 'vault.vhdx.enc');
 
-        final vhdxFile = File(vhdxPath);
-        final vhdxEncFile = File(vhdxEncPath);
-
-        // ── LEGACY VAULT MIGRATION ──────────────────────────────────────────
-        if (!vhdxEncFile.existsSync()) {
-          final tempZipPath = p.join(vaultPath, 'vault_template.zip');
-          try {
-            final byteData = await rootBundle.load('assets/vault_template.zip');
-            final buffer = byteData.buffer.asUint8List(
-              byteData.offsetInBytes,
-              byteData.lengthInBytes,
-            );
-            await File(tempZipPath).writeAsBytes(buffer, flush: true);
-
-            await Process.run('powershell.exe', [
-              '-Command',
-              "Expand-Archive -Path '$tempZipPath' -DestinationPath '$vaultPath' -Force",
-            ]);
-            try {
-              await File(tempZipPath).delete();
-            } catch (_) {}
-
-            final templateFile = File(p.join(vaultPath, 'vault_template.vhdx'));
-            if (templateFile.existsSync()) {
-              await templateFile.rename(vhdxPath);
-            }
-          } catch (_) {}
-
-          if (vhdxFile.existsSync()) {
-            final tempLetter = await _mountVhdxDiskpart(vhdxPath, 'Y');
-            if (tempLetter != null) {
-              final legacyDataDir = Directory(p.join(vaultPath, 'data'));
-              if (legacyDataDir.existsSync()) {
-                try {
-                  await Process.run('powershell.exe', [
-                    '-Command',
-                    "Copy-Item -Path '${legacyDataDir.path}\\*' -Destination '$tempLetter\\' -Recurse -Force -ErrorAction SilentlyContinue",
-                  ]);
-                } catch (_) {}
-              }
-              await _dismountVhdxDiskpart(vhdxPath);
-              await Future.delayed(const Duration(milliseconds: 1500));
-            } else {
-              await _dismountVhdxDiskpart(vhdxPath);
-              await Future.delayed(const Duration(milliseconds: 1500));
-            }
-
-            if (vhdxFile.existsSync()) {
-              await _encryptFile(vhdxFile, vhdxEncFile, masterKey);
-              try {
-                vhdxFile.deleteSync();
-              } catch (_) {}
-            }
-          }
-        }
-
-        // ── NORMAL UNLOCK: DECRYPT ──────────────────────────────────────────
-        if (vhdxEncFile.existsSync() && !vhdxFile.existsSync()) {
-          await _decryptFile(vhdxEncFile, vhdxFile, masterKey);
-        }
-
-        // ── MOUNT VHDX VIA DISKPART ─────────────────────────────────────────
-        if (vhdxFile.existsSync()) {
-          final activeDriveLetter = await _mountVhdxDiskpart(
-            vhdxPath,
-            driveLetter,
-          );
-          if (activeDriveLetter != null) {
-            await _prefs.setString('drive_letter', activeDriveLetter);
-
-            // ── INJECT TRANSPARENT CUSTOM ICON ──────────────────────────────────
-            final activeLetter = activeDriveLetter.replaceAll(':', '');
-            try {
-              final systemRoot =
-                  Platform.environment['SystemRoot'] ?? r'C:\Windows';
-              final iconFile = File(p.join(vaultPath, 'vault_drive.ico'));
-              String securityIcon = iconFile.path;
-              try {
-                final byteData = await rootBundle.load(
-                  'assets/vault_drive.ico',
-                );
-                await iconFile.writeAsBytes(
-                  byteData.buffer.asUint8List(
-                    byteData.offsetInBytes,
-                    byteData.lengthInBytes,
-                  ),
-                  flush: true,
-                );
-              } catch (_) {
-                securityIcon = '$systemRoot\\System32\\imageres.dll,104';
-              }
-
-              // HKLM and HKCU registry overrides
-              try {
-                await Process.run('powershell.exe', [
-                  '-Command',
-                  'New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$activeLetter\\DefaultIcon" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$activeLetter\\DefaultIcon" -Value "$securityIcon"; New-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$activeLetter\\DefaultLabel" -Force; Set-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$activeLetter\\DefaultLabel" -Value "AMPCrypt Vault"',
-                ]);
-              } catch (_) {}
-
-              try {
-                await Process.run('reg.exe', [
-                  'add',
-                  'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$activeLetter\\DefaultIcon',
-                  '/ve',
-                  '/d',
-                  securityIcon,
-                  '/f',
-                ]);
-                await Process.run('reg.exe', [
-                  'add',
-                  'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$activeLetter\\DefaultLabel',
-                  '/ve',
-                  '/d',
-                  'AMPCrypt Vault',
-                  '/f',
-                ]);
-              } catch (_) {}
-
-              try {
-                await Process.run('reg.exe', [
-                  'add',
-                  'HKCU\\Software\\Classes\\Applications\\Explorer.exe\\Drives\\$activeLetter\\DefaultIcon',
-                  '/ve',
-                  '/d',
-                  securityIcon,
-                  '/f',
-                ]);
-                await Process.run('reg.exe', [
-                  'add',
-                  'HKCU\\Software\\Classes\\Applications\\Explorer.exe\\Drives\\$activeLetter\\DefaultLabel',
-                  '/ve',
-                  '/d',
-                  'AMPCrypt Vault',
-                  '/f',
-                ]);
-              } catch (_) {}
-            } catch (_) {}
-
-            // Notify Windows shell immediately, then again after 1s
-            try {
-              await _winFspChannel.invokeMethod<void>('refreshShell');
-            } catch (_) {}
-            Future.delayed(const Duration(milliseconds: 1000), () async {
-              try {
-                await _winFspChannel.invokeMethod<void>('refreshShell');
-              } catch (_) {}
-            });
-
-            await PortableStateSync.syncToPortable();
-            return;
-          }
-        }
-      } catch (_) {
-        // VHDX / diskpart failed due to elevation; fall back to WebDAV/WinFSP zero-elevation storage
-      }
-    }
 
     // Start WebDAV server with abstract storage
     VaultStorage storage;
@@ -872,33 +596,28 @@ class VaultRepositoryImpl implements VaultRepository {
             driveLetter,
             '--webdav-url',
             'http://127.0.0.1:$port',
+            '--webdav-vendor',
+            'other',
+            '--dir-cache-time',
+            '1s',
             '--vfs-cache-mode',
-            'writes',
+            'full',
             '--cache-dir',
             cachePath,
-            '--network-mode=false',
             '--no-checksum',
             '--no-modtime',
             '--volname',
             'AMPCrypt Vault',
           ], runInShell: false);
           
-          for (int i = 0; i < 10; i++) {
-            await Future.delayed(const Duration(milliseconds: 100));
+          for (int i = 0; i < 20; i++) {
+            await Future.delayed(const Duration(milliseconds: 150));
             if (Directory('$cleanLetter:\\').existsSync()) {
               break;
             }
           }
         } catch (_) {}
-      }
-
-      bool isMounted = false;
-      if (cleanLetter.isNotEmpty) {
-        try {
-          isMounted = Directory('$cleanLetter:\\').existsSync();
-        } catch (_) {}
-      }
-      if (cleanLetter.isNotEmpty && !isMounted) {
+      } else if (cleanLetter.isNotEmpty) {
         try {
           await Process.run('net.exe', ['use', '$cleanLetter:', 'http://127.0.0.1:$port/DavWWWRoot']);
         } catch (_) {}
@@ -1003,59 +722,7 @@ class VaultRepositoryImpl implements VaultRepository {
           _prefs.getString('drive_letter')?.replaceAll(':', '') ??
           preferredLetter;
 
-      if (storageType == 'local') {
-        final vaultPath = getVaultPath();
-        final vhdxPath = p.join(vaultPath, 'vault.vhdx');
-        final vhdxEncPath = p.join(vaultPath, 'vault.vhdx.enc');
-        final vhdxFile = File(vhdxPath);
 
-        if (vhdxFile.existsSync()) {
-          await _dismountVhdxDiskpart(vhdxPath);
-          await Future.delayed(const Duration(milliseconds: 500));
-        }
-
-        if (keyToUse != null) {
-          final vhdxEncFile = File(vhdxEncPath);
-          if (vhdxFile.existsSync()) {
-            try {
-              await _encryptFile(vhdxFile, vhdxEncFile, keyToUse);
-              vhdxFile.deleteSync();
-            } catch (_) {}
-          }
-          keyToUse.fillRange(0, keyToUse.length, 0);
-        }
-
-        // Clean up registry keys for both preferred and active letters
-        for (var letter in [preferredLetter, activeLetter]) {
-          try {
-            await Process.run('powershell.exe', [
-              '-Command',
-              'Remove-Item -Path "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letter" -Recurse -ErrorAction SilentlyContinue',
-            ]);
-          } catch (_) {}
-          try {
-            await Process.run('reg.exe', [
-              'delete',
-              'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letter',
-              '/f',
-            ]);
-          } catch (_) {}
-          try {
-            await Process.run('reg.exe', [
-              'delete',
-              'HKCU\\Software\\Classes\\Applications\\Explorer.exe\\Drives\\$letter',
-              '/f',
-            ]);
-          } catch (_) {}
-        }
-
-        try {
-          await _winFspChannel.invokeMethod<void>('refreshShell');
-        } catch (_) {}
-
-        await PortableStateSync.syncToPortable();
-        return;
-      }
 
       // Rclone WebDAV Mount Cleanup (FTP Fallback)
       try {
