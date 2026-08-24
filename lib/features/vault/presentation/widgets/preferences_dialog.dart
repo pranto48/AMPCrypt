@@ -15,6 +15,9 @@ import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import '../../../../main.dart';
+import '../../../../core/platform/windows_shell_service.dart';
+import '../../../../core/security/canary_guard_service.dart';
+import '../../../../core/security/secure_file_shredder.dart';
 
 class PreferencesDialog extends StatefulWidget {
   final int initialTabIndex;
@@ -42,6 +45,11 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
   bool _addToQuickAccess = true;
   String _quickAccessLocation = 'Explorer Navigation Pane';
   bool _debugLogging = false;
+
+  // Next-Gen Security & Shell Features
+  bool _contextMenuIntegration = true;
+  bool _canaryGuardEnabled = true;
+  String _shreddingStandard = 'DoD 5220.22-M (3-Pass)';
 
   String _lookAndFeel = 'Light';
   String _language = 'System Default';
@@ -74,6 +82,10 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
         _addToQuickAccess = prefs.getBool('add_to_quick_access') ?? true;
         _quickAccessLocation = prefs.getString('quick_access_location') ?? 'Explorer Navigation Pane';
         _debugLogging = prefs.getBool('debug_logging') ?? false;
+
+        _contextMenuIntegration = prefs.getBool('context_menu_integration') ?? true;
+        _canaryGuardEnabled = prefs.getBool('canary_guard_enabled') ?? true;
+        _shreddingStandard = prefs.getString('shredding_standard') ?? 'DoD 5220.22-M (3-Pass)';
 
         _lookAndFeel = prefs.getString('look_and_feel') ?? 'Light';
         _language = prefs.getString('language') ?? 'System Default';
@@ -442,6 +454,75 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
                     color: const Color(0xFF2563EB),
                     fontSize: 13,
                     decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Divider(color: borderColor, height: 1),
+          const SizedBox(height: 20),
+          Text(
+            'Next-Gen Security & Windows Integration',
+            style: GoogleFonts.outfit(color: textColor, fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 12),
+          _checkboxRow(
+            'Integrate with Windows Explorer Context Menu (Right-Click)',
+            _contextMenuIntegration,
+            (val) async {
+              final enabled = val ?? false;
+              setState(() => _contextMenuIntegration = enabled);
+              await _saveBoolPref('context_menu_integration', enabled);
+              if (enabled) {
+                await WindowsShellService().registerExplorerContextMenu();
+              } else {
+                await WindowsShellService().unregisterExplorerContextMenu();
+              }
+            },
+            textColor,
+          ),
+          const SizedBox(height: 12),
+          _checkboxRow(
+            'Enable AI Ransomware Canary Honey-Pot Threat Guard',
+            _canaryGuardEnabled,
+            (val) async {
+              final enabled = val ?? false;
+              setState(() => _canaryGuardEnabled = enabled);
+              await _saveBoolPref('canary_guard_enabled', enabled);
+            },
+            textColor,
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Text(
+                'Secure File Shredding Standard:',
+                style: GoogleFonts.outfit(color: textColor, fontSize: 13),
+              ),
+              const SizedBox(width: 12),
+              Container(
+                height: 32,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: borderColor),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _shreddingStandard,
+                    style: GoogleFonts.outfit(color: textColor, fontSize: 13),
+                    items: [
+                      'Quick Zero Wipe',
+                      'DoD 5220.22-M (3-Pass)',
+                      'Enhanced Gutmann (7-Pass)'
+                    ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() => _shreddingStandard = val);
+                        _saveStringPref('shredding_standard', val);
+                      }
+                    },
                   ),
                 ),
               ),

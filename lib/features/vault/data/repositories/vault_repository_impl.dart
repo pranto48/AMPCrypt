@@ -20,6 +20,8 @@ import 'package:ftpconnect/ftpconnect.dart';
 import '../../domain/repositories/vault_repository.dart';
 import '../../../../core/portable_state_sync.dart';
 import '../../../../core/storage/cloud_filter_service.dart';
+import '../../../../core/security/canary_guard_service.dart';
+import '../../../../core/platform/windows_shell_service.dart';
 
 /// Factor names in Group 1, indexed by position.
 /// For an authLevel of N, only the first N factors are used.
@@ -368,6 +370,17 @@ class VaultRepositoryImpl implements VaultRepository {
 
       _cachedMasterKey = recoveredMasterKey;
       await _startServerAndMount(recoveredMasterKey);
+
+      // Arm Canary Honey-pot Threat Guard
+      try {
+        CanaryGuardService().armTrap(
+          vaultPath: vPath,
+          onBreach: (reason, canaryPath) {
+            lockVault();
+          },
+        );
+      } catch (_) {}
+
       return true;
     } catch (e) {
       return false;
@@ -390,6 +403,17 @@ class VaultRepositoryImpl implements VaultRepository {
 
       _cachedMasterKey = recoveredMasterKey;
       await _startServerAndMount(recoveredMasterKey);
+
+      final vPath = getVaultPath();
+      try {
+        CanaryGuardService().armTrap(
+          vaultPath: vPath,
+          onBreach: (reason, canaryPath) {
+            lockVault();
+          },
+        );
+      } catch (_) {}
+
       return true;
     } catch (e) {
       return false;
@@ -400,6 +424,7 @@ class VaultRepositoryImpl implements VaultRepository {
 
   @override
   void lockVault() {
+    CanaryGuardService().disarmTrap();
     Uint8List? keyToUse;
     if (_cachedMasterKey != null) {
       keyToUse = Uint8List.fromList(_cachedMasterKey!);
