@@ -847,6 +847,76 @@ class VaultRepositoryImpl implements VaultRepository {
     }
   }
 
+  @override
+  Future<bool> isWinFspInstalled() async {
+    if (!Platform.isWindows) return true;
+    try {
+      final result = await Process.run('reg.exe', [
+        'query',
+        r'HKLM\SOFTWARE\WOW6432Node\WinFsp',
+      ]);
+      if (result.exitCode == 0) return true;
+    } catch (_) {}
+    try {
+      final result = await Process.run('reg.exe', [
+        'query',
+        r'HKLM\SOFTWARE\WinFsp',
+      ]);
+      if (result.exitCode == 0) return true;
+    } catch (_) {}
+    if (Directory(r'C:\Program Files (x86)\WinFsp').existsSync() ||
+        Directory(r'C:\Program Files\WinFsp').existsSync() ||
+        File(r'C:\Windows\System32\drivers\winfsp-x64.sys').existsSync()) {
+      return true;
+    }
+    return false;
+  }
+
+  @override
+  Future<bool> installWinFsp() async {
+    if (!Platform.isWindows) return true;
+    if (await isWinFspInstalled()) return true;
+
+    try {
+      Directory supportDir;
+      try {
+        supportDir = await getApplicationSupportDirectory();
+      } catch (_) {
+        supportDir = Directory.systemTemp;
+      }
+      final msiPath = p.join(supportDir.path, 'winfsp-2.0.23075.msi');
+      final msiFile = File(msiPath);
+
+      if (!await msiFile.exists()) {
+        try {
+          final byteData = await rootBundle.load('assets/winfsp.msi');
+          await msiFile.writeAsBytes(byteData.buffer.asUint8List());
+        } catch (_) {
+          final client = HttpClient();
+          final request = await client.getUrl(Uri.parse(
+              'https://github.com/winfsp/winfsp/releases/download/v2.0/winfsp-2.0.23075.msi'));
+          final response = await request.close();
+          if (response.statusCode == 200) {
+            final bytes = await response.fold<List<int>>(
+                <int>[], (prev, chunk) => prev..addAll(chunk));
+            await msiFile.writeAsBytes(bytes);
+          }
+        }
+      }
+
+      if (await msiFile.exists()) {
+        final result = await Process.run('msiexec.exe', [
+          '/i',
+          msiPath,
+          '/qn',
+          '/norestart',
+        ]);
+        return result.exitCode == 0 || await isWinFspInstalled();
+      }
+    } catch (_) {}
+    return false;
+  }
+
   Future<void> _stopServerAndUnmount() async {
     if (Platform.isWindows) {
       final preferredLetter = getDriveLetter().replaceAll(':', '');
@@ -978,19 +1048,7 @@ class VaultRepositoryImpl implements VaultRepository {
     });
   }
 
-  @override
-  Future<bool> isWinFspInstalled() async {
-    if (!Platform.isWindows) return true;
-    try {
-      final result = await Process.run('reg.exe', ['query', r'HKLM\SOFTWARE\WOW6432Node\WinFsp']);
-      if (result.exitCode == 0) return true;
-    } catch (_) {}
-    try {
-      final result = await Process.run('reg.exe', ['query', r'HKLM\SOFTWARE\WinFsp']);
-      if (result.exitCode == 0) return true;
-    } catch (_) {}
-    return false;
-  }
+
 
   Future<String> _ensureRclone() async {
     // 1. Check installer's Program Files directory first (bundled rclone)
