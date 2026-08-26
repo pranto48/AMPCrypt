@@ -16,8 +16,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import '../../../../main.dart';
 import '../../../../core/platform/windows_shell_service.dart';
-import '../../../../core/security/canary_guard_service.dart';
-import '../../../../core/security/secure_file_shredder.dart';
 
 class PreferencesDialog extends StatefulWidget {
   final int initialTabIndex;
