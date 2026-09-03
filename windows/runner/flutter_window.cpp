@@ -231,7 +231,16 @@ bool FlutterWindow::OnCreate() {
           }
         } else if (call.method_name() == "refreshShell") {
           SHChangeNotify(0x08000000, 0, NULL, NULL); // SHCNE_ASSOCCHANGED
+          SHChangeNotify(0x00000040, 0, NULL, NULL); // SHCNE_UPDATEITEM
           result->Success(flutter::EncodableValue(true));
+        } else if (call.method_name() == "cleanForensicTraces") {
+          SHAddToRecentDocs(0, NULL); // Clears Windows Recent docs for privacy
+          SHChangeNotify(0x08000000, 0, NULL, NULL); // SHCNE_ASSOCCHANGED
+          result->Success(flutter::EncodableValue(true));
+        } else if (call.method_name() == "isDebuggerAttached") {
+          BOOL isDebugger = IsDebuggerPresent();
+          CheckRemoteDebuggerPresent(GetCurrentProcess(), &isDebugger);
+          result->Success(flutter::EncodableValue(isDebugger ? true : false));
         } else {
           result->NotImplemented();
         }

@@ -265,4 +265,25 @@ abstract class VaultRepository {
     required String password,
     required String driveLetter,
   });
+
+  /// Lists items (files and folders) inside a virtual path in the active vault.
+  List<Map<String, dynamic>> listVaultDirectory(String virtualPath);
+
+  /// Retrieves decrypted bytes of a virtual file for secure in-memory preview (no temp disk trace).
+  Future<Uint8List?> getVaultFileBytes(String virtualPath);
+
+  /// Imports a local file into the vault, encrypting it with self-healing headers.
+  Future<bool> importFileToVault(String localSourcePath, String targetVirtualDir);
+
+  /// Exports a decrypted file from the vault to a local destination.
+  Future<bool> exportFileFromVault(String virtualPath, String localDestPath);
+
+  /// Creates a new virtual directory in the vault.
+  Future<bool> createVaultDirectory(String virtualDirPath);
+
+  /// Deletes a file or directory inside the vault.
+  Future<bool> deleteVaultPath(String virtualPath);
+
+  /// Performs Self-Healing Scavenge to repair and recover all files from data/ headers.
+  Future<int> scavengeVaultFiles();
 }

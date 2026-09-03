@@ -1181,6 +1181,7 @@ class _VaultPageState extends State<VaultPage>
                         onRecoveryTap: () {
                           _showSecurityRecoveryDialog(context);
                         },
+                        repository: repo,
                       ),
                     ),
                   ],

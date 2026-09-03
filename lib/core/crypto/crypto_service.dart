@@ -37,4 +37,26 @@ abstract class CryptoService {
 
   /// Securely overwrites the key buffer in RAM with zeros.
   void zeroizeKey(Uint8List key);
+
+  /// Chunked streaming encryption: streams ciphertext in 64KB blocks with minimal RAM.
+  /// Each file starts with an encrypted Self-Healing Header (path, size, timestamp).
+  Stream<List<int>> encryptStream(
+    Stream<List<int>> inputStream,
+    Uint8List key, {
+    String? originalPath,
+    int? expectedSize,
+  });
+
+  /// Chunked streaming decryption: decrypts block-by-block with minimal RAM.
+  /// Automatically handles both chunked AMPC files and legacy single-box files.
+  Stream<List<int>> decryptStream(
+    Stream<List<int>> inputStream,
+    Uint8List key,
+  );
+
+  /// Extracts the Self-Healing File Header metadata without loading the entire file.
+  Future<Map<String, dynamic>?> extractFileHeader(
+    Uint8List headerPrefixBytes,
+    Uint8List key,
+  );
 }

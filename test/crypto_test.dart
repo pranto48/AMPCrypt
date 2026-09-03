@@ -8,6 +8,7 @@
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ampcrypt/core/crypto/crypto_service.dart';
+import 'package:ampcrypt/core/crypto/crypto_service_impl.dart';
 import 'package:ampcrypt/core/crypto/mock_crypto_service.dart';
 
 void main() {
@@ -64,5 +65,60 @@ void main() {
     // Decrypt
     final decryptedData = await cryptoService.decryptData(encryptedData, derivedKey);
     expect(decryptedData, equals(originalData));
+  });
+
+  test('CryptoServiceImpl - Streaming encryption and decryption with self-healing header', () async {
+    final realCrypto = CryptoServiceImpl();
+    final key = realCrypto.generateSecureRandom(32);
+    final originalText = "Zero-Trust Military Grade Vault Payload 2026";
+    final originalBytes = Uint8List.fromList(originalText.codeUnits);
+
+    final encryptedStream = realCrypto.encryptStream(
+      Stream.value(originalBytes),
+      key,
+      originalPath: '/Documents/classified.pdf',
+    );
+
+    final encryptedChunks = await encryptedStream.toList();
+    final allEncryptedBytes = <int>[];
+    for (final chunk in encryptedChunks) {
+      allEncryptedBytes.addAll(chunk);
+    }
+
+    // Verify magic header AMPC\x01
+    expect(allEncryptedBytes.sublist(0, 5), equals([0x41, 0x4D, 0x50, 0x43, 0x01]));
+
+    // Decrypt stream
+    final decryptedStream = realCrypto.decryptStream(
+      Stream.value(Uint8List.fromList(allEncryptedBytes)),
+      key,
+    );
+
+    final decryptedChunks = await decryptedStream.toList();
+    final allDecryptedBytes = <int>[];
+    for (final chunk in decryptedChunks) {
+      allDecryptedBytes.addAll(chunk);
+    }
+
+    expect(String.fromCharCodes(allDecryptedBytes), equals(originalText));
+  });
+
+  test('CryptoServiceImpl - Extract self-healing file header', () async {
+    final realCrypto = CryptoServiceImpl();
+    final key = realCrypto.generateSecureRandom(32);
+    final originalBytes = Uint8List.fromList("Payload data".codeUnits);
+
+    final encryptedStream = realCrypto.encryptStream(
+      Stream.value(originalBytes),
+      key,
+      originalPath: '/Photos/secret_family.jpg',
+    );
+
+    final encryptedBytes = await encryptedStream.fold<List<int>>([], (prev, elem) => prev..addAll(elem));
+
+    final header = await realCrypto.extractFileHeader(Uint8List.fromList(encryptedBytes), key);
+    expect(header, isNotNull);
+    expect(header!['path'], equals('/Photos/secret_family.jpg'));
+    expect(header['timestamp'], isNotNull);
   });
 }

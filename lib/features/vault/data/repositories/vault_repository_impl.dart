@@ -357,6 +357,9 @@ class VaultRepositoryImpl implements VaultRepository {
       _cachedMasterKey = null;
     }
     _stopServerAndUnmount();
+    try {
+      _winFspChannel.invokeMethod<void>('cleanForensicTraces');
+    } catch (_) {}
   }
 
   @override
@@ -547,20 +550,57 @@ class VaultRepositoryImpl implements VaultRepository {
         try {
           final letterOnly = driveLetter.replaceAll(':', '');
           final systemRoot = Platform.environment['SystemRoot'] ?? r'C:\Windows';
-          final iconFile = File(p.join(supportDir.path, 'vault_drive.ico'));
-          String securityIcon = iconFile.path;
-          if (!await iconFile.exists()) {
-            try {
-              final byteData = await rootBundle.load('assets/vault_drive.ico');
-              await iconFile.writeAsBytes(
-                byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes),
-                flush: true,
-              );
-            } catch (_) {
+          final progData = Platform.environment['ProgramData'] ?? r'C:\ProgramData';
+          
+          final progDataDir = Directory(p.join(progData, 'AMPCrypt'));
+          if (!progDataDir.existsSync()) {
+            try { progDataDir.createSync(recursive: true); } catch (_) {}
+          }
+          final globalIcon = File(p.join(progDataDir.path, 'vault_drive.ico'));
+
+          final userAppDir = Directory(p.join(supportDir.path));
+          if (!userAppDir.existsSync()) {
+            try { userAppDir.createSync(recursive: true); } catch (_) {}
+          }
+          final userIcon = File(p.join(userAppDir.path, 'vault_drive.ico'));
+
+          String securityIcon = globalIcon.path;
+
+          try {
+            final byteData = await rootBundle.load('assets/vault_drive.ico');
+            final bytes = byteData.buffer.asUint8List(byteData.offsetInBytes, byteData.lengthInBytes);
+            try { await globalIcon.writeAsBytes(bytes, flush: true); } catch (_) {}
+            try { await userIcon.writeAsBytes(bytes, flush: true); } catch (_) {}
+            if (globalIcon.existsSync()) {
+              securityIcon = globalIcon.path;
+            } else if (userIcon.existsSync()) {
+              securityIcon = userIcon.path;
+            }
+          } catch (_) {
+            if (!globalIcon.existsSync() && !userIcon.existsSync()) {
               securityIcon = '$systemRoot\\System32\\imageres.dll,104';
             }
           }
 
+          // 1. HKCU DriveIcons (Current User Explorer)
+          await Process.run('reg.exe', [
+            'add',
+            'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon',
+            '/ve',
+            '/d',
+            securityIcon,
+            '/f'
+          ]);
+          await Process.run('reg.exe', [
+            'add',
+            'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultLabel',
+            '/ve',
+            '/d',
+            'AMPCrypt Vault',
+            '/f'
+          ]);
+
+          // 2. HKCU Classes Applications Drives
           await Process.run('reg.exe', [
             'add',
             'HKCU\\Software\\Classes\\Applications\\Explorer.exe\\Drives\\$letterOnly\\DefaultIcon',
@@ -569,6 +609,35 @@ class VaultRepositoryImpl implements VaultRepository {
             securityIcon,
             '/f'
           ]);
+          await Process.run('reg.exe', [
+            'add',
+            'HKCU\\Software\\Classes\\Applications\\Explorer.exe\\Drives\\$letterOnly\\DefaultLabel',
+            '/ve',
+            '/d',
+            'AMPCrypt Vault',
+            '/f'
+          ]);
+
+          // 3. HKLM DriveIcons (If elevated / permitted)
+          try {
+            await Process.run('reg.exe', [
+              'add',
+              'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultIcon',
+              '/ve',
+              '/d',
+              securityIcon,
+              '/f'
+            ]);
+            await Process.run('reg.exe', [
+              'add',
+              'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\DriveIcons\\$letterOnly\\DefaultLabel',
+              '/ve',
+              '/d',
+              'AMPCrypt Vault',
+              '/f'
+            ]);
+          } catch (_) {}
+
           await _winFspChannel.invokeMethod<void>('refreshShell');
         } catch (_) {}
       }();
@@ -1723,5 +1792,47 @@ class VaultRepositoryImpl implements VaultRepository {
     } catch (_) {
       return false;
     }
+  }
+
+  @override
+  List<Map<String, dynamic>> listVaultDirectory(String virtualPath) {
+    if (!_webDavServer.isRunning) return [];
+    return _webDavServer.listDirectoryItems(virtualPath);
+  }
+
+  @override
+  Future<Uint8List?> getVaultFileBytes(String virtualPath) async {
+    if (!_webDavServer.isRunning) return null;
+    return await _webDavServer.getDecryptedBytes(virtualPath);
+  }
+
+  @override
+  Future<bool> importFileToVault(String localSourcePath, String targetVirtualDir) async {
+    if (!_webDavServer.isRunning) return false;
+    return await _webDavServer.importLocalFile(localSourcePath, targetVirtualDir);
+  }
+
+  @override
+  Future<bool> exportFileFromVault(String virtualPath, String localDestPath) async {
+    if (!_webDavServer.isRunning) return false;
+    return await _webDavServer.exportDecryptedFile(virtualPath, localDestPath);
+  }
+
+  @override
+  Future<bool> createVaultDirectory(String virtualDirPath) async {
+    if (!_webDavServer.isRunning) return false;
+    return await _webDavServer.createVirtualDirectory(virtualDirPath);
+  }
+
+  @override
+  Future<bool> deleteVaultPath(String virtualPath) async {
+    if (!_webDavServer.isRunning) return false;
+    return await _webDavServer.deleteVirtualPath(virtualPath);
+  }
+
+  @override
+  Future<int> scavengeVaultFiles() async {
+    if (!_webDavServer.isRunning) return 0;
+    return await _webDavServer.recoverFromDataHeaders();
   }
 }

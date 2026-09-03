@@ -2113,4 +2113,25 @@ class VaultRepositoryImpl implements VaultRepository {
       return false;
     }
   }
+
+  @override
+  List<Map<String, dynamic>> listVaultDirectory(String virtualPath) => [];
+
+  @override
+  Future<Uint8List?> getVaultFileBytes(String virtualPath) async => null;
+
+  @override
+  Future<bool> importFileToVault(String localSourcePath, String targetVirtualDir) async => false;
+
+  @override
+  Future<bool> exportFileFromVault(String virtualPath, String localDestPath) async => false;
+
+  @override
+  Future<bool> createVaultDirectory(String virtualDirPath) async => false;
+
+  @override
+  Future<bool> deleteVaultPath(String virtualPath) async => false;
+
+  @override
+  Future<int> scavengeVaultFiles() async => 0;
 }

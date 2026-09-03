@@ -48,6 +48,9 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
   bool _contextMenuIntegration = true;
   bool _canaryGuardEnabled = true;
   String _shreddingStandard = 'DoD 5220.22-M (3-Pass)';
+  bool _autoPurgeForensicTraces = true;
+  bool _duressPinEnabled = false;
+  String _duressPin = '';
 
   String _lookAndFeel = 'Light';
   String _language = 'System Default';
@@ -84,6 +87,9 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
         _contextMenuIntegration = prefs.getBool('context_menu_integration') ?? true;
         _canaryGuardEnabled = prefs.getBool('canary_guard_enabled') ?? true;
         _shreddingStandard = prefs.getString('shredding_standard') ?? 'DoD 5220.22-M (3-Pass)';
+        _autoPurgeForensicTraces = prefs.getBool('auto_purge_forensic_traces') ?? true;
+        _duressPinEnabled = prefs.getBool('duress_pin_enabled') ?? false;
+        _duressPin = prefs.getString('duress_pin') ?? '';
 
         _lookAndFeel = prefs.getString('look_and_feel') ?? 'Light';
         _language = prefs.getString('language') ?? 'System Default';
@@ -267,6 +273,7 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
 
   // --- TAB 1: GENERAL ---
   Widget _buildGeneralTab(Color textColor, Color subtitleColor, Color borderColor) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -526,6 +533,67 @@ class _PreferencesDialogState extends State<PreferencesDialog> {
               ),
             ],
           ),
+          const SizedBox(height: 16),
+          _checkboxRow(
+            'Purge Windows Recent Docs & Shell MRU Traces on Vault Lock',
+            _autoPurgeForensicTraces,
+            (val) {
+              final enabled = val ?? false;
+              setState(() => _autoPurgeForensicTraces = enabled);
+              _saveBoolPref('auto_purge_forensic_traces', enabled);
+            },
+            textColor,
+          ),
+          const SizedBox(height: 16),
+          _checkboxRow(
+            'Enable Emergency Duress / Decoy Vault Password (Coercion Defense)',
+            _duressPinEnabled,
+            (val) {
+              final enabled = val ?? false;
+              setState(() => _duressPinEnabled = enabled);
+              _saveBoolPref('duress_pin_enabled', enabled);
+            },
+            textColor,
+          ),
+          if (_duressPinEnabled) ...[
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.only(left: 36),
+              child: Row(
+                children: [
+                  Text(
+                    'Decoy Password / PIN:',
+                    style: GoogleFonts.outfit(color: textColor, fontSize: 13),
+                  ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 180,
+                    height: 32,
+                    child: TextField(
+                      obscureText: true,
+                      controller: TextEditingController(text: _duressPin),
+                      style: GoogleFonts.outfit(color: textColor, fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: 'Enter Decoy PIN...',
+                        hintStyle: GoogleFonts.outfit(color: subtitleColor, fontSize: 12),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                        filled: true,
+                        fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                          borderSide: BorderSide(color: borderColor),
+                        ),
+                      ),
+                      onChanged: (val) {
+                        _duressPin = val.trim();
+                        _saveStringPref('duress_pin', _duressPin);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -74,7 +74,7 @@ class WebDavServer {
     _index = {'version': 1, 'files': {}, 'directories': []};
   }
   
-  // ─── INDEX PERSISTENCE ───────────────────────────────────────────────────────
+  // ─── INDEX PERSISTENCE & SELF-HEALING RECOVERY ──────────────────────────────
   
   Future<void> _saveIndex() async {
     if (_masterKey == null || _storage == null) return;
@@ -84,7 +84,21 @@ class WebDavServer {
       final jsonBytes = utf8.encode(jsonString);
       final encrypted = await _cryptoService.encryptData(Uint8List.fromList(jsonBytes), _masterKey!);
       
-      await _storage!.writeFile('metadata.json.enc', encrypted);
+      // Atomic write: write to .tmp first
+      await _storage!.writeFile('metadata.json.enc.tmp', encrypted);
+      
+      // If primary exists, preserve backup
+      if (await _storage!.fileExists('metadata.json.enc')) {
+        try {
+          await _storage!.copyFile('metadata.json.enc', 'metadata.json.enc.bak');
+        } catch (_) {}
+      }
+      
+      // Promote tmp to primary
+      await _storage!.copyFile('metadata.json.enc.tmp', 'metadata.json.enc');
+      try {
+        await _storage!.deleteFile('metadata.json.enc.tmp');
+      } catch (_) {}
     } catch (e) {
       // Log index save error
     }
@@ -93,30 +107,79 @@ class WebDavServer {
   Future<void> _loadIndex() async {
     if (_masterKey == null || _storage == null) return;
     
-    final exists = await _storage!.fileExists('metadata.json.enc');
-    if (!exists) {
-      _index = {
-        'version': 1,
-        'files': {},
-        'directories': [],
-      };
-      await _saveIndex();
-      return;
+    // 1. Try reading primary metadata
+    bool loaded = false;
+    if (await _storage!.fileExists('metadata.json.enc')) {
+      try {
+        final encrypted = await _storage!.readFile('metadata.json.enc');
+        final decryptedBytes = await _cryptoService.decryptData(encrypted, _masterKey!);
+        final jsonString = utf8.decode(decryptedBytes);
+        _index = json.decode(jsonString) as Map<String, dynamic>;
+        loaded = true;
+      } catch (_) {}
     }
     
-    try {
-      final encrypted = await _storage!.readFile('metadata.json.enc');
-      final decryptedBytes = await _cryptoService.decryptData(encrypted, _masterKey!);
-      final jsonString = utf8.decode(decryptedBytes);
-      _index = json.decode(jsonString) as Map<String, dynamic>;
-    } catch (e) {
-      // If decryption fails, start fresh or retain default
+    // 2. If primary failed, try backup
+    if (!loaded && await _storage!.fileExists('metadata.json.enc.bak')) {
+      try {
+        final encrypted = await _storage!.readFile('metadata.json.enc.bak');
+        final decryptedBytes = await _cryptoService.decryptData(encrypted, _masterKey!);
+        final jsonString = utf8.decode(decryptedBytes);
+        _index = json.decode(jsonString) as Map<String, dynamic>;
+        loaded = true;
+      } catch (_) {}
+    }
+    
+    // 3. If both failed or missing, perform Self-Healing scan on data/ headers
+    if (!loaded) {
       _index = {
         'version': 1,
         'files': {},
         'directories': [],
       };
+      final recovered = await recoverFromDataHeaders();
+      if (recovered > 0) {
+        await _saveIndex();
+      }
     }
+  }
+
+  /// Scans all encrypted files in data/ and reconstructs index if metadata was lost
+  Future<int> recoverFromDataHeaders() async {
+    if (_masterKey == null || _storage == null) return 0;
+    int recoveredCount = 0;
+    try {
+      final fileNames = await _storage!.listFiles('data');
+      for (final uuid in fileNames) {
+        try {
+          // Read the first 1KB prefix for header
+          final encStream = _storage!.openRead('data/$uuid');
+          final prefixBuilder = BytesBuilder();
+          await for (final chunk in encStream) {
+            prefixBuilder.add(chunk);
+            if (prefixBuilder.length >= 1024) break;
+          }
+          final prefix = prefixBuilder.takeBytes();
+          final meta = await _cryptoService.extractFileHeader(prefix, _masterKey!);
+          if (meta != null && meta.containsKey('path')) {
+            final virtualPath = meta['path'] as String;
+            final size = meta['size'] as int? ?? 0;
+            final files = _index['files'] as Map<String, dynamic>;
+            files[virtualPath] = {
+              'uuid': uuid,
+              'size': size,
+              'lastModified': meta['timestamp'] ?? DateTime.now().toUtc().toIso8601String(),
+            };
+            _ensureParentDirectories(virtualPath);
+            recoveredCount++;
+          }
+        } catch (_) {}
+      }
+      if (recoveredCount > 0) {
+        await _saveIndex();
+      }
+    } catch (_) {}
+    return recoveredCount;
   }
   
   // ─── REQUEST HANDLER ─────────────────────────────────────────────────────────
@@ -349,6 +412,7 @@ class WebDavServer {
     
     final fileData = files[normPath] as Map;
     final uuid = fileData['uuid'] as String;
+    final fileSize = fileData['size'] as int? ?? 0;
     
     final exists = await _storage!.fileExists('data/$uuid');
     if (!exists) {
@@ -358,25 +422,30 @@ class WebDavServer {
     }
     
     try {
-      final encryptedBytes = await _storage!.readFile('data/$uuid');
-      final decryptedBytes = await _cryptoService.decryptData(encryptedBytes, _masterKey!);
-      
       request.response.statusCode = HttpStatus.ok;
       request.response.headers.set('Content-Type', 'application/octet-stream');
-      request.response.headers.set('Content-Length', decryptedBytes.length.toString());
+      if (fileSize > 0) {
+        request.response.headers.set('Content-Length', fileSize.toString());
+      }
       
       if (!isHead) {
-        request.response.add(decryptedBytes);
+        final decStream = _cryptoService.decryptStream(
+          _storage!.openRead('data/$uuid'),
+          _masterKey!,
+        );
+        await request.response.addStream(decStream);
       }
       await request.response.close();
     } catch (e) {
-      request.response.statusCode = HttpStatus.internalServerError;
-      request.response.write('Decryption error: $e');
-      await request.response.close();
+      try {
+        request.response.statusCode = HttpStatus.internalServerError;
+        request.response.write('Decryption error: $e');
+        await request.response.close();
+      } catch (_) {}
     }
   }
   
-  // ─── PUT (FILE UPLOADING / OVERWRITING) ──────────────────────────────────────
+  // ─── PUT (FILE UPLOADING / OVERWRITING WITH CHUNKED STREAMING) ──────────────
   
   Future<void> _handlePut(HttpRequest request, String normPath, Uint8List rawBytes) async {
     if (_masterKey == null) {
@@ -386,8 +455,6 @@ class WebDavServer {
     }
     
     try {
-      final encryptedBytes = await _cryptoService.encryptData(rawBytes, _masterKey!);
-      
       final files = _index['files'] as Map<String, dynamic>;
       String uuid;
       if (files.containsKey(normPath)) {
@@ -396,7 +463,15 @@ class WebDavServer {
         uuid = const Uuid().v4();
       }
       
-      await _storage!.writeFile('data/$uuid', encryptedBytes);
+      // Stream encrypted chunks with self-healing header
+      final encStream = _cryptoService.encryptStream(
+        Stream.value(rawBytes),
+        _masterKey!,
+        originalPath: normPath,
+        expectedSize: rawBytes.length,
+      );
+      
+      await _storage!.writeStream('data/$uuid', encStream);
       
       // Ensure the parent directories exist in our virtual directory map
       _ensureParentDirectories(normPath);
@@ -413,9 +488,11 @@ class WebDavServer {
       request.response.statusCode = HttpStatus.created;
       await request.response.close();
     } catch (e) {
-      request.response.statusCode = HttpStatus.internalServerError;
-      request.response.write('Encryption write error: $e');
-      await request.response.close();
+      try {
+        request.response.statusCode = HttpStatus.internalServerError;
+        request.response.write('Encryption write error: $e');
+        await request.response.close();
+      } catch (_) {}
     }
   }
   
@@ -811,5 +888,167 @@ class WebDavServer {
         }
       } catch (_) {}
     }
+  }
+
+  // ─── IN-APP SECURE FILE MANAGER EXTENSIONS ──────────────────────────────────
+
+  Map<String, dynamic> getIndex() => Map<String, dynamic>.from(_index);
+
+  List<Map<String, dynamic>> listDirectoryItems(String virtualPath) {
+    final normPath = virtualPath.endsWith('/') && virtualPath.length > 1
+        ? virtualPath.substring(0, virtualPath.length - 1)
+        : virtualPath;
+
+    final List<Map<String, dynamic>> items = [];
+    final dirs = (_index['directories'] as List?) ?? [];
+    final files = (_index['files'] as Map<String, dynamic>?) ?? {};
+
+    for (final d in dirs) {
+      if (_isImmediateChild(normPath, d.toString())) {
+        items.add({
+          'name': d.toString().split('/').last,
+          'path': d.toString(),
+          'isDirectory': true,
+          'size': 0,
+        });
+      }
+    }
+
+    files.forEach((filePath, data) {
+      if (_isImmediateChild(normPath, filePath)) {
+        final fMap = data as Map<String, dynamic>;
+        items.add({
+          'name': filePath.split('/').last,
+          'path': filePath,
+          'isDirectory': false,
+          'size': fMap['size'] ?? 0,
+          'lastModified': fMap['lastModified'],
+          'uuid': fMap['uuid'],
+        });
+      }
+    });
+
+    items.sort((a, b) {
+      if (a['isDirectory'] != b['isDirectory']) {
+        return (a['isDirectory'] as bool) ? -1 : 1;
+      }
+      return (a['name'] as String).toLowerCase().compareTo((b['name'] as String).toLowerCase());
+    });
+
+    return items;
+  }
+
+  Future<Uint8List?> getDecryptedBytes(String virtualPath) async {
+    if (_masterKey == null || _storage == null) return null;
+    final files = _index['files'] as Map<String, dynamic>;
+    if (!files.containsKey(virtualPath)) return null;
+
+    final uuid = files[virtualPath]['uuid'] as String;
+    if (!await _storage!.fileExists('data/$uuid')) return null;
+
+    final builder = BytesBuilder();
+    final decStream = _cryptoService.decryptStream(
+      _storage!.openRead('data/$uuid'),
+      _masterKey!,
+    );
+    await for (final chunk in decStream) {
+      builder.add(chunk);
+    }
+    return builder.takeBytes();
+  }
+
+  Future<bool> importLocalFile(String localSourcePath, String targetVirtualDir) async {
+    if (_masterKey == null || _storage == null) return false;
+    final srcFile = File(localSourcePath);
+    if (!srcFile.existsSync()) return false;
+
+    final fileName = p.basename(localSourcePath);
+    final normDir = targetVirtualDir.endsWith('/') && targetVirtualDir.length > 1
+        ? targetVirtualDir.substring(0, targetVirtualDir.length - 1)
+        : targetVirtualDir;
+    final targetPath = normDir == '/' ? '/$fileName' : '$normDir/$fileName';
+
+    final fileSize = await srcFile.length();
+    final uuid = const Uuid().v4();
+
+    final encStream = _cryptoService.encryptStream(
+      srcFile.openRead(),
+      _masterKey!,
+      originalPath: targetPath,
+      expectedSize: fileSize,
+    );
+
+    await _storage!.writeStream('data/$uuid', encStream);
+    _ensureParentDirectories(targetPath);
+
+    final files = _index['files'] as Map<String, dynamic>;
+    files[targetPath] = {
+      'uuid': uuid,
+      'size': fileSize,
+      'lastModified': DateTime.now().toUtc().toIso8601String(),
+    };
+
+    await _saveIndex();
+    return true;
+  }
+
+  Future<bool> exportDecryptedFile(String virtualPath, String localDestPath) async {
+    final bytes = await getDecryptedBytes(virtualPath);
+    if (bytes == null) return false;
+    final destFile = File(localDestPath);
+    final parent = destFile.parent;
+    if (!parent.existsSync()) {
+      parent.createSync(recursive: true);
+    }
+    await destFile.writeAsBytes(bytes, flush: true);
+    return true;
+  }
+
+  Future<bool> createVirtualDirectory(String virtualDirPath) async {
+    if (_masterKey == null) return false;
+    final norm = virtualDirPath.endsWith('/') && virtualDirPath.length > 1
+        ? virtualDirPath.substring(0, virtualDirPath.length - 1)
+        : virtualDirPath;
+
+    final dirs = _index['directories'] as List;
+    if (!dirs.contains(norm)) {
+      dirs.add(norm);
+      _ensureParentDirectories(norm);
+      await _saveIndex();
+    }
+    return true;
+  }
+
+  Future<bool> deleteVirtualPath(String virtualPath) async {
+    if (_masterKey == null || _storage == null) return false;
+    final files = _index['files'] as Map<String, dynamic>;
+    final dirs = _index['directories'] as List;
+
+    bool changed = false;
+
+    if (files.containsKey(virtualPath)) {
+      final uuid = files[virtualPath]['uuid'] as String;
+      files.remove(virtualPath);
+      await _storage!.deleteFile('data/$uuid');
+      changed = true;
+    }
+
+    if (dirs.contains(virtualPath)) {
+      dirs.remove(virtualPath);
+      // Remove all children
+      final childFiles = files.keys.where((k) => k.startsWith('$virtualPath/')).toList();
+      for (final cf in childFiles) {
+        final uuid = files[cf]['uuid'] as String;
+        files.remove(cf);
+        await _storage!.deleteFile('data/$uuid');
+      }
+      dirs.removeWhere((d) => d.toString().startsWith('$virtualPath/'));
+      changed = true;
+    }
+
+    if (changed) {
+      await _saveIndex();
+    }
+    return changed;
   }
 }

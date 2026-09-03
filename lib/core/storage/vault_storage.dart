@@ -18,6 +18,9 @@ abstract class VaultStorage {
   Future<void> writeFile(String relativePath, Uint8List bytes);
   Future<void> deleteFile(String relativePath);
   Future<void> copyFile(String srcRelativePath, String destRelativePath);
+  Stream<List<int>> openRead(String relativePath);
+  Future<void> writeStream(String relativePath, Stream<List<int>> stream);
+  Future<List<String>> listFiles(String relativeDirectory);
   String? get localPath;
 }
 
@@ -60,6 +63,35 @@ class LocalVaultStorage implements VaultStorage {
       parentDir.createSync(recursive: true);
     }
     await file.writeAsBytes(bytes, flush: true);
+  }
+
+  @override
+  Stream<List<int>> openRead(String relativePath) {
+    final file = File(p.join(vaultPath, relativePath));
+    if (!file.existsSync()) {
+      throw FileNotFoundException("File not found: $relativePath");
+    }
+    return file.openRead();
+  }
+
+  @override
+  Future<void> writeStream(String relativePath, Stream<List<int>> stream) async {
+    final file = File(p.join(vaultPath, relativePath));
+    final parentDir = file.parent;
+    if (!parentDir.existsSync()) {
+      parentDir.createSync(recursive: true);
+    }
+    final sink = file.openWrite();
+    await sink.addStream(stream);
+    await sink.flush();
+    await sink.close();
+  }
+
+  @override
+  Future<List<String>> listFiles(String relativeDirectory) async {
+    final dir = Directory(p.join(vaultPath, relativeDirectory));
+    if (!dir.existsSync()) return [];
+    return dir.listSync().whereType<File>().map((f) => p.basename(f.path)).toList();
   }
 
   @override
@@ -269,6 +301,34 @@ class FtpVaultStorage implements VaultStorage {
         localFile.deleteSync();
       }
     }
+  }
+
+  @override
+  Stream<List<int>> openRead(String relativePath) async* {
+    final bytes = await readFile(relativePath);
+    yield bytes;
+  }
+
+  @override
+  Future<void> writeStream(String relativePath, Stream<List<int>> stream) async {
+    final builder = BytesBuilder();
+    await for (final chunk in stream) {
+      builder.add(chunk);
+    }
+    await writeFile(relativePath, builder.takeBytes());
+  }
+
+  @override
+  Future<List<String>> listFiles(String relativeDirectory) async {
+    return await _withFtp((client) async {
+      await _navigateToRelativeDir(client, relativeDirectory);
+      try {
+        final list = await client.listDirectoryContent();
+        return list.map((item) => item.name).toList();
+      } catch (_) {
+        return [];
+      }
+    });
   }
 }
 

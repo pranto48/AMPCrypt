@@ -9,8 +9,10 @@ import 'dart:io';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../domain/repositories/vault_repository.dart';
+import 'vault_file_manager.dart';
 
-class VaultMainContent extends StatelessWidget {
+class VaultMainContent extends StatefulWidget {
   final String vaultName;
   final String vaultPath;
   final String driveLetter;
@@ -24,6 +26,7 @@ class VaultMainContent extends StatelessWidget {
   final VoidCallback onDecryptFileName;
   final VoidCallback? onRecoveryTap;
   final VoidCallback? onLocateVault;
+  final VaultRepository? repository;
 
   const VaultMainContent({
     super.key,
@@ -40,10 +43,33 @@ class VaultMainContent extends StatelessWidget {
     required this.onDecryptFileName,
     this.onRecoveryTap,
     this.onLocateVault,
+    this.repository,
   });
 
   @override
+  State<VaultMainContent> createState() => _VaultMainContentState();
+}
+
+class _VaultMainContentState extends State<VaultMainContent> {
+  int _selectedTab = 0; // 0 = In-App File Explorer, 1 = Virtual Drive (Explorer)
+
+  @override
   Widget build(BuildContext context) {
+    final vaultName = widget.vaultName;
+    final vaultPath = widget.vaultPath;
+    final driveLetter = widget.driveLetter;
+    final isUnlocked = widget.isUnlocked;
+    final isLoading = widget.isLoading;
+    final loadingMessage = widget.loadingMessage;
+    final onRevealDrive = widget.onRevealDrive;
+    final onLock = widget.onLock;
+    final onUnlock = widget.onUnlock;
+    final onLocateVault = widget.onLocateVault;
+    final onRecoveryTap = widget.onRecoveryTap;
+    final onLocateEncryptedFile = widget.onLocateEncryptedFile;
+    final onDecryptFileName = widget.onDecryptFileName;
+    final repository = widget.repository;
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? const Color(0xFF070D1E) : const Color(0xFFF0F7FF);
     final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
@@ -55,7 +81,7 @@ class VaultMainContent extends StatelessWidget {
 
     return Container(
       color: bg,
-      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -108,157 +134,274 @@ class VaultMainContent extends StatelessWidget {
                   boxShadow: isUnlocked
                       ? [
                           BoxShadow(
-                            color: const Color(0xFF00F0FF).withValues(alpha: 0.25),
+                            color: const Color(0xFF00F0FF).withValues(alpha: 0.3),
                             blurRadius: 10,
+                            spreadRadius: 1,
                           ),
                         ]
                       : null,
                 ),
-                child: Text(
-                  isDirectoryMissing ? 'MISSING' : (isUnlocked ? 'UNLOCKED' : 'LOCKED'),
-                  style: GoogleFonts.outfit(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    letterSpacing: 0.5,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isDirectoryMissing
+                          ? Icons.error_outline_rounded
+                          : (isUnlocked ? Icons.lock_open_rounded : Icons.lock_outline_rounded),
+                      size: 14,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      isDirectoryMissing ? 'MISSING' : (isUnlocked ? 'UNLOCKED' : 'LOCKED'),
+                      style: GoogleFonts.outfit(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
 
-          const Spacer(),
+          const SizedBox(height: 20),
 
           // Main Center Content
           if (isLoading)
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const CircularProgressIndicator(color: Color(0xFF00F0FF)),
-                  const SizedBox(height: 16),
-                  Text(
-                    loadingMessage ?? 'Processing cryptography operation...',
-                    style: GoogleFonts.outfit(color: subtitleColor, fontSize: 13),
-                  ),
-                ],
-              ),
-            )
-          else if (isDirectoryMissing)
-            Center(
-              child: Container(
-                width: 440,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color.fromRGBO(30, 27, 46, 0.60) : const Color(0xFFFFF1F2),
-                  border: Border.all(color: isDark ? const Color(0xFF881337) : const Color(0xFFFECDD3)),
-                  borderRadius: BorderRadius.circular(16),
-                ),
+            Expanded(
+              child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.warning_amber_rounded, color: Color(0xFFF43F5E), size: 40),
-                    const SizedBox(height: 12),
+                    const CircularProgressIndicator(color: Color(0xFF00F0FF)),
+                    const SizedBox(height: 16),
                     Text(
-                      'Vault Folder Not Found',
-                      style: GoogleFonts.outfit(
-                        color: isDark ? Colors.white : const Color(0xFF9F1239),
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Vault folder missing at "$vaultPath". The directory may have been renamed or moved.',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.outfit(
-                        color: isDark ? const Color(0xFFFDA4AF) : const Color(0xFFBE123C),
-                        fontSize: 13,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFF43F5E),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      icon: const Icon(Icons.folder_open_rounded, size: 18),
-                      label: Text(
-                        'Locate Vault Folder...',
-                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
-                      ),
-                      onPressed: onLocateVault,
+                      loadingMessage ?? 'Processing cryptography operation...',
+                      style: GoogleFonts.outfit(color: subtitleColor, fontSize: 13),
                     ),
                   ],
                 ),
               ),
             )
-          else if (isUnlocked) ...[
-            // Vault Unlocked View with 20% Translucent Liquid Glass Reveal Drive Button
-            Center(
-              child: Column(
-                children: [
-                  Text(
-                    "Your vault's contents are accessible here:",
-                    style: GoogleFonts.outfit(
-                      color: textColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
+          else if (isDirectoryMissing)
+            Expanded(
+              child: Center(
+                child: Container(
+                  width: 440,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color.fromRGBO(30, 27, 46, 0.60) : const Color(0xFFFFF1F2),
+                    border: Border.all(color: isDark ? const Color(0xFF881337) : const Color(0xFFFECDD3)),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  const SizedBox(height: 18),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, color: Color(0xFFF43F5E), size: 40),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Vault Folder Not Found',
+                        style: GoogleFonts.outfit(
+                          color: isDark ? Colors.white : const Color(0xFF9F1239),
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Vault folder missing at "$vaultPath". The directory may have been renamed or moved.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.outfit(
+                          color: isDark ? const Color(0xFFFDA4AF) : const Color(0xFFBE123C),
+                          fontSize: 13,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF43F5E),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: const Icon(Icons.folder_open_rounded, size: 18),
+                        label: Text(
+                          'Locate Vault Folder...',
+                          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                        onPressed: onLocateVault,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else if (isUnlocked) ...[
+            // Dual-Mode View Switcher (In-App File Explorer vs Virtual Drive)
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: isDark ? Colors.white12 : Colors.black12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      InkWell(
+                        onTap: () => setState(() => _selectedTab = 0),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _selectedTab == 0
+                                ? const Color(0xFF06B6D4)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.folder_copy_rounded,
+                                size: 16,
+                                color: _selectedTab == 0 ? Colors.black : subtitleColor,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'In-App Secure Files',
+                                style: GoogleFonts.outfit(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color: _selectedTab == 0 ? Colors.black : subtitleColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      InkWell(
+                        onTap: () => setState(() => _selectedTab = 1),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _selectedTab == 1
+                                ? const Color(0xFF06B6D4)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.dns_rounded,
+                                size: 16,
+                                color: _selectedTab == 1 ? Colors.black : subtitleColor,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Virtual Drive ($driveLetter)',
+                                style: GoogleFonts.outfit(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color: _selectedTab == 1 ? Colors.black : subtitleColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                // Quick Lock Button in toolbar
+                ElevatedButton.icon(
+                  onPressed: onLock,
+                  icon: const Icon(Icons.lock_rounded, size: 16),
+                  label: Text('Lock Vault', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent.withValues(alpha: 0.2),
+                    foregroundColor: Colors.redAccent,
+                    elevation: 0,
+                    side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.4)),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
+            ),
 
-                  _LiquidGlassButton(
-                    onPressed: onRevealDrive,
-                    minWidth: 240,
-                    minHeight: 64,
-                    gradientColors: const [Color(0xFF0072FF), Color(0xFF00F0FF)],
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.dns_rounded, size: 28, color: Colors.white),
-                        const SizedBox(width: 14),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(height: 14),
+
+            // Tab 0: In-App File Manager
+            if (_selectedTab == 0 && repository != null)
+              Expanded(
+                child: VaultFileManager(
+                  repository: repository,
+                  onLockRequested: onLock,
+                ),
+              )
+            else
+              // Tab 1: Windows Virtual Drive Controls
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        "Your vault is active on Windows Virtual Drive $driveLetter",
+                        style: GoogleFonts.outfit(
+                          color: textColor,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      _LiquidGlassButton(
+                        onPressed: onRevealDrive,
+                        minWidth: 260,
+                        minHeight: 64,
+                        gradientColors: const [Color(0xFF0072FF), Color(0xFF00F0FF)],
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              'Reveal Drive',
-                              style: GoogleFonts.outfit(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            Text(
-                              driveLetter,
-                              style: GoogleFonts.outfit(
-                                fontSize: 12,
-                                color: Colors.white.withValues(alpha: 0.9),
-                              ),
+                            const Icon(Icons.dns_rounded, size: 28, color: Colors.white),
+                            const SizedBox(width: 14),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Reveal Drive in Explorer',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                Text(
+                                  driveLetter,
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 12,
+                                    color: Colors.white.withValues(alpha: 0.9),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-
-                  // Lock Button with Micro-Animation
-                  _LiquidGlassOutlineButton(
-                    onPressed: onLock,
-                    label: 'Lock',
-                    icon: Icons.vpn_key_outlined,
-                    isDark: isDark,
-                    textColor: textColor,
-                    borderColor: borderColor,
-                  ),
-                ],
+                ),
               ),
-            ),
           ] else ...[
             // Vault Locked View with 20% Liquid Glass Input & Button
             Center(
