@@ -100,4 +100,47 @@ class MockCryptoService implements CryptoService {
 
     return Uint8List.fromList(decrypted);
   }
+
+  @override
+  void zeroizeKey(Uint8List key) {
+    key.fillRange(0, key.length, 0);
+  }
+
+  @override
+  Stream<List<int>> encryptStream(
+    Stream<List<int>> inputStream,
+    Uint8List key, {
+    String? originalPath,
+    int? expectedSize,
+  }) async* {
+    final bytesBuilder = BytesBuilder();
+    await for (final chunk in inputStream) {
+      bytesBuilder.add(chunk);
+    }
+    final plain = bytesBuilder.takeBytes();
+    final enc = await encryptData(plain, key);
+    yield enc;
+  }
+
+  @override
+  Stream<List<int>> decryptStream(
+    Stream<List<int>> inputStream,
+    Uint8List key,
+  ) async* {
+    final bytesBuilder = BytesBuilder();
+    await for (final chunk in inputStream) {
+      bytesBuilder.add(chunk);
+    }
+    final enc = bytesBuilder.takeBytes();
+    final dec = await decryptData(enc, key);
+    yield dec;
+  }
+
+  @override
+  Future<Map<String, dynamic>?> extractFileHeader(
+    Uint8List headerPrefixBytes,
+    Uint8List key,
+  ) async {
+    return null;
+  }
 }

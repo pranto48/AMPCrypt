@@ -20,6 +20,7 @@
 #include <winrt/Windows.Security.Credentials.UI.h>
 
 #include "winfsp_tpm_helper.h"
+#include "cfapi_sync_engine.h"
 #include <wincrypt.h>
 #include <shlobj.h>
 
@@ -66,6 +67,10 @@ bool FlutterWindow::OnCreate() {
 
   // Setup method channel for Windows Hello native UserConsentVerifier and TPM KEK
   auto messenger = flutter_controller_->engine()->messenger();
+
+  // Register Native Windows CFAPI Sync Engine Method Channel
+  CfApiSyncEngine::GetInstance().RegisterMethodChannel(messenger);
+
   auto hello_channel = std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
       messenger, "ampcrypt/windows_hello",
       &flutter::StandardMethodCodec::GetInstance());
@@ -198,21 +203,25 @@ bool FlutterWindow::OnCreate() {
             return;
           }
           std::wstring wpath(path_str->begin(), path_str->end());
-          std::wstring rootPath = L"C:\\";
-          bool isLetter0 = (wpath[0] >= L'A' && wpath[0] <= L'Z') || (wpath[0] >= L'a' && wpath[0] <= L'z');
-          bool isLetter1 = wpath.length() >= 2 && ((wpath[1] >= L'A' && wpath[1] <= L'Z') || (wpath[1] >= L'a' && wpath[1] <= L'z'));
+          wchar_t volumePath[MAX_PATH] = L"C:\\";
           
-          if (wpath.length() >= 2 && isLetter0 && wpath[1] == L':') {
-            rootPath = wpath.substr(0, 2) + L"\\";
-          } else if (wpath.length() >= 3 && (wpath[0] == L'/' || wpath[0] == L'\\') && isLetter1 && wpath[2] == L':') {
-            rootPath = wpath.substr(1, 2) + L"\\";
+          if (!GetVolumePathNameW(wpath.c_str(), volumePath, MAX_PATH)) {
+            for (size_t i = 0; i < wpath.length(); ++i) {
+              if (wpath[i] == L':' && i > 0) {
+                volumePath[0] = towupper(wpath[i - 1]);
+                volumePath[1] = L':';
+                volumePath[2] = L'\\';
+                volumePath[3] = L'\0';
+                break;
+              }
+            }
           }
           
           ULARGE_INTEGER freeBytesAvailable;
           ULARGE_INTEGER totalNumberOfBytes;
           ULARGE_INTEGER totalNumberOfFreeBytes;
           
-          if (GetDiskFreeSpaceExW(rootPath.c_str(), &freeBytesAvailable, &totalNumberOfBytes, &totalNumberOfFreeBytes)) {
+          if (GetDiskFreeSpaceExW(volumePath, &freeBytesAvailable, &totalNumberOfBytes, &totalNumberOfFreeBytes)) {
             flutter::EncodableMap resultMap;
             resultMap[flutter::EncodableValue("total")] = static_cast<int64_t>(totalNumberOfBytes.QuadPart);
             resultMap[flutter::EncodableValue("free")] = static_cast<int64_t>(freeBytesAvailable.QuadPart);
@@ -222,7 +231,16 @@ bool FlutterWindow::OnCreate() {
           }
         } else if (call.method_name() == "refreshShell") {
           SHChangeNotify(0x08000000, 0, NULL, NULL); // SHCNE_ASSOCCHANGED
+          SHChangeNotify(0x00000040, 0, NULL, NULL); // SHCNE_UPDATEITEM
           result->Success(flutter::EncodableValue(true));
+        } else if (call.method_name() == "cleanForensicTraces") {
+          SHAddToRecentDocs(0, NULL); // Clears Windows Recent docs for privacy
+          SHChangeNotify(0x08000000, 0, NULL, NULL); // SHCNE_ASSOCCHANGED
+          result->Success(flutter::EncodableValue(true));
+        } else if (call.method_name() == "isDebuggerAttached") {
+          BOOL isDebugger = IsDebuggerPresent();
+          CheckRemoteDebuggerPresent(GetCurrentProcess(), &isDebugger);
+          result->Success(flutter::EncodableValue(isDebugger ? true : false));
         } else {
           result->NotImplemented();
         }
@@ -241,6 +259,14 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  // Ensure all virtual drives are disconnected cleanly when window closes
+  for (wchar_t letter = L'D'; letter <= L'Z'; ++letter) {
+    std::wstring drive = std::wstring(1, letter) + L":";
+    UnmountWinFspDrive(drive);
+  }
+  _wsystem(L"subst.exe Z: /d >nul 2>&1");
+  _wsystem(L"net.exe use Z: /delete /y >nul 2>&1");
+
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }

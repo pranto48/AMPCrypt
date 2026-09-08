@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
+import '../../domain/repositories/vault_repository.dart';
 
 class CipherToolsDialog {
   /// Shows the dialog to locate the encrypted version of a plain file (abc -> 101010)
@@ -193,6 +194,177 @@ class CipherToolsDialog {
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(),
                   child: Text('Close', style: GoogleFonts.outfit(color: const Color(0xFF64748B))),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// Shows the Self-Healing Auto-Repair & Scavenger Dialog
+  static void showVaultSelfHealingRepairDialog(BuildContext context, VaultRepository repository) {
+    bool isScanning = false;
+    int? recoveredCount;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            final dialogBg = isDark ? const Color(0xFF0F172A) : Colors.white;
+            final textColor = isDark ? Colors.white : const Color(0xFF1E293B);
+            const accentGreen = Color(0xFF10B981);
+            const accentCyan = Color(0xFF06B6D4);
+
+            return AlertDialog(
+              backgroundColor: dialogBg,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: accentGreen.withValues(alpha: 0.3)),
+              ),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: accentGreen.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.healing_rounded, color: accentGreen, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Self-Healing Vault Auto-Repair',
+                          style: GoogleFonts.outfit(color: textColor, fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        Text(
+                          'Disaster Recovery & Scavenger Engine',
+                          style: GoogleFonts.outfit(color: isDark ? Colors.white54 : Colors.black54, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 520,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'If your vault index (metadata.json.enc) is missing, corrupted, or out of sync, this engine scans all encrypted payload blocks in the data/ directory, decodes the embedded AMPC\\x01 self-healing headers, and automatically reconstructs the entire virtual folder hierarchy.',
+                      style: GoogleFonts.outfit(
+                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.shield_outlined, color: accentCyan, size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Transactional index safety: Current index will be safely backed up to metadata.json.enc.bak before applying repairs.',
+                              style: GoogleFonts.outfit(
+                                color: isDark ? Colors.white70 : Colors.black87,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (isScanning) ...[
+                      const SizedBox(height: 24),
+                      const Center(child: CircularProgressIndicator(color: accentGreen)),
+                      const SizedBox(height: 12),
+                      Center(
+                        child: Text(
+                          'Deep scanning encrypted payload blocks...',
+                          style: GoogleFonts.outfit(color: accentGreen, fontSize: 13, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
+                    if (recoveredCount != null) ...[
+                      const SizedBox(height: 20),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: accentGreen.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: accentGreen.withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.check_circle_rounded, color: accentGreen, size: 22),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                recoveredCount! > 0
+                                    ? 'Scan completed successfully! Recovered and verified $recoveredCount file(s) into vault index.'
+                                    : 'Scan completed. Vault index is 100% consistent with all encrypted files.',
+                                style: GoogleFonts.outfit(
+                                  color: textColor,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isScanning ? null : () => Navigator.of(dialogContext).pop(),
+                  child: Text('Close', style: GoogleFonts.outfit(color: const Color(0xFF64748B))),
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: accentGreen,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  ),
+                  onPressed: isScanning
+                      ? null
+                      : () async {
+                          setDialogState(() {
+                            isScanning = true;
+                            recoveredCount = null;
+                          });
+                          final count = await repository.scavengeVaultFiles();
+                          setDialogState(() {
+                            isScanning = false;
+                            recoveredCount = count;
+                          });
+                        },
+                  icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                  label: Text(
+                    isScanning ? 'Scanning...' : 'Start Self-Healing Scan',
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
                 ),
               ],
             );

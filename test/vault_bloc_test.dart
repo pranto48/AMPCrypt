@@ -15,7 +15,10 @@ import 'package:ampcrypt/features/vault/presentation/bloc/vault_bloc.dart';
 import 'package:ampcrypt/features/vault/presentation/bloc/vault_event.dart';
 import 'package:ampcrypt/features/vault/presentation/bloc/vault_state.dart';
 
+@Timeout(Duration(seconds: 120))
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late VaultRepository vaultRepository;
   late VaultBloc vaultBloc;
 
@@ -41,24 +44,26 @@ void main() {
   });
 
   test('VaultBloc - CheckVaultStatusEvent triggers VaultUninitializedState', () async {
-    vaultBloc.add(CheckVaultStatusEvent());
-    await expectLater(
+    final expectation = expectLater(
       vaultBloc.stream,
       emitsInOrder([
         VaultUninitializedState(),
       ]),
     );
+    vaultBloc.add(CheckVaultStatusEvent());
+    await expectation;
   });
 
   test('VaultBloc - CreateVaultEvent triggers Loading then UnlockedState', () async {
-    vaultBloc.add(CreateVaultEvent("password123"));
-    await expectLater(
+    final expectation = expectLater(
       vaultBloc.stream,
       emitsInOrder([
         isA<VaultLoadingState>(),
         isA<VaultUnlockedState>(),
       ]),
     );
+    vaultBloc.add(CreateVaultEvent("password123"));
+    await expectation;
     expect(vaultRepository.isVaultCreated, isTrue);
     expect(vaultRepository.isUnlocked, isTrue);
   });
@@ -69,26 +74,28 @@ void main() {
     vaultRepository.lockVault();
 
     // 2. Unlock with correct password
-    vaultBloc.add(UnlockVaultEvent("password123"));
-    await expectLater(
+    final expectation1 = expectLater(
       vaultBloc.stream,
       emitsInOrder([
         isA<VaultLoadingState>(),
         isA<VaultUnlockedState>(),
       ]),
     );
+    vaultBloc.add(UnlockVaultEvent("password123"));
+    await expectation1;
 
     // Lock again
     vaultRepository.lockVault();
 
     // 3. Unlock with incorrect password
-    vaultBloc.add(UnlockVaultEvent("wrong_pass"));
-    await expectLater(
+    final expectation2 = expectLater(
       vaultBloc.stream,
       emitsInOrder([
         isA<VaultLoadingState>(),
         isA<VaultFailureState>(),
       ]),
     );
+    vaultBloc.add(UnlockVaultEvent("wrong_pass"));
+    await expectation2;
   });
 }

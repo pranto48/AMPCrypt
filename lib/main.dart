@@ -24,9 +24,20 @@ import 'features/ransomware_monitor/presentation/bloc/monitor_bloc.dart';
 
 import 'core/portable_state_sync.dart';
 
-void main() async {
+void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   await PortableStateSync.init();
+
+  if (args.isNotEmpty) {
+    // Process Windows Explorer Shell Arguments
+    for (int i = 0; i < args.length; i++) {
+      if (args[i] == '--vault-path' && i + 1 < args.length) {
+        final initialVaultPath = args[i + 1];
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('active_vault_path', initialVaultPath);
+      }
+    }
+  }
 
   // Initialize SharedPreferences
   final prefs = await SharedPreferences.getInstance();

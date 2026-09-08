@@ -11,10 +11,18 @@ export async function POST(request: Request) {
   try {
     const { to, subject, html } = await request.json();
 
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json(
+        { message: "RESEND_API_KEY is not configured on the server." },
+        { status: 500 }
+      );
+    }
+
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
-        "Authorization": "Bearer re_6uqukUSr_JhcPeNW5AhY2264TZASygaS9",
+        "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
