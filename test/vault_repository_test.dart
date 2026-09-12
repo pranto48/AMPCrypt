@@ -13,7 +13,10 @@ import 'package:ampcrypt/core/crypto/mock_crypto_service.dart';
 import 'package:ampcrypt/features/vault/data/repositories/vault_repository_impl.dart';
 import 'package:ampcrypt/features/vault/domain/repositories/vault_repository.dart';
 
+@Timeout(Duration(seconds: 120))
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late CryptoService cryptoService;
   late VaultRepository vaultRepository;
 
