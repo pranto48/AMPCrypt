@@ -1,3 +1,4 @@
 {
-    "workbench.quickOpen.preserveInput": true
+    "workbench.quickOpen.preserveInput": true,
+    "cmake.sourceDirectory": "D:/OneDrive - arifmahmud/SynologyDrive/Website/Antigravity/AMPCrypt/windows"
 }

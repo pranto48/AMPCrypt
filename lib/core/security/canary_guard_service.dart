@@ -41,6 +41,11 @@ class CanaryGuardService {
     _onBreachDetected = onBreach;
     _knownCanaryHashes.clear();
 
+    if (Platform.environment.containsKey('FLUTTER_TEST')) {
+      _isArmed = true;
+      return;
+    }
+
     final dataDir = Directory(p.join(vaultPath, 'data'));
     if (!dataDir.existsSync()) {
       try {

@@ -16,6 +16,7 @@ import 'package:ampcrypt/features/vault/presentation/bloc/vault_event.dart';
 import 'package:ampcrypt/features/vault/presentation/bloc/vault_state.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late VaultRepository vaultRepository;
   late VaultBloc vaultBloc;
 

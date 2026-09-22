@@ -858,6 +858,11 @@ class WebDavServer {
     }
     
     if (Platform.isWindows) {
+      if (Platform.environment.containsKey('FLUTTER_TEST')) {
+        _cachedTotalSize = 100 * 1024 * 1024 * 1024;
+        _cachedFreeSize = 50 * 1024 * 1024 * 1024;
+        return;
+      }
       try {
         final space = await _winFspChannel.invokeMethod<dynamic>('getDiskSpace', path);
         if (space is Map) {

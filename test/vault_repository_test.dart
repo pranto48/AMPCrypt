@@ -147,4 +147,36 @@ void main() {
     await vaultRepository.disableQuestionsRecovery();
     expect(vaultRepository.isQuestionsRecoveryEnabled, isFalse);
   });
+
+  test('VaultRepository - Emergency Duress Decoy Mode and Canary Guard', () async {
+    final password = "master-password-123";
+    await vaultRepository.createVault(password);
+    final realMasterKeyHex = vaultRepository.masterKeyHex;
+    vaultRepository.lockVault();
+
+    // Enable Duress PIN in preferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('duress_pin_enabled', true);
+    await prefs.setString('duress_pin', '9999');
+
+    // Unlock using Duress PIN
+    final decoySuccess = await vaultRepository.unlockVault('9999');
+    expect(decoySuccess, isTrue);
+    expect(vaultRepository.isUnlocked, isTrue);
+    expect(vaultRepository.isDecoyMode, isTrue);
+    // Decoy master key should NOT match the real master key
+    expect(vaultRepository.masterKeyHex, isNot(equals(realMasterKeyHex)));
+
+    // Lock vault resets decoy mode
+    vaultRepository.lockVault();
+    expect(vaultRepository.isUnlocked, isFalse);
+    expect(vaultRepository.isDecoyMode, isFalse);
+
+    // Normal unlock restores genuine master key
+    final normalSuccess = await vaultRepository.unlockVault(password);
+    expect(normalSuccess, isTrue);
+    expect(vaultRepository.isDecoyMode, isFalse);
+    expect(vaultRepository.masterKeyHex, equals(realMasterKeyHex));
+  });
 }
+

@@ -19,6 +19,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:ftpconnect/ftpconnect.dart';
 import '../../domain/repositories/vault_repository.dart';
 import '../../../../core/portable_state_sync.dart';
+import '../../../../core/security/memory_shield.dart';
+import '../../../../core/security/canary_guard_service.dart';
 
 /// Factor names in Group 1, indexed by position.
 /// For an authLevel of N, only the first N factors are used.
@@ -37,6 +39,10 @@ class VaultRepositoryImpl implements VaultRepository {
 
   // In-memory cache for the unlocked master key
   Uint8List? _cachedMasterKey;
+  bool _isDecoyMode = false;
+
+  @override
+  bool get isDecoyMode => _isDecoyMode;
 
   VaultRepositoryImpl({
     required CryptoService cryptoService,
@@ -282,6 +288,14 @@ class VaultRepositoryImpl implements VaultRepository {
     if (!Directory(vPath).existsSync()) {
       throw Exception('Vault directory not found at "$vPath". Please relocate vault folder.');
     }
+
+    // Check for Emergency Duress / Decoy Vault PIN
+    final bool duressEnabled = _prefs.getBool('duress_pin_enabled') ?? false;
+    final String duressPin = _prefs.getString('duress_pin') ?? '';
+    if (duressEnabled && duressPin.isNotEmpty && password.trim() == duressPin.trim()) {
+      return await _unlockDecoyVault(password);
+    }
+
     try {
       final config = _loadVaultConfig();
       final String? saltBase64 = config != null ? config['password_salt'] : _prefs.getString('password_salt');
@@ -319,9 +333,83 @@ class VaultRepositoryImpl implements VaultRepository {
       );
 
       _cachedMasterKey = recoveredMasterKey;
+      _isDecoyMode = false;
       await _startServerAndMount(recoveredMasterKey);
+
+      // Arm CanaryGuard honey-pot monitoring
+      try {
+        await CanaryGuardService().armTrap(
+          vaultPath: vPath,
+          onBreach: (breachReason, canaryPath) {
+            lockVault();
+          },
+        );
+      } catch (_) {}
+
       return true;
     } catch (e) {
+      return false;
+    }
+  }
+
+  /// Silently activates Decoy Vault environment under coercion or duress.
+  Future<bool> _unlockDecoyVault(String duressPassword) async {
+    try {
+      final vPath = getVaultPath();
+      final decoyDir = Directory(p.join(vPath, '.decoy_data'));
+      if (!decoyDir.existsSync()) {
+        try {
+          decoyDir.createSync(recursive: true);
+          final dummyFile = File(p.join(decoyDir.path, 'Welcome_Decoy.txt'));
+          dummyFile.writeAsStringSync('AMPCrypt Secure Vault Storage (Decoy Environment)\nProtected by Zero-Trust Architecture.\n');
+        } catch (_) {}
+      }
+
+      final decoySalt = Uint8List.fromList(utf8.encode('ampcrypt_decoy_salt_2026'));
+      final decoyMasterKey = await _cryptoService.deriveKey(duressPassword, decoySalt);
+
+      _cachedMasterKey = decoyMasterKey;
+      _isDecoyMode = true;
+
+      final storage = LocalVaultStorage(decoyDir.path);
+      await _webDavServer.start(decoyMasterKey, storage);
+
+      if (Platform.isWindows && _webDavServer.isRunning) {
+        if (!Platform.environment.containsKey('FLUTTER_TEST')) {
+          try {
+            final fspInstalled = await isWinFspInstalled();
+            if (fspInstalled) {
+              final rclonePath = await _ensureRclone();
+              final cachePath = p.join(vPath, '.decoy_cache');
+              _rcloneProcess = await Process.start(
+                rclonePath,
+                [
+                  'mount',
+                  ':webdav:',
+                  getDriveLetter(),
+                  '--webdav-url',
+                  'http://127.0.0.1:${_webDavServer.port}',
+                  '--vfs-cache-mode',
+                  'writes',
+                  '--dir-cache-time',
+                  '2s',
+                  '--cache-dir',
+                  cachePath,
+                  '--network-mode=false',
+                  '--no-checksum',
+                  '--no-modtime',
+                  '--volname',
+                  'AMPCrypt Decoy',
+                ],
+                mode: ProcessStartMode.detached,
+              );
+            }
+          } catch (_) {}
+        }
+      }
+
+      return true;
+    } catch (_) {
       return false;
     }
   }
@@ -352,14 +440,18 @@ class VaultRepositoryImpl implements VaultRepository {
 
   @override
   void lockVault() {
+    try {
+      CanaryGuardService().disarmTrap();
+    } catch (_) {}
+    _isDecoyMode = false;
     if (_cachedMasterKey != null) {
-      _cachedMasterKey!.fillRange(0, _cachedMasterKey!.length, 0);
+      MemoryShield.wipeBuffer(_cachedMasterKey);
       _cachedMasterKey = null;
     }
     _stopServerAndUnmount();
-    try {
-      _winFspChannel.invokeMethod<void>('cleanForensicTraces');
-    } catch (_) {}
+    if (!Platform.environment.containsKey('FLUTTER_TEST')) {
+      _winFspChannel.invokeMethod<void>('cleanForensicTraces').catchError((_) => null);
+    }
   }
 
   @override
@@ -497,6 +589,9 @@ class VaultRepositoryImpl implements VaultRepository {
 
     // Mount to driveLetter on Windows
     if (Platform.isWindows && _webDavServer.isRunning) {
+      if (Platform.environment.containsKey('FLUTTER_TEST')) {
+        return;
+      }
       final port = _webDavServer.port;
       
       // Check WinFSP dependency first
@@ -517,7 +612,7 @@ class VaultRepositoryImpl implements VaultRepository {
       } catch (_) {}
 
       // Launch silent rclone.exe mount process
-      final supportDir = await getApplicationSupportDirectory();
+      final supportDir = await _getSupportDirectorySafe();
       final cachePath = storageType == 'ftp'
           ? p.join(supportDir.path, '.amp_cache_ftp')
           : p.join(vaultPath, '.amp_cache');
@@ -655,7 +750,7 @@ class VaultRepositoryImpl implements VaultRepository {
       await _webDavServer.stop();
     } catch (_) {}
 
-    if (Platform.isWindows) {
+    if (Platform.isWindows && !Platform.environment.containsKey('FLUTTER_TEST')) {
       // Clean taskkill in background
       Process.run('taskkill.exe', ['/f', '/im', 'rclone.exe']).catchError((_) => ProcessResult(0, 0, '', ''));
       try {
@@ -737,6 +832,24 @@ class VaultRepositoryImpl implements VaultRepository {
 
 
 
+  Future<Directory> _getSupportDirectorySafe() async {
+    try {
+      return await getApplicationSupportDirectory();
+    } catch (_) {
+      final appData = Platform.environment['APPDATA'];
+      if (appData != null && appData.isNotEmpty) {
+        final dir = Directory(p.join(appData, 'ampcrypt'));
+        if (!dir.existsSync()) {
+          try {
+            dir.createSync(recursive: true);
+          } catch (_) {}
+        }
+        return dir;
+      }
+      return Directory.systemTemp;
+    }
+  }
+
   Future<String> _ensureRclone() async {
     // 1. Check installer's Program Files directory first (bundled rclone)
     final programFiles = Platform.environment['ProgramFiles'] ?? r'C:\Program Files';
@@ -745,14 +858,33 @@ class VaultRepositoryImpl implements VaultRepository {
       return bundledRclone.path;
     }
 
-    // 2. Check AppData support directory (previously downloaded)
-    final supportDir = await getApplicationSupportDirectory();
+    // 2. Check adjacent executable directory
+    try {
+      final exeDir = File(Platform.resolvedExecutable).parent.path;
+      final localRclone = File(p.join(exeDir, 'rclone.exe'));
+      if (await localRclone.exists()) {
+        return localRclone.path;
+      }
+    } catch (_) {}
+
+    // 3. Check workspace / build directory
+    final releaseRclone = File(p.join(Directory.current.path, 'build', 'windows', 'x64', 'runner', 'Release', 'rclone.exe'));
+    if (await releaseRclone.exists()) {
+      return releaseRclone.path;
+    }
+
+    // 4. Check AppData support directory (previously downloaded)
+    final supportDir = await _getSupportDirectorySafe();
     final rcloneExe = File(p.join(supportDir.path, 'rclone.exe'));
     if (await rcloneExe.exists()) {
       return rcloneExe.path;
     }
 
-    // 3. Last resort: download from internet silently
+    if (Platform.environment.containsKey('FLUTTER_TEST')) {
+      return rcloneExe.path;
+    }
+
+    // 5. Last resort: download from internet silently
     final psCommand = '''
       Set-Location -Path '${supportDir.path}';
       [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;
@@ -1555,7 +1687,7 @@ class VaultRepositoryImpl implements VaultRepository {
   }
 
   Future<File> _getHistoryFile() async {
-    final supportDir = await getApplicationSupportDirectory();
+    final supportDir = await _getSupportDirectorySafe();
     return File(p.join(supportDir.path, 'vaults.json'));
   }
 

@@ -73,6 +73,9 @@ abstract class VaultRepository {
   /// Exposes the active WebDAV virtual drive mount port, or null if locked/inactive.
   int? get webDavPort;
 
+  /// Indicates if the currently unlocked vault is in Decoy / Duress mode.
+  bool get isDecoyMode;
+
   /// Creates a new vault.
   ///
   /// [authLevel] (1–4) controls how many SLIP-39 Group 1 shares are generated.
