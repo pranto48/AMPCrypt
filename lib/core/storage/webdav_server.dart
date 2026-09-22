@@ -1056,4 +1056,70 @@ class WebDavServer {
     }
     return changed;
   }
+
+  Future<bool> renameVirtualPath(String oldPath, String newPath) async {
+    if (_masterKey == null || _storage == null) return false;
+    final files = _index['files'] as Map<String, dynamic>;
+    final dirs = _index['directories'] as List;
+
+    bool changed = false;
+
+    if (files.containsKey(oldPath)) {
+      final fileData = files.remove(oldPath);
+      files[newPath] = fileData;
+      _ensureParentDirectories(newPath);
+      changed = true;
+    } else if (dirs.contains(oldPath)) {
+      dirs.remove(oldPath);
+      if (!dirs.contains(newPath)) {
+        dirs.add(newPath);
+      }
+      _ensureParentDirectories(newPath);
+
+      final oldPrefix = '$oldPath/';
+      final newPrefix = '$newPath/';
+      for (int i = 0; i < dirs.length; i++) {
+        final d = dirs[i].toString();
+        if (d.startsWith(oldPrefix)) {
+          dirs[i] = newPrefix + d.substring(oldPrefix.length);
+        }
+      }
+
+      final matchingFiles = files.keys.where((k) => k.startsWith(oldPrefix)).toList();
+      for (final mf in matchingFiles) {
+        final fData = files.remove(mf);
+        final newFilePath = newPrefix + mf.substring(oldPrefix.length);
+        files[newFilePath] = fData;
+      }
+      changed = true;
+    }
+
+    if (changed) {
+      await _saveIndex();
+    }
+    return changed;
+  }
+
+  Future<bool> createVirtualFile(String virtualPath, Uint8List rawBytes) async {
+    if (_masterKey == null || _storage == null) return false;
+    final uuid = const Uuid().v4();
+    final encStream = _cryptoService.encryptStream(
+      Stream.value(rawBytes),
+      _masterKey!,
+      originalPath: virtualPath,
+      expectedSize: rawBytes.length,
+    );
+    await _storage!.writeStream('data/$uuid', encStream);
+    _ensureParentDirectories(virtualPath);
+
+    final files = _index['files'] as Map<String, dynamic>;
+    files[virtualPath] = {
+      'uuid': uuid,
+      'size': rawBytes.length,
+      'lastModified': DateTime.now().toUtc().toIso8601String(),
+    };
+    await _saveIndex();
+    return true;
+  }
 }
+

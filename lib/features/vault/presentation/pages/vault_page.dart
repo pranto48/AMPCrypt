@@ -876,40 +876,64 @@ class _VaultPageState extends State<VaultPage>
   void _openDriveInExplorer(String driveLetter) async {
     final cleanLetter = driveLetter.replaceAll(':', '').trim();
 
-    // 1. Instantly open mounted virtual drive letter (e.g. Z:\)
     if (cleanLetter.isNotEmpty && Platform.isWindows) {
       final drivePath = '$cleanLetter:\\';
-      try {
-        await Process.start('explorer.exe', [drivePath], runInShell: false);
-        return;
-      } catch (_) {
+
+      // 1. Wait briefly (up to 2.5 seconds) if virtual drive is currently attaching
+      bool isMounted = false;
+      for (int i = 0; i < 8; i++) {
+        if (Directory(drivePath).existsSync()) {
+          isMounted = true;
+          break;
+        }
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
+
+      if (isMounted) {
         try {
-          await Process.start('cmd.exe', [
-            '/c',
-            'start',
-            '',
-            drivePath,
-          ], runInShell: true);
+          await Process.start('explorer.exe', [drivePath], runInShell: true);
           return;
-        } catch (_) {}
+        } catch (_) {
+          try {
+            await Process.run('explorer.exe', [drivePath], runInShell: true);
+            return;
+          } catch (_) {
+            try {
+              await Process.start('cmd.exe', ['/c', 'start', '""', drivePath], runInShell: true);
+              return;
+            } catch (_) {}
+          }
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: const Color(0xFF06B6D4),
+              duration: const Duration(seconds: 4),
+              content: Text(
+                'Virtual Drive $cleanLetter: is preparing. You can also explore files directly in "In-App Secure Files".',
+                style: GoogleFonts.outfit(color: Colors.white),
+              ),
+            ),
+          );
+        }
       }
     }
 
     // 2. Fallback: Open active vault folder
     final repo = context.read<VaultBloc>().repository;
     final vaultPath = repo.getVaultPath();
-    if (vaultPath.isNotEmpty) {
+    if (vaultPath.isNotEmpty && Directory(vaultPath).existsSync()) {
       try {
-        await Process.start('explorer.exe', [vaultPath], runInShell: false);
+        await Process.start('explorer.exe', [vaultPath], runInShell: true);
       } catch (_) {
         try {
-          await Process.start('cmd.exe', [
-            '/c',
-            'start',
-            '',
-            vaultPath,
-          ], runInShell: true);
-        } catch (_) {}
+          await Process.run('explorer.exe', [vaultPath], runInShell: true);
+        } catch (_) {
+          try {
+            await Process.start('cmd.exe', ['/c', 'start', '""', vaultPath], runInShell: true);
+          } catch (_) {}
+        }
       }
     }
   }

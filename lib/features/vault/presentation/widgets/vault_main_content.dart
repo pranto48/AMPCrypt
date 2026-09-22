@@ -322,6 +322,39 @@ class _VaultMainContentState extends State<VaultMainContent> {
                   ),
                 ),
                 const Spacer(),
+                if (_selectedTab == 0 && repository != null) ...[
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context, rootNavigator: true).push(
+                        PageRouteBuilder(
+                          opaque: true,
+                          transitionDuration: const Duration(milliseconds: 200),
+                          pageBuilder: (ctx, anim, secAnim) => Scaffold(
+                            backgroundColor: const Color(0xFF0F172A),
+                            body: SafeArea(
+                              child: VaultFileManager(
+                                repository: repository!,
+                                onLockRequested: onLock,
+                                isFullscreenMode: true,
+                                onToggleFullscreen: () => Navigator.of(ctx).pop(),
+                              ),
+                            ),
+                          ),
+                          transitionsBuilder: (ctx, anim, secAnim, child) => FadeTransition(opacity: anim, child: child),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.fullscreen_rounded, size: 16),
+                    label: Text('Full Screen', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF38BDF8),
+                      side: BorderSide(color: const Color(0xFF38BDF8).withValues(alpha: 0.5)),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 // Quick Lock Button in toolbar
                 ElevatedButton.icon(
                   onPressed: onLock,

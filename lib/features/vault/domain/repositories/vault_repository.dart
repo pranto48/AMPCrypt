@@ -292,4 +292,11 @@ abstract class VaultRepository {
 
   /// Performs Self-Healing Scavenge to repair and recover all files from data/ headers.
   Future<int> scavengeVaultFiles();
+
+  /// Renames a virtual file or directory inside the vault without re-encryption overhead.
+  Future<bool> renameVaultPath(String oldPath, String newPath);
+
+  /// Creates a new virtual file inside the vault with initial raw bytes.
+  Future<bool> createVaultFile(String virtualPath, Uint8List bytes);
 }
+

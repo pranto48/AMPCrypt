@@ -2001,4 +2001,17 @@ class VaultRepositoryImpl implements VaultRepository {
     if (!_webDavServer.isRunning) return 0;
     return await _webDavServer.recoverFromDataHeaders();
   }
+
+  @override
+  Future<bool> renameVaultPath(String oldPath, String newPath) async {
+    if (!_webDavServer.isRunning) return false;
+    return await _webDavServer.renameVirtualPath(oldPath, newPath);
+  }
+
+  @override
+  Future<bool> createVaultFile(String virtualPath, Uint8List bytes) async {
+    if (!_webDavServer.isRunning) return false;
+    return await _webDavServer.createVirtualFile(virtualPath, bytes);
+  }
 }
+
