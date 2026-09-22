@@ -586,7 +586,7 @@ class _VaultFileManagerState extends State<VaultFileManager> {
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       itemCount: _filteredItems.length,
-      separatorBuilder: (_, __) => Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
+      separatorBuilder: (context, index) => Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
       itemBuilder: (context, index) {
         final item = _filteredItems[index];
         final isDir = item['isDirectory'] as bool? ?? false;

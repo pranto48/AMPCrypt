@@ -5,6 +5,9 @@
  * (This project website link: https://ampcrypt.itsupport.com.bd)
  */
 
+@Timeout(Duration(seconds: 120))
+library;
+
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,8 +15,6 @@ import 'package:ampcrypt/core/crypto/crypto_service.dart';
 import 'package:ampcrypt/core/crypto/mock_crypto_service.dart';
 import 'package:ampcrypt/features/vault/data/repositories/vault_repository_impl.dart';
 import 'package:ampcrypt/features/vault/domain/repositories/vault_repository.dart';
-
-@Timeout(Duration(seconds: 120))
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

@@ -6,13 +6,14 @@
  */
 
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path/path.dart' as p;
 import '../../../../core/crypto/crypto_service.dart';
+import '../../../../core/crypto/post_quantum_envelope.dart';
 import '../../../../core/storage/webdav_server.dart';
 import '../../../../core/storage/vault_storage.dart';
 import 'package:path_provider/path_provider.dart';
@@ -39,7 +40,34 @@ class VaultRepositoryImpl implements VaultRepository {
 
   // In-memory cache for the unlocked master key
   Uint8List? _cachedMasterKey;
+  Pointer<Uint8>? _lockedMemoryPtr;
   bool _isDecoyMode = false;
+
+  /// Cryptographically manages Master Key lifecycle in RAM using Win32 VirtualLock
+  void _setCachedMasterKey(Uint8List? key) {
+    if (_lockedMemoryPtr != null) {
+      MemoryShield().freeLockedMemory(_lockedMemoryPtr, 32);
+      _lockedMemoryPtr = null;
+    }
+    if (_cachedMasterKey != null) {
+      MemoryShield.wipeBuffer(_cachedMasterKey);
+      _cachedMasterKey = null;
+    }
+
+    if (key != null) {
+      _cachedMasterKey = key;
+      try {
+        if (MemoryShield().isAvailable) {
+          _lockedMemoryPtr = MemoryShield().allocateLockedMemory(key.length);
+          if (_lockedMemoryPtr != null) {
+            for (int i = 0; i < key.length; i++) {
+              _lockedMemoryPtr![i] = key[i];
+            }
+          }
+        }
+      } catch (_) {}
+    }
+  }
 
   @override
   bool get isDecoyMode => _isDecoyMode;
@@ -56,7 +84,7 @@ class VaultRepositoryImpl implements VaultRepository {
     try {
       final currentPath = _prefs.getString('vault_path');
       if (currentPath == null || currentPath.isEmpty) {
-        final list = await getRememberedVaults();
+        final list = getRememberedVaults();
         if (list.isNotEmpty) {
           await selectVault(list.first);
         }
@@ -155,6 +183,20 @@ class VaultRepositoryImpl implements VaultRepository {
       configMap['questions_recovery_encrypted_master_key'] = base64Encode(encryptedMasterKey);
     }
 
+    // Wrap Master Key with Post-Quantum Kyber-768/ML-KEM Hybrid Envelope
+    try {
+      final pq = PostQuantumEnvelope();
+      final pqKeypair = pq.generateKeyPair();
+      final pqEnvelope = pq.wrapMasterKey(
+        masterKey: masterKey,
+        classicalKey: derivedKey,
+        pqPublicKey: pqKeypair['publicKey']!,
+      );
+      configMap['pq_envelope'] = pqEnvelope;
+      configMap['pq_public_key'] = base64Encode(pqKeypair['publicKey']!);
+      configMap['pq_secret_key'] = base64Encode(pqKeypair['secretKey']!);
+    } catch (_) {}
+
     // Ensure vault directory exists
     Directory(vaultPath).createSync(recursive: true);
     await _saveVaultConfig(configMap);
@@ -188,8 +230,8 @@ class VaultRepositoryImpl implements VaultRepository {
     await _prefs.setBool('is_device_trusted', true);
     await _prefs.setString('device_fingerprint', _generateMockDeviceFingerprint());
 
-    // 8. Cache master key
-    _cachedMasterKey = masterKey;
+    // 8. Cache master key in pinned memory
+    _setCachedMasterKey(masterKey);
 
     // 9. Windows-specific: Extract pre-formatted VHDX container template
     if (Platform.isWindows) {
@@ -273,6 +315,7 @@ class VaultRepositoryImpl implements VaultRepository {
     return true;
   }
 
+  @override
   Future<void> addRememberedVault(VaultProfile profile) async {
     final profiles = getRememberedVaults();
     profiles.removeWhere((p) => p.path == profile.path);
@@ -332,7 +375,7 @@ class VaultRepositoryImpl implements VaultRepository {
         passphrase: passphrase,
       );
 
-      _cachedMasterKey = recoveredMasterKey;
+      _setCachedMasterKey(recoveredMasterKey);
       _isDecoyMode = false;
       await _startServerAndMount(recoveredMasterKey);
 
@@ -368,7 +411,7 @@ class VaultRepositoryImpl implements VaultRepository {
       final decoySalt = Uint8List.fromList(utf8.encode('ampcrypt_decoy_salt_2026'));
       final decoyMasterKey = await _cryptoService.deriveKey(duressPassword, decoySalt);
 
-      _cachedMasterKey = decoyMasterKey;
+      _setCachedMasterKey(decoyMasterKey);
       _isDecoyMode = true;
 
       final storage = LocalVaultStorage(decoyDir.path);
@@ -428,7 +471,7 @@ class VaultRepositoryImpl implements VaultRepository {
         passphrase: passphrase,
       );
 
-      _cachedMasterKey = recoveredMasterKey;
+      _setCachedMasterKey(recoveredMasterKey);
       await _startServerAndMount(recoveredMasterKey);
       return true;
     } catch (e) {
@@ -444,10 +487,7 @@ class VaultRepositoryImpl implements VaultRepository {
       CanaryGuardService().disarmTrap();
     } catch (_) {}
     _isDecoyMode = false;
-    if (_cachedMasterKey != null) {
-      MemoryShield.wipeBuffer(_cachedMasterKey);
-      _cachedMasterKey = null;
-    }
+    _setCachedMasterKey(null);
     _stopServerAndUnmount();
     if (!Platform.environment.containsKey('FLUTTER_TEST')) {
       _winFspChannel.invokeMethod<void>('cleanForensicTraces').catchError((_) => null);
@@ -1449,12 +1489,6 @@ class VaultRepositoryImpl implements VaultRepository {
     await outputFile.writeAsBytes(encrypted, flush: true);
   }
 
-  Future<void> _decryptFile(File inputFile, File outputFile, Uint8List key) async {
-    final bytes = await inputFile.readAsBytes();
-    final decrypted = await _cryptoService.decryptData(bytes, key);
-    await outputFile.writeAsBytes(decrypted, flush: true);
-  }
-
   @override
   bool get isQuestionsRecoveryEnabled {
     final config = _loadVaultConfig();
@@ -1574,7 +1608,7 @@ class VaultRepositoryImpl implements VaultRepository {
 
   @override
   Future<bool> unlockWithMasterKey(Uint8List masterKey) async {
-    _cachedMasterKey = masterKey;
+    _setCachedMasterKey(masterKey);
     await _startServerAndMount(masterKey);
     return true;
   }
@@ -1616,7 +1650,7 @@ class VaultRepositoryImpl implements VaultRepository {
     await _prefs.setString('password_salt', base64Encode(salt));
     await _prefs.setString('encrypted_password_share', base64Encode(encryptedPasswordShare));
 
-    _cachedMasterKey = masterKey;
+    _setCachedMasterKey(masterKey);
   }
 
   String _generateMockDeviceFingerprint() {

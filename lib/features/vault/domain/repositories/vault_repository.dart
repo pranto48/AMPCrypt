@@ -127,6 +127,9 @@ abstract class VaultRepository {
   /// Force deletes vault files on disk after verifying master password.
   Future<bool> forceDeleteVaultDataWithPassword(String password, String vaultPath);
 
+  /// Deletes active vault files on disk using the provided master password.
+  Future<bool> deleteVaultDataWithPassword(String password);
+
   /// Gets simulated device status information for display.
   Future<Map<String, dynamic>> getDeviceStatus();
 

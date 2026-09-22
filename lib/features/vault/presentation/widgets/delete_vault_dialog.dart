@@ -146,6 +146,7 @@ class _DeleteVaultDialogState extends State<DeleteVaultDialog> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // ignore: deprecated_member_use
                     Radio<DeleteVaultAction>(
                       value: DeleteVaultAction.removeFromApp,
                       groupValue: _selectedAction,
@@ -202,6 +203,7 @@ class _DeleteVaultDialogState extends State<DeleteVaultDialog> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // ignore: deprecated_member_use
                     Radio<DeleteVaultAction>(
                       value: DeleteVaultAction.forceDeleteData,
                       groupValue: _selectedAction,

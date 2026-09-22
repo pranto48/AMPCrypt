@@ -276,7 +276,7 @@ class SecureFilePreviewDialog extends StatelessWidget {
           child: Image.memory(
             fileBytes,
             fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) => _buildFallbackMessage('Failed to decode image data.'),
+            errorBuilder: (context, error, stackTrace) => _buildFallbackMessage('Failed to decode image data.'),
           ),
         ),
       );

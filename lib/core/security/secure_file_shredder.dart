@@ -12,6 +12,7 @@ import 'package:path/path.dart' as p;
 
 enum ShreddingStandard {
   quickZeroWipe,    // 1-Pass: Overwrite with all zeros
+  // ignore: constant_identifier_names
   dod5220_22_M_3Pass, // 3-Pass: Zeros, Ones, Random
   enhanced7Pass,     // 7-Pass: DoD Enhanced multi-cycle random overwrite
 }
