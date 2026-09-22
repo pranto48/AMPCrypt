@@ -135,16 +135,20 @@ if exist "ampcrypt.msix" (
         echo   [+] AMPCrypt installed successfully!
         echo =======================================================
         echo.
-        powershell -Command "Start-Process 'shell:AppsFolder\com.itsupport.ampcrypt_1.0.0.0_x64__p24x91w1s9d7m!AMPCrypt'" >nul 2>&1
+        powershell -NoProfile -ExecutionPolicy Bypass -Command "$pkg = Get-AppxPackage -Name '*ampcrypt*' | Select-Object -First 1; if ($pkg) { Start-Process \"shell:AppsFolder\$($pkg.PackageFullName)!ampcrypt\" } else { Start-Process 'shell:AppsFolder\com.itsupport.ampcrypt_1.0.0.0_x64__kwj8cwtweqvea!ampcrypt' }" >nul 2>&1
     ) else (
         echo [-] Standard Appx registration encountered an issue. Starting standalone ampcrypt.exe...
         if exist "ampcrypt.exe" (
             start "" "ampcrypt.exe"
+        ) else if exist "Standalone_Portable\ampcrypt.exe" (
+            start "" "Standalone_Portable\ampcrypt.exe"
         )
     )
 ) else (
     if exist "ampcrypt.exe" (
         start "" "ampcrypt.exe"
+    ) else if exist "Standalone_Portable\ampcrypt.exe" (
+        start "" "Standalone_Portable\ampcrypt.exe"
     )
 )
 
