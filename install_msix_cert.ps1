@@ -11,7 +11,7 @@ Write-Host "Creating & Trusting AMPCrypt Certificate..." -ForegroundColor Cyan
 # 1. Create Self-Signed Code Signing Certificate under CurrentUser\My
 $cert = New-SelfSignedCertificate `
     -Type CodeSigningCert `
-    -Subject "CN=IT Support BD, O=IT Support BD, L=Dhaka, S=Dhaka, C=BD" `
+    -Subject "CN=IT Support BD" `
     -KeyUsage DigitalSignature `
     -FriendlyName "AMPCrypt Code Signing" `
     -CertStoreLocation "Cert:\CurrentUser\My" `

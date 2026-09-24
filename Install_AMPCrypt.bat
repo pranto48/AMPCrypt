@@ -126,6 +126,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "
 try {
     if (Test-Path 'ampcrypt.msix') {
         Write-Host '  [*] Registering MSIX package into Windows...' -ForegroundColor Cyan
+        $existing = Get-AppxPackage -Name 'com.itsupport.ampcrypt*'
+        if ($existing) {
+            if ($existing.Status -ne 0 -and $existing.Status -ne 'Ok') {
+                Write-Host '  [*] Removing previous unhealthy package state...' -ForegroundColor Yellow
+                Remove-AppxPackage -Package $existing.PackageFullName -ErrorAction SilentlyContinue
+            }
+        }
         Add-AppxPackage -Path 'ampcrypt.msix' -ForceApplicationShutdown -ForceUpdateFromAnyVersion -ErrorAction Stop
         Write-Host '  [+] AMPCrypt MSIX installed successfully!' -ForegroundColor Green
         $global:msixSuccess = $true
@@ -151,10 +158,18 @@ echo.
 powershell -NoProfile -Command "
 Start-Sleep -Seconds 1
 try {
-    # Launch via AppsFolder URI
-    Start-Process 'shell:AppsFolder\com.itsupport.ampcrypt_1.0.0.0_x64__p24x91w1s9d7m!AMPCrypt' -ErrorAction SilentlyContinue
-} catch {}
-if (!(Get-Process -Name 'ampcrypt' -ErrorAction SilentlyContinue)) {
+    $pkg = Get-AppxPackage -Name 'com.itsupport.ampcrypt*' | Select-Object -First 1
+    if ($pkg) {
+        $manifest = Get-AppxPackageManifest -Package $pkg
+        $appId = $manifest.Package.Applications.Application.Id
+        $aumid = \"$($pkg.PackageFamilyName)!$appId\"
+        Write-Host \"  [+] Launching AMPCrypt ($aumid)...\" -ForegroundColor Green
+        Start-Process \"shell:AppsFolder\$aumid\"
+    } elseif (Test-Path 'ampcrypt.exe') {
+        Write-Host '  [+] Launching standalone ampcrypt.exe...' -ForegroundColor Green
+        Start-Process 'ampcrypt.exe'
+    }
+} catch {
     if (Test-Path 'ampcrypt.exe') {
         Start-Process 'ampcrypt.exe'
     }

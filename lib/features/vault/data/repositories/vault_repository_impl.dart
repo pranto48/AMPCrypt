@@ -962,9 +962,16 @@ class VaultRepositoryImpl implements VaultRepository {
     if (configuredPath != null && configuredPath.isNotEmpty) {
       return configuredPath;
     }
-    // Default to D:\Data on Windows; fall back to home dir on other platforms
+    // Default to D:\Data on Windows if D: exists; fall back to Documents or home dir
     if (Platform.isWindows) {
-      return r'D:\Data';
+      if (Directory(r'D:\').existsSync()) {
+        return r'D:\Data';
+      }
+      final home = _getHomeDir();
+      if (home.isNotEmpty) {
+        return p.join(home, 'Documents', 'AMPCrypt_Vault');
+      }
+      return r'C:\AMPCrypt_Vault';
     }
     final home = _getHomeDir();
     return p.join(home, '.ampcrypt_vault');

@@ -18,21 +18,27 @@ class PortableStateSync {
     try {
       final exePath = Platform.resolvedExecutable;
       final exeDir = p.dirname(exePath);
-      final isProgramFiles = exeDir.toLowerCase().contains('program files');
-      final portableDataDir = Directory(p.join(exeDir, 'data'));
+      final exeLower = exeDir.toLowerCase();
       
-      if (portableDataDir.existsSync()) {
-        _isPortable = true;
-      } else if (!isProgramFiles) {
-        // Test if writable
-        final testFile = File(p.join(exeDir, '.write_test'));
-        await testFile.writeAsString('test', flush: true);
-        await testFile.delete();
+      // Packaged MSIX apps or apps installed in Program Files/WindowsApps are NEVER portable
+      final isPackagedOrInstalled = exeLower.contains('windowsapps') ||
+          exeLower.contains('program files') ||
+          Platform.environment.containsKey('PACKAGE_NAME');
+      
+      if (isPackagedOrInstalled) {
+        _isPortable = false;
+        return;
+      }
+
+      // Standalone/USB portable mode uses 'portable_data' (never Flutter's engine 'data' directory)
+      final portableDataDir = Directory(p.join(exeDir, 'portable_data'));
+      final portableFlag = File(p.join(exeDir, 'portable.flag'));
+
+      if (portableDataDir.existsSync() || portableFlag.existsSync()) {
         _isPortable = true;
       }
 
       if (_isPortable) {
-        // Ensure local data directory exists next to exe
         if (!portableDataDir.existsSync()) {
           portableDataDir.createSync(recursive: true);
         }
@@ -49,7 +55,7 @@ class PortableStateSync {
     try {
       final exePath = Platform.resolvedExecutable;
       final exeDir = p.dirname(exePath);
-      final portableDataDir = Directory(p.join(exeDir, 'data'));
+      final portableDataDir = Directory(p.join(exeDir, 'portable_data'));
       final supportDir = await getApplicationSupportDirectory();
       
       if (!portableDataDir.existsSync()) {

@@ -13,7 +13,7 @@ Write-Host "Creating AMPCrypt self-signed code signing certificate..." -Foregrou
 # Create self-signed certificate valid for 10 years (CurrentUser — no admin needed)
 $cert = New-SelfSignedCertificate `
     -Type CodeSigningCert `
-    -Subject "CN=IT Support BD, O=IT Support BD, L=Dhaka, S=Dhaka, C=BD" `
+    -Subject "CN=IT Support BD" `
     -KeyUsage DigitalSignature `
     -FriendlyName "AMPCrypt Code Signing" `
     -CertStoreLocation "Cert:\CurrentUser\My" `
