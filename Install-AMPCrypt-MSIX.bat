@@ -160,11 +160,17 @@ Start-Sleep -Seconds 1
 try {
     $pkg = Get-AppxPackage -Name 'com.itsupport.ampcrypt*' | Select-Object -First 1
     if ($pkg) {
-        $manifest = Get-AppxPackageManifest -Package $pkg
-        $appId = $manifest.Package.Applications.Application.Id
-        $aumid = \"$($pkg.PackageFamilyName)!$appId\"
-        Write-Host \"  [+] Launching AMPCrypt ($aumid)...\" -ForegroundColor Green
-        Start-Process \"shell:AppsFolder\$aumid\"
+        $exeInApp = Join-Path $pkg.InstallLocation 'ampcrypt.exe'
+        if (Test-Path $exeInApp) {
+            Write-Host '  [+] Launching installed AMPCrypt application...' -ForegroundColor Green
+            Start-Process $exeInApp
+        } else {
+            $manifest = Get-AppxPackageManifest -Package $pkg
+            $appId = $manifest.Package.Applications.Application.Id
+            $aumid = \"$($pkg.PackageFamilyName)!$appId\"
+            Write-Host \"  [+] Launching AMPCrypt ($aumid)...\" -ForegroundColor Green
+            Start-Process \"shell:AppsFolder\$aumid\"
+        }
     } elseif (Test-Path 'ampcrypt.exe') {
         Write-Host '  [+] Launching standalone ampcrypt.exe...' -ForegroundColor Green
         Start-Process 'ampcrypt.exe'
