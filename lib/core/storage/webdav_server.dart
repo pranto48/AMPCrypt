@@ -184,46 +184,50 @@ class WebDavServer {
   
   // ─── REQUEST HANDLER ─────────────────────────────────────────────────────────
   
-  Future<void> _handleRequest(HttpRequest request) async {
-    // DRAIN/READ the request stream completely into memory to prevent TCP socket resets
-    final bytesBuilder = BytesBuilder();
-    await for (final chunk in request) {
-      bytesBuilder.add(chunk);
-    }
-    final rawBytes = bytesBuilder.takeBytes();
-
-    final rawPath = request.uri.path;
-    var path = Uri.decodeComponent(rawPath);
-    
-    // Strip DavWWWRoot if present (Windows UNC mounting compatibility)
-    if (path.startsWith('/DavWWWRoot')) {
-      path = path.substring(11);
-      if (path.isEmpty) path = '/';
-    }
-    final method = request.method;
-
-    final isRead = (method == 'GET' || method == 'HEAD' || method == 'PROPFIND');
-    final isWrite = (method == 'PUT' || method == 'DELETE' || method == 'MKCOL' || method == 'MOVE' || method == 'PROPPATCH' || method == 'COPY');
-
-    if (isRead || isWrite) {
-      lastActivityTime = DateTime.now();
-      final typeStr = isWrite ? 'WRITE' : 'READ';
-      print('Filesystem I/O Event: $typeStr ($method) on $path. Inactivity timer refreshed.');
-    }
-    
-    // Normalize path to remove trailing slash except for root
-    String normPath = path.endsWith('/') && path.length > 1
-        ? path.substring(0, path.length - 1)
-        : path;
-    
-    // Set headers required for WebDAV and Windows WebClient
-    request.response.headers.set('DAV', '1, 2');
-    request.response.headers.set('MS-Author-Via', 'DAV');
-    request.response.headers.set('Server', 'Microsoft-HTTPAPI/2.0');
-    request.response.headers.set('Allow', 'OPTIONS, GET, HEAD, PROPFIND, PROPPATCH, PUT, DELETE, MKCOL, MOVE, COPY, LOCK, UNLOCK');
-    request.response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-    
+  Future<Uint8List> _readRequestPayload(HttpRequest request) async {
     try {
+      final bytesBuilder = BytesBuilder();
+      await for (final chunk in request) {
+        bytesBuilder.add(chunk);
+      }
+      return bytesBuilder.takeBytes();
+    } catch (_) {
+      return Uint8List(0);
+    }
+  }
+
+  Future<void> _handleRequest(HttpRequest request) async {
+    try {
+      // Set headers required for WebDAV and Windows WebClient
+      request.response.headers.set('DAV', '1, 2');
+      request.response.headers.set('MS-Author-Via', 'DAV');
+      request.response.headers.set('Server', 'Microsoft-HTTPAPI/2.0');
+      request.response.headers.set('Allow', 'OPTIONS, GET, HEAD, PROPFIND, PROPPATCH, PUT, DELETE, MKCOL, MOVE, COPY, LOCK, UNLOCK');
+      request.response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+
+      final rawBytes = await _readRequestPayload(request);
+
+      final rawPath = request.uri.path;
+      var path = Uri.decodeComponent(rawPath);
+      
+      // Strip DavWWWRoot if present (Windows UNC mounting compatibility)
+      if (path.startsWith('/DavWWWRoot')) {
+        path = path.substring(11);
+        if (path.isEmpty) path = '/';
+      }
+      final method = request.method;
+
+      final isRead = (method == 'GET' || method == 'HEAD' || method == 'PROPFIND');
+      final isWrite = (method == 'PUT' || method == 'DELETE' || method == 'MKCOL' || method == 'MOVE' || method == 'PROPPATCH' || method == 'COPY');
+
+      if (isRead || isWrite) {
+        lastActivityTime = DateTime.now();
+      }
+      
+      // Normalize path to remove trailing slash except for root
+      String normPath = path.endsWith('/') && path.length > 1
+          ? path.substring(0, path.length - 1)
+          : path;
       if (method == 'OPTIONS') {
         request.response.statusCode = HttpStatus.ok;
         await request.response.close();

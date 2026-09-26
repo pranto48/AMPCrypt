@@ -474,9 +474,11 @@ class VaultRepositoryImpl implements VaultRepository {
                   '--webdav-url',
                   'http://127.0.0.1:${_webDavServer.port}',
                   '--vfs-cache-mode',
-                  'writes',
+                  'off',
                   '--dir-cache-time',
-                  '2s',
+                  '30s',
+                  '--attr-timeout',
+                  '10s',
                   '--cache-dir',
                   cachePath,
                   '--network-mode=false',
@@ -485,7 +487,7 @@ class VaultRepositoryImpl implements VaultRepository {
                   '--volname',
                   'AMPCrypt Decoy',
                 ],
-                mode: ProcessStartMode.detached,
+                runInShell: false,
               );
             }
           } catch (_) {}
@@ -711,9 +713,11 @@ class VaultRepositoryImpl implements VaultRepository {
             '--webdav-url',
             'http://127.0.0.1:$port',
             '--vfs-cache-mode',
-            'writes',
+            'off',
             '--dir-cache-time',
-            '2s',
+            '30s',
+            '--attr-timeout',
+            '10s',
             '--cache-dir',
             cachePath,
             '--network-mode=false',
@@ -827,19 +831,37 @@ class VaultRepositoryImpl implements VaultRepository {
   }
 
   Future<void> _stopServerAndUnmount() async {
-    if (_rcloneProcess != null) {
+    final driveLetter = getDriveLetter();
+    if (Platform.isWindows && !Platform.environment.containsKey('FLUTTER_TEST')) {
       try {
-        _rcloneProcess!.kill();
+        // 1. Force unmount virtual drive letter from Windows File System
+        if (driveLetter.isNotEmpty) {
+          await Process.run('net.exe', ['use', driveLetter, '/delete', '/y']);
+        }
       } catch (_) {}
-      _rcloneProcess = null;
+
+      try {
+        // 2. Kill rclone process tree cleanly
+        await Process.run('taskkill.exe', ['/f', '/im', 'rclone.exe', '/t']);
+      } catch (_) {}
+
+      if (_rcloneProcess != null) {
+        try {
+          _rcloneProcess!.kill();
+        } catch (_) {}
+        _rcloneProcess = null;
+      }
+
+      // 3. Grace period for WinFsp kernel driver handle release
+      await Future.delayed(const Duration(milliseconds: 200));
     }
+
+    // 4. Safely stop local WebDAV HTTP server
     try {
       await _webDavServer.stop();
     } catch (_) {}
 
     if (Platform.isWindows && !Platform.environment.containsKey('FLUTTER_TEST')) {
-      // Clean taskkill in background
-      Process.run('taskkill.exe', ['/f', '/im', 'rclone.exe']).catchError((_) => ProcessResult(0, 0, '', ''));
       try {
         await _winFspChannel.invokeMethod<void>('refreshShell');
       } catch (_) {}
