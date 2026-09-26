@@ -739,6 +739,7 @@ class VaultRepositoryImpl implements VaultRepository {
           }
           final globalIcon = File(p.join(progDataDir.path, 'vault_drive.ico'));
 
+          final supportDir = await _getSupportDirectorySafe();
           final userAppDir = Directory(p.join(supportDir.path));
           if (!userAppDir.existsSync()) {
             try { userAppDir.createSync(recursive: true); } catch (_) {}
