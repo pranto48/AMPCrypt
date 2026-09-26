@@ -26,6 +26,7 @@ import 'package:launch_at_startup/launch_at_startup.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:ampcrypt/core/version.dart';
 import 'package:ampcrypt/core/portable_state_sync.dart';
+import 'package:ampcrypt/core/platform/windows_shell_service.dart';
 import 'package:http/http.dart' as http_pkg;
 
 import '../bloc/vault_bloc.dart';
@@ -874,14 +875,20 @@ class _VaultPageState extends State<VaultPage>
   }
 
   void _openDriveInExplorer(String driveLetter) async {
-    final cleanLetter = driveLetter.replaceAll(':', '').trim();
+    final repo = context.read<VaultBloc>().repository;
+    String cleanLetter = driveLetter.replaceAll(':', '').replaceAll('\\', '').replaceAll('/', '').trim();
+    if (cleanLetter.isEmpty) {
+      final configured = repo.getDriveLetter();
+      cleanLetter = configured.replaceAll(':', '').replaceAll('\\', '').replaceAll('/', '').trim();
+    }
+    if (cleanLetter.isEmpty) cleanLetter = 'Z';
 
-    if (cleanLetter.isNotEmpty && Platform.isWindows) {
-      final drivePath = '$cleanLetter:\\';
+    final drivePath = '${cleanLetter.toUpperCase()}:\\';
 
-      // 1. Wait briefly (up to 2.5 seconds) if virtual drive is currently attaching
+    if (Platform.isWindows) {
+      // 1. Wait briefly (up to 1.5 seconds) if virtual drive is currently attaching
       bool isMounted = false;
-      for (int i = 0; i < 8; i++) {
+      for (int i = 0; i < 5; i++) {
         if (Directory(drivePath).existsSync()) {
           isMounted = true;
           break;
@@ -889,52 +896,48 @@ class _VaultPageState extends State<VaultPage>
         await Future.delayed(const Duration(milliseconds: 300));
       }
 
-      if (isMounted) {
-        try {
-          await Process.start('explorer.exe', [drivePath], runInShell: true);
-          return;
-        } catch (_) {
-          try {
-            await Process.run('explorer.exe', [drivePath], runInShell: true);
-            return;
-          } catch (_) {
-            try {
-              await Process.start('cmd.exe', ['/c', 'start', '""', drivePath], runInShell: true);
-              return;
-            } catch (_) {}
-          }
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: const Color(0xFF06B6D4),
-              duration: const Duration(seconds: 4),
-              content: Text(
-                'Virtual Drive $cleanLetter: is preparing. You can also explore files directly in "In-App Secure Files".',
-                style: GoogleFonts.outfit(color: Colors.white),
-              ),
-            ),
-          );
-        }
+      if (isMounted || Directory(drivePath).existsSync()) {
+        final opened = await WindowsShellService().openInExplorer(drivePath);
+        if (opened) return;
       }
+
+      // Try opening directly in case Directory.existsSync() returned false due to sandbox/permissions
+      final openedDirectly = await WindowsShellService().openInExplorer(drivePath);
+      if (openedDirectly) return;
     }
 
-    // 2. Fallback: Open active vault folder
-    final repo = context.read<VaultBloc>().repository;
+    // 2. Fallback: If virtual drive is not ready/mounted, check for active local vault folder
     final vaultPath = repo.getVaultPath();
-    if (vaultPath.isNotEmpty && Directory(vaultPath).existsSync()) {
-      try {
-        await Process.start('explorer.exe', [vaultPath], runInShell: true);
-      } catch (_) {
-        try {
-          await Process.run('explorer.exe', [vaultPath], runInShell: true);
-        } catch (_) {
-          try {
-            await Process.start('cmd.exe', ['/c', 'start', '""', vaultPath], runInShell: true);
-          } catch (_) {}
-        }
+    final storageType = repo.storageType;
+    if (storageType == 'local' && vaultPath.isNotEmpty && Directory(vaultPath).existsSync()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF0284C7),
+            duration: const Duration(seconds: 4),
+            content: Text(
+              'Virtual Drive $cleanLetter: is preparing. Opening vault folder in Explorer instead...',
+              style: GoogleFonts.outfit(color: Colors.white),
+            ),
+          ),
+        );
       }
+      await WindowsShellService().openInExplorer(vaultPath);
+      return;
+    }
+
+    // 3. Fallback notification if drive cannot be opened
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF06B6D4),
+          duration: const Duration(seconds: 4),
+          content: Text(
+            'Virtual Drive $cleanLetter: is preparing. You can also explore files directly in "In-App Secure Files".',
+            style: GoogleFonts.outfit(color: Colors.white),
+          ),
+        ),
+      );
     }
   }
 
@@ -4494,38 +4497,9 @@ class _UnlockedDashboardViewState extends State<UnlockedDashboardView> {
                                     fontSize: 10,
                                   ),
                                 ),
-                                onPressed: () async {
-                                  // Re-read drive letter at click time
-
-                                  // (mount detection updates prefs async after build() ran)
-
-                                  final liveLetter = repository
-                                      .getDriveLetter();
-
-                                  if (liveLetter.isNotEmpty &&
-                                      liveLetter != 'Z:') {
-                                    Process.run('explorer.exe', [liveLetter]);
-                                  } else {
-                                    // Fallback: scan for 'AMPCrypt' volume label
-
-                                    final res = await Process.run(
-                                      'powershell.exe',
-                                      [
-                                        '-Command',
-
-                                        "(Get-Volume -EA SilentlyContinue | Where-Object { \$_.FileSystemLabel -eq 'AMPCrypt' } | Select-Object -First 1).DriveLetter",
-                                      ],
-                                    );
-
-                                    final sl = res.stdout.toString().trim();
-
-                                    if (sl.length == 1 &&
-                                        sl.codeUnitAt(0) >= 65) {
-                                      Process.run('explorer.exe', ['\${sl}:']);
-                                    } else {
-                                      Process.run('explorer.exe', [liveLetter]);
-                                    }
-                                  }
+                                onPressed: () {
+                                  final liveLetter = repository.getDriveLetter();
+                                  _openDriveInExplorer(liveLetter);
                                 },
                               ),
                             ],

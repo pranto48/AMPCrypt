@@ -7,11 +7,84 @@
 
 import 'dart:io';
 import 'package:path/path.dart' as p;
+import 'package:url_launcher/url_launcher.dart';
 
 class WindowsShellService {
   static final WindowsShellService _instance = WindowsShellService._internal();
   factory WindowsShellService() => _instance;
   WindowsShellService._internal();
+
+  /// Safely reveals a drive or folder in Windows File Explorer.
+  /// Handles MSIX sandboxing, standard desktop apps, drive letter formatting,
+  /// and avoids cmd.exe backslash-quote escaping and stdio inheritance blocking.
+  Future<bool> openInExplorer(String targetPath) async {
+    if (!Platform.isWindows) return false;
+
+    String cleanPath = targetPath.trim();
+    if (cleanPath.isEmpty) return false;
+
+    // Normalize drive letters like "Z:", "Z", "Z:\" to "Z:\"
+    final driveMatch = RegExp(r'^([a-zA-Z]):?[/\\]*$').firstMatch(cleanPath);
+    if (driveMatch != null) {
+      final letter = driveMatch.group(1)!.toUpperCase();
+      cleanPath = '$letter:\\';
+    } else {
+      cleanPath = p.normalize(cleanPath);
+    }
+
+    // 1. Try url_launcher (ShellExecuteW via Windows Shell)
+    // Most reliable across all Windows versions and MSIX / Centennial packaging.
+    try {
+      final uri = Uri.file(cleanPath);
+      final launched = await launchUrl(uri);
+      if (launched) return true;
+    } catch (_) {}
+
+    // 2. Direct Process.start('explorer.exe', [cleanPath]) with ProcessStartMode.detached and runInShell: false
+    // runInShell: false avoids cmd.exe treating the trailing backslash ("Z:\") as an escaped quote.
+    // mode: ProcessStartMode.detached ensures stdout/stderr pipe inheritance does not freeze the Dart VM.
+    try {
+      final process = await Process.start(
+        'explorer.exe',
+        [cleanPath],
+        mode: ProcessStartMode.detached,
+        runInShell: false,
+      );
+      if (process.pid > 0) return true;
+    } catch (_) {}
+
+    // 3. Fallback: cmd.exe start explorer.exe (without outer wrapping quotes)
+    try {
+      final process = await Process.start(
+        'cmd.exe',
+        ['/c', 'start', 'explorer.exe', cleanPath],
+        mode: ProcessStartMode.detached,
+        runInShell: false,
+      );
+      if (process.pid > 0) return true;
+    } catch (_) {}
+
+    // 4. Fallback: PowerShell Invoke-Item
+    try {
+      final process = await Process.start(
+        'powershell.exe',
+        [
+          '-NoProfile',
+          '-WindowStyle',
+          'Hidden',
+          '-Command',
+          'Invoke-Item',
+          '-LiteralPath',
+          '"$cleanPath"',
+        ],
+        mode: ProcessStartMode.detached,
+        runInShell: false,
+      );
+      if (process.pid > 0) return true;
+    } catch (_) {}
+
+    return false;
+  }
 
   /// Registers Windows Explorer Context Menu entries for files and folders.
   Future<bool> registerExplorerContextMenu() async {
