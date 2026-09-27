@@ -5,7 +5,6 @@
  * (This project website link: https://ampcrypt.itsupport.com.bd)
  */
 
-import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:ftpconnect/ftpconnect.dart';
@@ -26,7 +25,7 @@ abstract class VaultStorage {
 
   /// Calculates a 2-character sharded directory path with .ampcrypt file extension.
   static String getShardedPath(String relativePath) {
-    final norm = relativePath.replaceAll('\\\\', '/');
+    final norm = relativePath.replaceAll('\\', '/');
     if (!norm.startsWith('data/')) return relativePath;
 
     final filename = p.basename(norm);
@@ -59,7 +58,7 @@ class LocalVaultStorage implements VaultStorage {
   String? get localPath => vaultPath;
 
   String _resolveFile(String relativePath) {
-    final norm = relativePath.replaceAll('\\\\', '/');
+    final norm = relativePath.replaceAll('\\', '/');
     if (!norm.startsWith('data/')) {
       return p.join(vaultPath, relativePath);
     }
@@ -70,7 +69,7 @@ class LocalVaultStorage implements VaultStorage {
       return targetFile.path;
     }
 
-    // Direct check if relativePath already exists legacy
+    // Direct check if relativePath already includes extension
     final directFile = File(p.join(vaultPath, relativePath));
     if (directFile.existsSync()) {
       // Migrate legacy file to 2-character sharded directory
@@ -391,11 +390,4 @@ class FtpVaultStorage implements VaultStorage {
     final bytes = await readFile(srcRelativePath);
     await writeFile(destRelativePath, bytes);
   }
-}
-
-class FileNotFoundException implements Exception {
-  final String message;
-  FileNotFoundException(this.message);
-  @override
-  String toString() => message;
 }
