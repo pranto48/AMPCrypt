@@ -822,6 +822,41 @@ class VaultRepositoryImpl implements VaultRepository {
               'AMPCrypt Vault',
               '/f'
             ]);
+          // 4. Register .ampcrypt File Extension Association for Windows Explorer
+          try {
+            final exePath = Platform.resolvedExecutable;
+            await Process.run('reg.exe', [
+              'add',
+              'HKCU\\Software\\Classes\\.ampcrypt',
+              '/ve',
+              '/d',
+              'AMPCrypt.EncryptedFile',
+              '/f'
+            ]);
+            await Process.run('reg.exe', [
+              'add',
+              'HKCU\\Software\\Classes\\AMPCrypt.EncryptedFile',
+              '/ve',
+              '/d',
+              'AMPCrypt Encrypted Vault File',
+              '/f'
+            ]);
+            await Process.run('reg.exe', [
+              'add',
+              'HKCU\\Software\\Classes\\AMPCrypt.EncryptedFile\\DefaultIcon',
+              '/ve',
+              '/d',
+              securityIcon,
+              '/f'
+            ]);
+            await Process.run('reg.exe', [
+              'add',
+              'HKCU\\Software\\Classes\\AMPCrypt.EncryptedFile\\shell\\open\\command',
+              '/ve',
+              '/d',
+              '"$exePath" "%1"',
+              '/f'
+            ]);
           } catch (_) {}
 
           await _winFspChannel.invokeMethod<void>('refreshShell');
