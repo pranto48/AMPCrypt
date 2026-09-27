@@ -5,11 +5,19 @@
  * (This project website link: https://ampcrypt.itsupport.com.bd)
  */
 
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:ftpconnect/ftpconnect.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+
+class VaultFileNotFoundException implements Exception {
+  final String message;
+  VaultFileNotFoundException(this.message);
+  @override
+  String toString() => message;
+}
 
 abstract class VaultStorage {
   Future<void> initialize();
@@ -25,7 +33,7 @@ abstract class VaultStorage {
 
   /// Calculates a 2-character sharded directory path with .ampcrypt file extension.
   static String getShardedPath(String relativePath) {
-    final norm = relativePath.replaceAll('\\', '/');
+    final norm = relativePath.replaceAll('\\\\', '/');
     if (!norm.startsWith('data/')) return relativePath;
 
     final filename = p.basename(norm);
@@ -58,7 +66,7 @@ class LocalVaultStorage implements VaultStorage {
   String? get localPath => vaultPath;
 
   String _resolveFile(String relativePath) {
-    final norm = relativePath.replaceAll('\\', '/');
+    final norm = relativePath.replaceAll('\\\\', '/');
     if (!norm.startsWith('data/')) {
       return p.join(vaultPath, relativePath);
     }
@@ -69,7 +77,7 @@ class LocalVaultStorage implements VaultStorage {
       return targetFile.path;
     }
 
-    // Direct check if relativePath already includes extension
+    // Direct check if relativePath already exists legacy
     final directFile = File(p.join(vaultPath, relativePath));
     if (directFile.existsSync()) {
       // Migrate legacy file to 2-character sharded directory
@@ -108,7 +116,7 @@ class LocalVaultStorage implements VaultStorage {
     final filePath = _resolveFile(relativePath);
     final file = File(filePath);
     if (!file.existsSync()) {
-      throw FileNotFoundException("File not found: $relativePath");
+      throw VaultFileNotFoundException("File not found: $relativePath");
     }
     return await file.readAsBytes();
   }
@@ -129,7 +137,7 @@ class LocalVaultStorage implements VaultStorage {
     final filePath = _resolveFile(relativePath);
     final file = File(filePath);
     if (!file.existsSync()) {
-      throw FileNotFoundException("File not found: $relativePath");
+      throw VaultFileNotFoundException("File not found: $relativePath");
     }
     return file.openRead();
   }
@@ -185,7 +193,7 @@ class LocalVaultStorage implements VaultStorage {
     final srcFile = File(srcPath);
     final destFile = File(destPath);
     if (!srcFile.existsSync()) {
-      throw FileNotFoundException("Source file not found: $srcRelativePath");
+      throw VaultFileNotFoundException("Source file not found: $srcRelativePath");
     }
     final parentDir = destFile.parent;
     if (!parentDir.existsSync()) {
@@ -287,89 +295,93 @@ class FtpVaultStorage implements VaultStorage {
     return await _withFtp((client) async {
       await _navigateToRelativeDir(client, targetPath);
       final filename = p.basename(targetPath);
-      return await client.checkFileExists(filename);
+      return await client.existFile(filename);
     });
   }
 
   @override
   Future<Uint8List> readFile(String relativePath) async {
     final targetPath = VaultStorage.getShardedPath(relativePath);
-    return await _withFtp((client) async {
-      await _navigateToRelativeDir(client, targetPath);
-      final filename = p.basename(targetPath);
-      final tempDir = await getTemporaryDirectory();
-      final tempFile = File(p.join(tempDir.path, 'ftp_temp_${DateTime.now().millisecondsSinceEpoch}.tmp'));
-      try {
-        final downloaded = await client.downloadFile(filename, tempFile);
-        if (!downloaded || !tempFile.existsSync()) {
-          throw FileNotFoundException("Failed to download FTP file: $relativePath");
-        }
-        return await tempFile.readAsBytes();
-      } finally {
-        if (tempFile.existsSync()) {
-          try { tempFile.deleteSync(); } catch (_) {}
-        }
+    final tempDir = await getTemporaryDirectory();
+    final localFile = File(p.join(tempDir.path, 'ampcrypt_download_${DateTime.now().microsecondsSinceEpoch}.tmp'));
+
+    try {
+      final success = await _withFtp((client) async {
+        await _navigateToRelativeDir(client, targetPath);
+        final filename = p.basename(targetPath);
+        return await client.downloadFileWithRetry(filename, localFile, pRetryCount: 1);
+      });
+
+      if (!success) {
+        throw VaultFileNotFoundException("Failed to download file from FTP: $relativePath");
       }
-    });
+      return await localFile.readAsBytes();
+    } finally {
+      if (localFile.existsSync()) {
+        localFile.deleteSync();
+      }
+    }
   }
 
   @override
   Future<void> writeFile(String relativePath, Uint8List bytes) async {
     final targetPath = VaultStorage.getShardedPath(relativePath);
-    await _withFtp((client) async {
-      await _navigateToRelativeDir(client, targetPath);
-      final filename = p.basename(targetPath);
-      final tempDir = await getTemporaryDirectory();
-      final tempFile = File(p.join(tempDir.path, 'ftp_upload_${DateTime.now().millisecondsSinceEpoch}.tmp'));
-      try {
-        await tempFile.writeAsBytes(bytes, flush: true);
-        await client.uploadFile(tempFile, sRemoteName: filename);
-      } finally {
-        if (tempFile.existsSync()) {
-          try { tempFile.deleteSync(); } catch (_) {}
-        }
+    final tempDir = await getTemporaryDirectory();
+    final filename = p.basename(targetPath);
+    final localFile = File(p.join(tempDir.path, 'ampcrypt_upload_${DateTime.now().microsecondsSinceEpoch}_$filename'));
+
+    try {
+      await localFile.writeAsBytes(bytes, flush: true);
+
+      final success = await _withFtp((client) async {
+        await _navigateToRelativeDir(client, targetPath);
+        return await client.uploadFileWithRetry(localFile, pRetryCount: 1);
+      });
+
+      if (!success) {
+        throw Exception("Failed to upload file to FTP: $relativePath");
       }
-    });
+    } finally {
+      if (localFile.existsSync()) {
+        localFile.deleteSync();
+      }
+    }
   }
 
   @override
-  Stream<List<int>> openRead(String relativePath) {
-    final controller = StreamController<List<int>>();
-    readFile(relativePath).then((bytes) {
-      controller.add(bytes);
-      controller.close();
-    }).catchError((err) {
-      controller.addError(err);
-      controller.close();
-    });
-    return controller.stream;
+  Stream<List<int>> openRead(String relativePath) async* {
+    final bytes = await readFile(relativePath);
+    yield bytes;
   }
 
   @override
   Future<void> writeStream(String relativePath, Stream<List<int>> stream) async {
-    final bytesBuilder = BytesBuilder();
+    final builder = BytesBuilder();
     await for (final chunk in stream) {
-      bytesBuilder.add(chunk);
+      builder.add(chunk);
     }
-    await writeFile(relativePath, bytesBuilder.takeBytes());
+    await writeFile(relativePath, builder.takeBytes());
   }
 
   @override
   Future<List<String>> listFiles(String relativeDirectory) async {
     return await _withFtp((client) async {
       await _navigateToRelativeDir(client, relativeDirectory);
-      final List<FTPEntry> entries = await client.listDirectoryContent();
-      return entries
-          .where((e) => e.type == FTPEntryType.FILE)
-          .map((e) {
-            final name = e.name;
-            if (name.endsWith('.ampcrypt')) {
-              return name.substring(0, name.length - 9);
-            }
-            return name;
-          })
-          .where((name) => !name.endsWith('.tmp') && !name.endsWith('.bak'))
-          .toList();
+      try {
+        final list = await client.listDirectoryContent();
+        return list
+            .map((item) => item.name)
+            .where((name) => !name.endsWith('.tmp') && !name.endsWith('.bak'))
+            .map((name) {
+              if (name.endsWith('.ampcrypt')) {
+                return name.substring(0, name.length - 9);
+              }
+              return name;
+            })
+            .toList();
+      } catch (_) {
+        return [];
+      }
     });
   }
 
