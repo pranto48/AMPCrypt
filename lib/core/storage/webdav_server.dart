@@ -228,7 +228,7 @@ class WebDavServer {
 
       final method = request.method;
       Uint8List rawBytes = Uint8List(0);
-      if (method == 'PUT' || method == 'PROPPATCH') {
+      if (method == 'PROPPATCH') {
         rawBytes = await _readRequestPayload(request);
       }
 
@@ -260,7 +260,7 @@ class WebDavServer {
       } else if (method == 'GET' || method == 'HEAD') {
         await _handleGet(request, normPath, method == 'HEAD');
       } else if (method == 'PUT') {
-        await _handlePut(request, normPath, rawBytes);
+        await _handlePut(request, normPath);
       } else if (method == 'DELETE') {
         await _handleDelete(request, normPath);
       } else if (method == 'MKCOL') {
@@ -475,7 +475,7 @@ class WebDavServer {
   
   // ─── PUT (FILE UPLOADING / OVERWRITING WITH CHUNKED STREAMING) ──────────────
   
-  Future<void> _handlePut(HttpRequest request, String normPath, Uint8List rawBytes) async {
+  Future<void> _handlePut(HttpRequest request, String normPath) async {
     if (_masterKey == null) {
       request.response.statusCode = HttpStatus.forbidden;
       await request.response.close();
@@ -491,12 +491,21 @@ class WebDavServer {
         uuid = const Uuid().v4();
       }
       
-      // Stream encrypted chunks with self-healing header
+      final contentLengthHeader = request.headers.value('content-length');
+      final expectedSize = contentLengthHeader != null ? int.tryParse(contentLengthHeader) ?? 0 : 0;
+
+      int actualBytesWritten = 0;
+      final countingStream = request.map((chunk) {
+        actualBytesWritten += chunk.length;
+        return chunk;
+      });
+
+      // Stream encrypted chunks with self-healing header directly from request body
       final encStream = _cryptoService.encryptStream(
-        Stream.value(rawBytes),
+        countingStream,
         _masterKey!,
         originalPath: normPath,
-        expectedSize: rawBytes.length,
+        expectedSize: expectedSize > 0 ? expectedSize : null,
       );
       
       await _storage!.writeStream('data/$uuid', encStream);
@@ -507,7 +516,7 @@ class WebDavServer {
       // Update file metadata
       files[normPath] = {
         'uuid': uuid,
-        'size': rawBytes.length,
+        'size': actualBytesWritten,
         'lastModified': DateTime.now().toUtc().toIso8601String()
       };
       
