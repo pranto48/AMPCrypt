@@ -2145,5 +2145,11 @@ class VaultRepositoryImpl implements VaultRepository {
     if (!_webDavServer.isRunning) return false;
     return await _webDavServer.createVirtualFile(virtualPath, bytes);
   }
+
+  @override
+  Future<bool> copyVaultPath(String srcPath, String destPath) async {
+    if (!_webDavServer.isRunning) return false;
+    return await _webDavServer.copyVirtualPath(srcPath, destPath);
+  }
 }
 

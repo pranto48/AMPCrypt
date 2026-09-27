@@ -1125,5 +1125,53 @@ class WebDavServer {
     await _saveIndex();
     return true;
   }
+
+  Future<bool> copyVirtualPath(String srcPath, String destPath) async {
+    if (_masterKey == null || _storage == null) return false;
+    final files = _index['files'] as Map<String, dynamic>;
+    final dirs = _index['directories'] as List;
+
+    if (files.containsKey(srcPath)) {
+      final srcFileData = files[srcPath] as Map<String, dynamic>;
+      final srcUuid = srcFileData['uuid'] as String;
+      final destUuid = const Uuid().v4();
+
+      await _storage!.copyFile('data/$srcUuid', 'data/$destUuid');
+      _ensureParentDirectories(destPath);
+      files[destPath] = {
+        'uuid': destUuid,
+        'size': srcFileData['size'],
+        'lastModified': DateTime.now().toUtc().toIso8601String(),
+      };
+      await _saveIndex();
+      return true;
+    } else if (dirs.contains(srcPath)) {
+      if (!dirs.contains(destPath)) {
+        dirs.add(destPath);
+      }
+      _ensureParentDirectories(destPath);
+
+      final oldPrefix = '$srcPath/';
+      final newPrefix = '$destPath/';
+      final matchingFiles = files.keys.where((k) => k.startsWith(oldPrefix)).toList();
+      for (final mf in matchingFiles) {
+        final fData = files[mf] as Map<String, dynamic>;
+        final srcUuid = fData['uuid'] as String;
+        final destUuid = const Uuid().v4();
+
+        await _storage!.copyFile('data/$srcUuid', 'data/$destUuid');
+        final newFilePath = newPrefix + mf.substring(oldPrefix.length);
+        _ensureParentDirectories(newFilePath);
+        files[newFilePath] = {
+          'uuid': destUuid,
+          'size': fData['size'],
+          'lastModified': DateTime.now().toUtc().toIso8601String(),
+        };
+      }
+      await _saveIndex();
+      return true;
+    }
+    return false;
+  }
 }
 

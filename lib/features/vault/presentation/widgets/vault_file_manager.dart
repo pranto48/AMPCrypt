@@ -46,6 +46,8 @@ class _VaultFileManagerState extends State<VaultFileManager> {
   bool _isEditingAddress = false;
 
   final Set<String> _selectedPaths = {};
+  final Set<String> _clipboardPaths = {};
+  bool _isCutOperation = false;
   final List<String> _history = ['/'];
   int _historyIndex = 0;
 
@@ -286,32 +288,35 @@ class _VaultFileManagerState extends State<VaultFileManager> {
     if (isDir) return Icons.folder_rounded;
     final ext = name.split('.').last.toLowerCase();
 
-    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'].contains(ext)) {
+    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'ico', 'tiff'].contains(ext)) {
       return Icons.image_rounded;
     }
-    if (['mp4', 'mkv', 'avi', 'mov', 'wmv'].contains(ext)) {
-      return Icons.movie_outlined;
+    if (['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', '3gp'].contains(ext)) {
+      return Icons.video_library_rounded;
     }
-    if (['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg'].contains(ext)) {
-      return Icons.audiotrack_rounded;
+    if (['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg', 'wma'].contains(ext)) {
+      return Icons.headphones_rounded;
     }
     if (['pdf'].contains(ext)) {
       return Icons.picture_as_pdf_rounded;
     }
-    if (['zip', 'rar', '7z', 'tar', 'gz'].contains(ext)) {
+    if (['zip', 'rar', '7z', 'tar', 'gz', 'iso', 'cab'].contains(ext)) {
       return Icons.folder_zip_rounded;
     }
-    if (['txt', 'json', 'dart', 'md', 'csv', 'log', 'xml', 'html', 'css', 'js', 'py', 'cpp', 'h'].contains(ext)) {
-      return Icons.description_rounded;
+    if (['txt', 'json', 'dart', 'md', 'csv', 'log', 'xml', 'html', 'css', 'js', 'ts', 'py', 'cpp', 'c', 'h', 'java', 'go', 'rs', 'php', 'sh', 'bat', 'ps1', 'yaml', 'yml'].contains(ext)) {
+      return Icons.terminal_rounded;
     }
     if (['doc', 'docx'].contains(ext)) {
-      return Icons.article_rounded;
+      return Icons.description_rounded;
     }
     if (['xls', 'xlsx'].contains(ext)) {
       return Icons.table_chart_rounded;
     }
     if (['ppt', 'pptx'].contains(ext)) {
       return Icons.slideshow_rounded;
+    }
+    if (['exe', 'msi', 'apk'].contains(ext)) {
+      return Icons.extension_rounded;
     }
     return Icons.insert_drive_file_rounded;
   }
@@ -320,31 +325,37 @@ class _VaultFileManagerState extends State<VaultFileManager> {
     if (isDir) return const Color(0xFFFBBF24); // Amber Windows folder
     final ext = name.split('.').last.toLowerCase();
 
-    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'].contains(ext)) {
+    if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'].contains(ext)) {
       return const Color(0xFF38BDF8); // Sky blue
     }
-    if (['mp4', 'mkv', 'avi', 'mov'].contains(ext)) {
-      return const Color(0xFFF43F5E); // Rose
+    if (['mp4', 'mkv', 'avi', 'mov', 'wmv', 'webm'].contains(ext)) {
+      return const Color(0xFFF43F5E); // Rose Red
     }
-    if (['mp3', 'wav', 'flac', 'm4a'].contains(ext)) {
+    if (['mp3', 'wav', 'flac', 'm4a', 'aac', 'ogg'].contains(ext)) {
       return const Color(0xFFA855F7); // Purple
     }
     if (['pdf'].contains(ext)) {
-      return const Color(0xFFEF4444); // Crimson
+      return const Color(0xFFEF4444); // Crimson Red
     }
-    if (['zip', 'rar', '7z', 'tar', 'gz'].contains(ext)) {
-      return const Color(0xFFF59E0B); // Amber
+    if (['zip', 'rar', '7z', 'tar', 'gz', 'iso'].contains(ext)) {
+      return const Color(0xFFF59E0B); // Amber Yellow
     }
-    if (['txt', 'json', 'dart', 'md', 'csv', 'log', 'xml', 'html', 'css', 'js', 'py'].contains(ext)) {
-      return const Color(0xFF10B981); // Emerald
+    if (['txt', 'json', 'dart', 'md', 'csv', 'log', 'xml', 'html', 'css', 'js', 'ts', 'py', 'cpp', 'java', 'go', 'rs'].contains(ext)) {
+      return const Color(0xFF10B981); // Emerald Green
     }
     if (['doc', 'docx'].contains(ext)) {
-      return const Color(0xFF3B82F6); // Word blue
+      return const Color(0xFF3B82F6); // Word Blue
     }
     if (['xls', 'xlsx'].contains(ext)) {
-      return const Color(0xFF10B981); // Excel green
+      return const Color(0xFF10B981); // Excel Green
     }
-    return const Color(0xFF94A3B8); // Slate
+    if (['ppt', 'pptx'].contains(ext)) {
+      return const Color(0xFFF97316); // Orange
+    }
+    if (['exe', 'msi', 'apk'].contains(ext)) {
+      return const Color(0xFF8B5CF6); // Violet
+    }
+    return const Color(0xFF94A3B8); // Slate Gray
   }
 
   String _formatSize(int bytes) {
@@ -684,6 +695,145 @@ class _VaultFileManagerState extends State<VaultFileManager> {
     }
   }
 
+  void _copySelectedItems({Map<String, dynamic>? targetItem}) {
+    final targets = targetItem != null ? {targetItem['path'] as String} : _selectedPaths;
+    if (targets.isEmpty) return;
+    setState(() {
+      _clipboardPaths.clear();
+      _clipboardPaths.addAll(targets);
+      _isCutOperation = false;
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF06B6D4),
+          content: Text('Copied ${targets.length} item(s) to vault clipboard.', style: GoogleFonts.outfit(color: Colors.white)),
+        ),
+      );
+    }
+  }
+
+  void _cutSelectedItems({Map<String, dynamic>? targetItem}) {
+    final targets = targetItem != null ? {targetItem['path'] as String} : _selectedPaths;
+    if (targets.isEmpty) return;
+    setState(() {
+      _clipboardPaths.clear();
+      _clipboardPaths.addAll(targets);
+      _isCutOperation = true;
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFFF59E0B),
+          content: Text('Cut ${targets.length} item(s) to vault clipboard.', style: GoogleFonts.outfit(color: Colors.white)),
+        ),
+      );
+    }
+  }
+
+  Future<void> _pasteClipboardItems() async {
+    if (_clipboardPaths.isEmpty) return;
+
+    setState(() => _isLoading = true);
+    int successCount = 0;
+
+    for (final srcPath in _clipboardPaths.toList()) {
+      final name = srcPath.split('/').where((s) => s.isNotEmpty).last;
+      final destPath = _currentPath == '/' ? '/$name' : '$_currentPath/$name';
+      if (srcPath == destPath) continue;
+
+      bool ok = false;
+      if (_isCutOperation) {
+        ok = await widget.repository.renameVaultPath(srcPath, destPath);
+      } else {
+        ok = await widget.repository.copyVaultPath(srcPath, destPath);
+      }
+      if (ok) successCount++;
+    }
+
+    if (_isCutOperation) {
+      _clipboardPaths.clear();
+      _isCutOperation = false;
+    }
+
+    _loadDirectory();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF10B981),
+          content: Text(
+            'Successfully pasted $successCount item(s) into $_currentPath',
+            style: GoogleFonts.outfit(color: Colors.white),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _showPropertiesDialog(Map<String, dynamic> item) async {
+    final name = item['name'] as String? ?? '';
+    final path = item['path'] as String? ?? '';
+    final isDir = item['isDirectory'] as bool? ?? false;
+    final size = item['size'] as int? ?? 0;
+    final lastModified = item['lastModified'] as String?;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: const Color(0xFF06B6D4).withValues(alpha: 0.3)),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              _getFileIcon(name, isDir),
+              color: _getFileColor(name, isDir),
+              size: 24,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '$name Properties',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+          ],
+        ),
+        content: Container(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildDetailRow('Item Name', name),
+              _buildDetailRow('Type', _getFileTypeDescription(name, isDir)),
+              _buildDetailRow('Virtual Vault Path', path),
+              _buildDetailRow('Size', isDir ? '—' : '${_formatSize(size)} ($size bytes)'),
+              _buildDetailRow('Date Modified', _formatDate(lastModified)),
+              _buildDetailRow('Security Status', 'AES-256-GCM + Kyber-1024 Zero-Trace Encrypted'),
+            ],
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF06B6D4),
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text('OK', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _exportItem(Map<String, dynamic> item) async {
     final path = item['path'] as String;
     final name = item['name'] as String;
@@ -958,6 +1108,39 @@ class _VaultFileManagerState extends State<VaultFileManager> {
             ),
             const SizedBox(width: 6),
 
+            // Cut Button
+            _buildRibbonButton(
+              icon: Icons.content_cut_rounded,
+              label: 'Cut',
+              color: const Color(0xFFF59E0B),
+              enabled: anySelected,
+              onTap: _cutSelectedItems,
+              tooltip: 'Cut Selected Items to Clipboard',
+            ),
+            const SizedBox(width: 6),
+
+            // Copy Button
+            _buildRibbonButton(
+              icon: Icons.content_copy_rounded,
+              label: 'Copy',
+              color: const Color(0xFF06B6D4),
+              enabled: anySelected,
+              onTap: _copySelectedItems,
+              tooltip: 'Copy Selected Items to Clipboard',
+            ),
+            const SizedBox(width: 6),
+
+            // Paste Button
+            _buildRibbonButton(
+              icon: Icons.content_paste_rounded,
+              label: 'Paste',
+              color: const Color(0xFF10B981),
+              enabled: _clipboardPaths.isNotEmpty,
+              onTap: _pasteClipboardItems,
+              tooltip: 'Paste Items into Current Folder',
+            ),
+            const SizedBox(width: 6),
+
             // Export Button (Active when single item selected)
             _buildRibbonButton(
               icon: Icons.file_download_outlined,
@@ -992,6 +1175,19 @@ class _VaultFileManagerState extends State<VaultFileManager> {
               enabled: anySelected,
               onTap: _deleteSelectedItems,
               tooltip: 'Permanently Shred Selected Item(s)',
+            ),
+            const SizedBox(width: 6),
+
+            // Properties Button
+            _buildRibbonButton(
+              icon: Icons.info_outline_rounded,
+              label: 'Properties',
+              color: const Color(0xFF38BDF8),
+              enabled: singleSelected && selectedItem != null,
+              onTap: () {
+                if (selectedItem != null) _showPropertiesDialog(selectedItem);
+              },
+              tooltip: 'View File/Folder Properties',
             ),
 
             const SizedBox(width: 12),
@@ -2019,21 +2215,28 @@ class _VaultFileManagerState extends State<VaultFileManager> {
 
     showMenu<String>(
       context: context,
-      position: RelativeRect.fromLTRB(globalPosition.dx, globalPosition.dy, globalPosition.dx + 1, globalPosition.dy + 1),
+      position: RelativeRect.fromLTRB(
+        globalPosition.dx > 0 ? globalPosition.dx : 200,
+        globalPosition.dy > 0 ? globalPosition.dy : 200,
+        globalPosition.dx > 0 ? globalPosition.dx + 1 : 201,
+        globalPosition.dy > 0 ? globalPosition.dy + 1 : 201,
+      ),
       color: const Color(0xFF1E293B),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: Colors.white12)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: const Color(0xFF06B6D4).withValues(alpha: 0.3)),
+      ),
       items: [
-        if (!isDir)
-          PopupMenuItem(
-            value: 'preview',
-            child: Row(
-              children: [
-                const Icon(Icons.visibility_outlined, size: 16, color: Color(0xFF38BDF8)),
-                const SizedBox(width: 8),
-                Text('Preview in Memory (Zero-Trace)', style: GoogleFonts.outfit(color: Colors.white, fontSize: 13)),
-              ],
-            ),
+        PopupMenuItem(
+          value: 'open',
+          child: Row(
+            children: [
+              Icon(isDir ? Icons.folder_open_rounded : Icons.visibility_outlined, size: 16, color: const Color(0xFF38BDF8)),
+              const SizedBox(width: 8),
+              Text(isDir ? 'Open Folder' : 'Preview in Memory (Zero-Trace)', style: GoogleFonts.outfit(color: Colors.white, fontSize: 13)),
+            ],
           ),
+        ),
         if (!isDir)
           PopupMenuItem(
             value: 'export',
@@ -2042,6 +2245,38 @@ class _VaultFileManagerState extends State<VaultFileManager> {
                 const Icon(Icons.file_download_outlined, size: 16, color: Color(0xFF10B981)),
                 const SizedBox(width: 8),
                 Text('Export Decrypted Copy', style: GoogleFonts.outfit(color: Colors.white, fontSize: 13)),
+              ],
+            ),
+          ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'cut',
+          child: Row(
+            children: [
+              const Icon(Icons.content_cut_rounded, size: 16, color: Color(0xFFF59E0B)),
+              const SizedBox(width: 8),
+              Text('Cut', style: GoogleFonts.outfit(color: Colors.white, fontSize: 13)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'copy',
+          child: Row(
+            children: [
+              const Icon(Icons.content_copy_rounded, size: 16, color: Color(0xFF06B6D4)),
+              const SizedBox(width: 8),
+              Text('Copy', style: GoogleFonts.outfit(color: Colors.white, fontSize: 13)),
+            ],
+          ),
+        ),
+        if (_clipboardPaths.isNotEmpty)
+          PopupMenuItem(
+            value: 'paste',
+            child: Row(
+              children: [
+                const Icon(Icons.content_paste_rounded, size: 16, color: Color(0xFF10B981)),
+                const SizedBox(width: 8),
+                Text('Paste (${_clipboardPaths.length} items)', style: GoogleFonts.outfit(color: Colors.white, fontSize: 13)),
               ],
             ),
           ),
@@ -2059,9 +2294,19 @@ class _VaultFileManagerState extends State<VaultFileManager> {
           value: 'copy_path',
           child: Row(
             children: [
-              const Icon(Icons.copy_rounded, size: 16, color: Colors.white70),
+              const Icon(Icons.link_rounded, size: 16, color: Colors.white70),
               const SizedBox(width: 8),
               Text('Copy Virtual Path', style: GoogleFonts.outfit(color: Colors.white, fontSize: 13)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'properties',
+          child: Row(
+            children: [
+              const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF38BDF8)),
+              const SizedBox(width: 8),
+              Text('Properties', style: GoogleFonts.outfit(color: Colors.white, fontSize: 13)),
             ],
           ),
         ),
@@ -2078,17 +2323,23 @@ class _VaultFileManagerState extends State<VaultFileManager> {
         ),
       ],
     ).then((val) async {
-      if (val == 'preview') await _handleFileClick(item);
+      if (val == 'open' || val == 'preview') await _handleFileClick(item);
       if (val == 'export') await _exportItem(item);
+      if (val == 'cut') _cutSelectedItems(targetItem: item);
+      if (val == 'copy') _copySelectedItems(targetItem: item);
+      if (val == 'paste') await _pasteClipboardItems();
       if (val == 'rename') await _renameItem(item);
+      if (val == 'properties') await _showPropertiesDialog(item);
       if (val == 'copy_path') {
         Clipboard.setData(ClipboardData(text: path));
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: const Color(0xFF06B6D4),
-            content: Text('Virtual path copied: $path', style: GoogleFonts.outfit(color: Colors.white)),
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: const Color(0xFF06B6D4),
+              content: Text('Virtual path copied: $path', style: GoogleFonts.outfit(color: Colors.white)),
+            ),
+          );
+        }
       }
       if (val == 'delete') {
         _selectedPaths.clear();
