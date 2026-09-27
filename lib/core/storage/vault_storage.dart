@@ -78,19 +78,21 @@ class LocalVaultStorage implements VaultStorage {
     }
 
     // Direct check if relativePath already exists legacy
-    final directFile = File(p.join(vaultPath, relativePath));
-    if (directFile.existsSync()) {
-      // Migrate legacy file to 2-character sharded directory
-      try {
-        final parentDir = targetFile.parent;
-        if (!parentDir.existsSync()) {
-          parentDir.createSync(recursive: true);
+    if (norm != targetSharded) {
+      final directFile = File(p.join(vaultPath, relativePath));
+      if (directFile.existsSync()) {
+        // Migrate legacy file to 2-character sharded directory
+        try {
+          final parentDir = targetFile.parent;
+          if (!parentDir.existsSync()) {
+            parentDir.createSync(recursive: true);
+          }
+          directFile.copySync(targetFile.path);
+          directFile.deleteSync();
+          return targetFile.path;
+        } catch (_) {
+          return directFile.path;
         }
-        directFile.copySync(targetFile.path);
-        directFile.deleteSync();
-        return targetFile.path;
-      } catch (_) {
-        return directFile.path;
       }
     }
 

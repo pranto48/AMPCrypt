@@ -5,6 +5,7 @@
  * (This project website link: https://ampcrypt.itsupport.com.bd)
  */
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -22,6 +23,8 @@ class WebDavServer {
   Uint8List? _masterKey;
   VaultStorage? _storage;
   Map<String, dynamic> _index = {'version': 1, 'files': {}, 'directories': []};
+  Timer? _saveIndexTimer;
+  bool _isIndexDirty = false;
   
   bool get isRunning => _server != null;
   int get port => _server?.port ?? 0;
@@ -61,6 +64,11 @@ class WebDavServer {
   
   /// Stops the WebDAV server and clears master key from memory.
   Future<void> stop() async {
+    _saveIndexTimer?.cancel();
+    _saveIndexTimer = null;
+    if (_isIndexDirty) {
+      await _saveIndex();
+    }
     final serverToClose = _server;
     if (serverToClose != null) {
       _server = null;
@@ -76,7 +84,20 @@ class WebDavServer {
   
   // ─── INDEX PERSISTENCE & SELF-HEALING RECOVERY ──────────────────────────────
   
+  void _scheduleSaveIndex() {
+    _isIndexDirty = true;
+    _saveIndexTimer?.cancel();
+    _saveIndexTimer = Timer(const Duration(milliseconds: 300), () async {
+      if (_isIndexDirty) {
+        await _saveIndex();
+      }
+    });
+  }
+
   Future<void> _saveIndex() async {
+    _isIndexDirty = false;
+    _saveIndexTimer?.cancel();
+    _saveIndexTimer = null;
     if (_masterKey == null || _storage == null) return;
     
     try {
@@ -205,7 +226,11 @@ class WebDavServer {
       request.response.headers.set('Allow', 'OPTIONS, GET, HEAD, PROPFIND, PROPPATCH, PUT, DELETE, MKCOL, MOVE, COPY, LOCK, UNLOCK');
       request.response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
 
-      final rawBytes = await _readRequestPayload(request);
+      final method = request.method;
+      Uint8List rawBytes = Uint8List(0);
+      if (method == 'PUT' || method == 'PROPPATCH') {
+        rawBytes = await _readRequestPayload(request);
+      }
 
       final rawPath = request.uri.path;
       var path = Uri.decodeComponent(rawPath);
@@ -215,7 +240,6 @@ class WebDavServer {
         path = path.substring(11);
         if (path.isEmpty) path = '/';
       }
-      final method = request.method;
 
       final isRead = (method == 'GET' || method == 'HEAD' || method == 'PROPFIND');
       final isWrite = (method == 'PUT' || method == 'DELETE' || method == 'MKCOL' || method == 'MOVE' || method == 'PROPPATCH' || method == 'COPY');
@@ -487,7 +511,7 @@ class WebDavServer {
         'lastModified': DateTime.now().toUtc().toIso8601String()
       };
       
-      await _saveIndex();
+      _scheduleSaveIndex();
       
       request.response.statusCode = HttpStatus.created;
       await request.response.close();
@@ -547,7 +571,7 @@ class WebDavServer {
         dirs.removeWhere((d) => (d as String) == normPath || d.startsWith(prefix));
       }
       
-      await _saveIndex();
+      _scheduleSaveIndex();
       request.response.statusCode = HttpStatus.noContent;
       await request.response.close();
     } catch (e) {
@@ -567,7 +591,7 @@ class WebDavServer {
     }
     
     dirs.add(normPath);
-    await _saveIndex();
+    _scheduleSaveIndex();
     
     request.response.statusCode = HttpStatus.created;
     await request.response.close();
@@ -639,7 +663,7 @@ class WebDavServer {
         }
       }
       
-      await _saveIndex();
+      _scheduleSaveIndex();
       request.response.statusCode = HttpStatus.created;
       await request.response.close();
     } catch (e) {
@@ -729,7 +753,7 @@ class WebDavServer {
         }
       }
       
-      await _saveIndex();
+      _scheduleSaveIndex();
       request.response.statusCode = HttpStatus.created;
       await request.response.close();
     } catch (e) {
