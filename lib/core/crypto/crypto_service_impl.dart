@@ -201,6 +201,7 @@ class CryptoServiceImpl implements CryptoService {
     final streamBuffer = BytesBuilder();
     bool isAmpsHeaderChecked = false;
     bool isChunked = false;
+    bool isHeaderStripped = false;
 
     await for (final incoming in inputStream) {
       streamBuffer.add(incoming);
@@ -224,65 +225,66 @@ class CryptoServiceImpl implements CryptoService {
       }
 
       if (isChunked) {
-        while (true) {
+        // Step 1: Strip the self-healing file header ONCE
+        if (!isHeaderStripped) {
+          if (streamBuffer.length < 7) continue;
+
           final currentBytes = streamBuffer.toBytes();
-          // Header check: 5 (magic) + 2 (length) = 7 bytes minimum
-          if (currentBytes.length < 7) break;
+          final headerPayloadLength = (currentBytes[5] << 8) | currentBytes[6];
+          final totalHeaderSize = 7 + headerPayloadLength;
 
-          final headerLength = (currentBytes[5] << 8) | currentBytes[6];
-          final totalHeaderSize = 7 + headerLength;
+          if (streamBuffer.length < totalHeaderSize) continue;
 
-          if (currentBytes.length < totalHeaderSize) break;
-
-          // Consume header if not yet removed
-          int offset = totalHeaderSize;
-
-          // Parse chunks
-          bool consumedAny = false;
-          while (offset + 4 <= currentBytes.length) {
-            final cipherLen = (currentBytes[offset] << 24) |
-                (currentBytes[offset + 1] << 16) |
-                (currentBytes[offset + 2] << 8) |
-                currentBytes[offset + 3];
-
-            if (cipherLen == 0) {
-              // EOF sentinel
-              offset += 4;
-              consumedAny = true;
-              break;
-            }
-
-            final fullChunkSize = 4 + 12 + 16 + cipherLen;
-            if (offset + fullChunkSize > currentBytes.length) {
-              break; // Wait for more data
-            }
-
-            final nonce = currentBytes.sublist(offset + 4, offset + 16);
-            final macBytes = currentBytes.sublist(offset + 16, offset + 32);
-            final cipherText = currentBytes.sublist(offset + 32, offset + fullChunkSize);
-
-            final secretBox = SecretBox(
-              cipherText,
-              nonce: nonce,
-              mac: Mac(macBytes),
-            );
-            final decrypted = await _aesAlgorithm.decrypt(
-              secretBox,
-              secretKey: secretKey,
-            );
-            yield decrypted;
-
-            offset += fullChunkSize;
-            consumedAny = true;
+          final allBytes = streamBuffer.takeBytes();
+          if (allBytes.length > totalHeaderSize) {
+            streamBuffer.add(allBytes.sublist(totalHeaderSize));
           }
+          isHeaderStripped = true;
+        }
 
-          if (consumedAny && offset > 0) {
-            final remaining = currentBytes.sublist(offset);
-            streamBuffer.clear();
-            streamBuffer.add(remaining);
-          } else {
+        // Step 2: Sequentially parse and decrypt all complete chunks in the buffer
+        while (isHeaderStripped) {
+          if (streamBuffer.length < 4) break;
+
+          final currentBytes = streamBuffer.toBytes();
+          final cipherLen = (currentBytes[0] << 24) |
+              (currentBytes[1] << 16) |
+              (currentBytes[2] << 8) |
+              currentBytes[3];
+
+          if (cipherLen == 0) {
+            // EOF sentinel (4 zero bytes)
+            final allBytes = streamBuffer.takeBytes();
+            if (allBytes.length > 4) {
+              streamBuffer.add(allBytes.sublist(4));
+            }
             break;
           }
+
+          final fullChunkSize = 4 + 12 + 16 + cipherLen;
+          if (currentBytes.length < fullChunkSize) {
+            break; // Wait for the remaining bytes of this chunk
+          }
+
+          final allBytes = streamBuffer.takeBytes();
+          final nonce = allBytes.sublist(4, 16);
+          final macBytes = allBytes.sublist(16, 32);
+          final cipherText = allBytes.sublist(32, fullChunkSize);
+
+          if (allBytes.length > fullChunkSize) {
+            streamBuffer.add(allBytes.sublist(fullChunkSize));
+          }
+
+          final secretBox = SecretBox(
+            cipherText,
+            nonce: nonce,
+            mac: Mac(macBytes),
+          );
+          final decrypted = await _aesAlgorithm.decrypt(
+            secretBox,
+            secretKey: secretKey,
+          );
+          yield decrypted;
         }
       }
     }

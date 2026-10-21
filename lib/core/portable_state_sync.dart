@@ -1,7 +1,7 @@
 /*
  * Copyright (c) IT Support BD (https://itsupport.com.bd). All rights reserved.
  * This file is part of AMPCrypt.
- This program is free software but it under the terms of the GNU Affero General Public License.
+ * This program is free software but it under the terms of the GNU Affero General Public License.
  * (This project website link: https://ampcrypt.itsupport.com.bd)
  */
 
@@ -18,21 +18,31 @@ class PortableStateSync {
     try {
       final exePath = Platform.resolvedExecutable;
       final exeDir = p.dirname(exePath);
-      final isProgramFiles = exeDir.toLowerCase().contains('program files');
-      final portableDataDir = Directory(p.join(exeDir, 'data'));
+      final exeLower = exeDir.toLowerCase();
       
-      if (portableDataDir.existsSync()) {
+      // Packaged MSIX apps or apps installed in Program Files/WindowsApps are NEVER portable
+      final isPackagedOrInstalled = exeLower.contains('windowsapps') ||
+          exeLower.contains('program files') ||
+          exeLower.contains(r'windows\system32') ||
+          Platform.environment.containsKey('PACKAGE_NAME');
+      
+      if (isPackagedOrInstalled) {
+        _isPortable = false;
+        return;
+      }
+
+      // Standalone/USB portable mode uses 'portable_data' (never Flutter's engine 'data' directory)
+      final portableDataDir = Directory(p.join(exeDir, 'portable_data'));
+      final portableFlag = File(p.join(exeDir, 'portable.flag'));
+      final portableMarker = File(p.join(exeDir, '.portable'));
+
+      if (portableDataDir.existsSync() || portableFlag.existsSync() || portableMarker.existsSync()) {
         _isPortable = true;
-      } else if (!isProgramFiles) {
-        // Test if writable
-        final testFile = File(p.join(exeDir, '.write_test'));
-        await testFile.writeAsString('test', flush: true);
-        await testFile.delete();
-        _isPortable = true;
+      } else {
+        _isPortable = false;
       }
 
       if (_isPortable) {
-        // Ensure local data directory exists next to exe
         if (!portableDataDir.existsSync()) {
           portableDataDir.createSync(recursive: true);
         }
@@ -49,9 +59,9 @@ class PortableStateSync {
     try {
       final exePath = Platform.resolvedExecutable;
       final exeDir = p.dirname(exePath);
-      final portableDataDir = Directory(p.join(exeDir, 'data'));
+      final portableDataDir = Directory(p.join(exeDir, 'portable_data'));
       final supportDir = await getApplicationSupportDirectory();
-      
+
       if (!portableDataDir.existsSync()) {
         portableDataDir.createSync(recursive: true);
       }

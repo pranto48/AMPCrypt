@@ -299,6 +299,7 @@ class VaultRepositoryImpl implements VaultRepository {
   Future<bool> relocateVaultFolder(String newPath) async {
     if (!isVaultPathValid(newPath)) return false;
     await _prefs.setString('vault_path', newPath);
+    await _prefs.setBool('vault_created', true);
     final profiles = getRememberedVaults();
     if (profiles.isNotEmpty) {
       final old = profiles.first;
@@ -311,6 +312,32 @@ class VaultRepositoryImpl implements VaultRepository {
         driveLetter: old.driveLetter,
       );
       await saveRememberedVaults(profiles);
+    } else {
+      String name = p.basename(newPath).replaceAll('.ampcrypt_vault_', '');
+      if (name.isEmpty || name == '.' || name == '/') name = 'Data';
+      await addRememberedVault(VaultProfile(
+        name: name,
+        path: newPath,
+        storageType: 'local',
+        driveLetter: getDriveLetter(),
+      ));
+    }
+    final config = _loadVaultConfig();
+    if (config != null) {
+      if (config.containsKey('auth_level')) {
+        await _prefs.setInt('auth_level', config['auth_level'] as int);
+      }
+      if (config.containsKey('password_salt')) {
+        await _prefs.setString('password_salt', config['password_salt'] as String);
+      }
+      if (config.containsKey('encrypted_password_share')) {
+        await _prefs.setString('encrypted_password_share', config['encrypted_password_share'] as String);
+      }
+      for (final key in _kFactorKeys) {
+        if (config.containsKey(key)) {
+          await _prefs.setString(key, config[key] as String);
+        }
+      }
     }
     return true;
   }
@@ -329,7 +356,7 @@ class VaultRepositoryImpl implements VaultRepository {
   Future<bool> unlockVault(String password) async {
     final vPath = getVaultPath();
     if (!Directory(vPath).existsSync()) {
-      throw Exception('Vault directory not found at "$vPath". Please relocate vault folder.');
+      return false;
     }
 
     // Check for Emergency Duress / Decoy Vault PIN
@@ -349,9 +376,17 @@ class VaultRepositoryImpl implements VaultRepository {
       final encryptedPasswordShare = base64Decode(encryptedShareBase64);
 
       // 1. Derive key from password and decrypt the password share (Factor 0)
-      final derivedKey = await _cryptoService.deriveKey(password, salt);
-      final decryptedBytes = await _cryptoService.decryptData(encryptedPasswordShare, derivedKey);
+      Uint8List derivedKey;
+      Uint8List decryptedBytes;
+      try {
+        derivedKey = await _cryptoService.deriveKey(password, salt);
+        decryptedBytes = await _cryptoService.decryptData(encryptedPasswordShare, derivedKey);
+      } catch (_) {
+        return false; // Authentication/MAC verification failed - incorrect password
+      }
+
       final passwordShare = utf8.decode(decryptedBytes);
+      if (passwordShare.isEmpty) return false;
 
       // 2. Collect all Group-1 shares needed to reconstruct the master key
       final List<String> sharesToReconstruct = [passwordShare];
@@ -377,7 +412,13 @@ class VaultRepositoryImpl implements VaultRepository {
 
       _setCachedMasterKey(recoveredMasterKey);
       _isDecoyMode = false;
-      await _startServerAndMount(recoveredMasterKey);
+
+      // 4. Start WebDAV server and attempt Windows drive mounting
+      try {
+        await _startServerAndMount(recoveredMasterKey);
+      } catch (_) {
+        // Virtual drive mount failed or WinFsp missing, but WebDAV in-app vault remains unlocked and usable.
+      }
 
       // Arm CanaryGuard honey-pot monitoring
       try {
@@ -433,18 +474,28 @@ class VaultRepositoryImpl implements VaultRepository {
                   '--webdav-url',
                   'http://127.0.0.1:${_webDavServer.port}',
                   '--vfs-cache-mode',
-                  'writes',
+                  'full',
+                  '--vfs-cache-max-age',
+                  '24h',
+                  '--vfs-write-back',
+                  '1s',
+                  '--vfs-read-ahead',
+                  '64M',
                   '--dir-cache-time',
-                  '2s',
+                  '60s',
+                  '--attr-timeout',
+                  '30s',
                   '--cache-dir',
                   cachePath,
                   '--network-mode=false',
                   '--no-checksum',
                   '--no-modtime',
+                  '--transfers',
+                  '16',
                   '--volname',
                   'AMPCrypt Decoy',
                 ],
-                mode: ProcessStartMode.detached,
+                runInShell: false,
               );
             }
           } catch (_) {}
@@ -634,51 +685,66 @@ class VaultRepositoryImpl implements VaultRepository {
       }
       final port = _webDavServer.port;
       
-      // Check WinFSP dependency first
-      final fspInstalled = await isWinFspInstalled();
-      if (!fspInstalled) {
-        throw Exception("WINFSP_MISSING");
-      }
-      
-      // Ensure rclone is available
-      final rclonePath = await _ensureRclone();
-      
-      // Safely kill any existing rclone process
       try {
-        if (_rcloneProcess != null) {
-          _rcloneProcess!.kill();
-          _rcloneProcess = null;
+        // Check WinFSP dependency first
+        final fspInstalled = await isWinFspInstalled();
+        if (!fspInstalled) {
+          return;
         }
+        
+        // Ensure rclone is available
+        final rclonePath = await _ensureRclone();
+        if (rclonePath.isEmpty || !File(rclonePath).existsSync()) {
+          return;
+        }
+        
+        // Safely kill any existing rclone process
+        try {
+          if (_rcloneProcess != null) {
+            _rcloneProcess!.kill();
+            _rcloneProcess = null;
+          }
+        } catch (_) {}
+
+        // Launch silent rclone.exe mount process
+        final supportDir = await _getSupportDirectorySafe();
+        final cachePath = storageType == 'ftp'
+            ? p.join(supportDir.path, '.amp_cache_ftp')
+            : p.join(vaultPath, '.amp_cache');
+
+        _rcloneProcess = await Process.start(
+          rclonePath,
+          [
+            'mount',
+            ':webdav:',
+            driveLetter,
+            '--webdav-url',
+            'http://127.0.0.1:$port',
+            '--vfs-cache-mode',
+            'full',
+            '--vfs-cache-max-age',
+            '24h',
+            '--vfs-write-back',
+            '1s',
+            '--vfs-read-ahead',
+            '64M',
+            '--dir-cache-time',
+            '60s',
+            '--attr-timeout',
+            '30s',
+            '--cache-dir',
+            cachePath,
+            '--network-mode=false',
+            '--no-checksum',
+            '--no-modtime',
+            '--transfers',
+            '16',
+            '--volname',
+            'AMPCrypt',
+          ],
+          runInShell: false,
+        );
       } catch (_) {}
-
-      // Launch silent rclone.exe mount process
-      final supportDir = await _getSupportDirectorySafe();
-      final cachePath = storageType == 'ftp'
-          ? p.join(supportDir.path, '.amp_cache_ftp')
-          : p.join(vaultPath, '.amp_cache');
-
-      _rcloneProcess = await Process.start(
-        rclonePath,
-        [
-          'mount',
-          ':webdav:',
-          driveLetter,
-          '--webdav-url',
-          'http://127.0.0.1:$port',
-          '--vfs-cache-mode',
-          'writes',
-          '--dir-cache-time',
-          '2s',
-          '--cache-dir',
-          cachePath,
-          '--network-mode=false',
-          '--no-checksum',
-          '--no-modtime',
-          '--volname',
-          'AMPCrypt',
-        ],
-        runInShell: false,
-      );
 
       // Fast async drive icon registration (Non-blocking)
       () async {
@@ -693,6 +759,7 @@ class VaultRepositoryImpl implements VaultRepository {
           }
           final globalIcon = File(p.join(progDataDir.path, 'vault_drive.ico'));
 
+          final supportDir = await _getSupportDirectorySafe();
           final userAppDir = Directory(p.join(supportDir.path));
           if (!userAppDir.existsSync()) {
             try { userAppDir.createSync(recursive: true); } catch (_) {}
@@ -773,6 +840,43 @@ class VaultRepositoryImpl implements VaultRepository {
             ]);
           } catch (_) {}
 
+          // 4. Register .ampcrypt File Extension Association for Windows Explorer
+          try {
+            final exePath = Platform.resolvedExecutable;
+            await Process.run('reg.exe', [
+              'add',
+              'HKCU\\Software\\Classes\\.ampcrypt',
+              '/ve',
+              '/d',
+              'AMPCrypt.EncryptedFile',
+              '/f'
+            ]);
+            await Process.run('reg.exe', [
+              'add',
+              'HKCU\\Software\\Classes\\AMPCrypt.EncryptedFile',
+              '/ve',
+              '/d',
+              'AMPCrypt Encrypted Vault File',
+              '/f'
+            ]);
+            await Process.run('reg.exe', [
+              'add',
+              'HKCU\\Software\\Classes\\AMPCrypt.EncryptedFile\\DefaultIcon',
+              '/ve',
+              '/d',
+              securityIcon,
+              '/f'
+            ]);
+            await Process.run('reg.exe', [
+              'add',
+              'HKCU\\Software\\Classes\\AMPCrypt.EncryptedFile\\shell\\open\\command',
+              '/ve',
+              '/d',
+              '"$exePath" "%1"',
+              '/f'
+            ]);
+          } catch (_) {}
+
           await _winFspChannel.invokeMethod<void>('refreshShell');
         } catch (_) {}
       }();
@@ -780,19 +884,37 @@ class VaultRepositoryImpl implements VaultRepository {
   }
 
   Future<void> _stopServerAndUnmount() async {
-    if (_rcloneProcess != null) {
+    final driveLetter = getDriveLetter();
+    if (Platform.isWindows && !Platform.environment.containsKey('FLUTTER_TEST')) {
       try {
-        _rcloneProcess!.kill();
+        // 1. Force unmount virtual drive letter from Windows File System
+        if (driveLetter.isNotEmpty) {
+          await Process.run('net.exe', ['use', driveLetter, '/delete', '/y']);
+        }
       } catch (_) {}
-      _rcloneProcess = null;
+
+      try {
+        // 2. Kill rclone process tree cleanly
+        await Process.run('taskkill.exe', ['/f', '/im', 'rclone.exe', '/t']);
+      } catch (_) {}
+
+      if (_rcloneProcess != null) {
+        try {
+          _rcloneProcess!.kill();
+        } catch (_) {}
+        _rcloneProcess = null;
+      }
+
+      // 3. Grace period for WinFsp kernel driver handle release
+      await Future.delayed(const Duration(milliseconds: 200));
     }
+
+    // 4. Safely stop local WebDAV HTTP server
     try {
       await _webDavServer.stop();
     } catch (_) {}
 
     if (Platform.isWindows && !Platform.environment.containsKey('FLUTTER_TEST')) {
-      // Clean taskkill in background
-      Process.run('taskkill.exe', ['/f', '/im', 'rclone.exe']).catchError((_) => ProcessResult(0, 0, '', ''));
       try {
         await _winFspChannel.invokeMethod<void>('refreshShell');
       } catch (_) {}
@@ -924,18 +1046,36 @@ class VaultRepositoryImpl implements VaultRepository {
       return rcloneExe.path;
     }
 
-    // 5. Last resort: download from internet silently
-    final psCommand = '''
-      Set-Location -Path '${supportDir.path}';
-      [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12;
-      Invoke-WebRequest -Uri 'https://downloads.rclone.org/v1.66.0/rclone-v1.66.0-windows-amd64.zip' -OutFile 'rclone.zip';
-      Expand-Archive -Path 'rclone.zip' -DestinationPath 'rclone-temp' -Force;
-      Copy-Item 'rclone-temp\\rclone-v1.66.0-windows-amd64\\rclone.exe' -Destination 'rclone.exe' -Force;
-      Remove-Item -Recurse -Force 'rclone-temp', 'rclone.zip'
-    ''';
-    
-    await Process.run('powershell.exe', ['-Command', psCommand]);
-    return rcloneExe.path;
+    // Check PATH via where command
+    try {
+      final pathResult = await Process.run('where', ['rclone']);
+      if (pathResult.exitCode == 0 && pathResult.stdout.toString().trim().isNotEmpty) {
+        final found = pathResult.stdout.toString().split('\r\n').first.trim();
+        if (File(found).existsSync()) return found;
+      }
+    } catch (_) {}
+
+    // 5. Last resort: download from internet silently with timeout
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 10);
+      final request = await client.getUrl(Uri.parse(
+          'https://downloads.rclone.org/v1.66.0/rclone-v1.66.0-windows-amd64.zip'));
+      final response = await request.close().timeout(const Duration(seconds: 30));
+      if (response.statusCode == 200) {
+        final zipFile = File(p.join(supportDir.path, 'rclone.zip'));
+        final bytes = await response.fold<List<int>>(
+            <int>[], (prev, chunk) => prev..addAll(chunk));
+        await zipFile.writeAsBytes(bytes);
+        await Process.run('powershell.exe', [
+          '-Command',
+          "Expand-Archive -Path '${zipFile.path}' -DestinationPath '${p.join(supportDir.path, 'rclone-temp')}' -Force; "
+          "Copy-Item '${p.join(supportDir.path, 'rclone-temp', 'rclone-v1.66.0-windows-amd64', 'rclone.exe')}' -Destination '${rcloneExe.path}' -Force; "
+          "Remove-Item -Recurse -Force '${p.join(supportDir.path, 'rclone-temp')}', '${zipFile.path}'"
+        ]);
+      }
+    } catch (_) {}
+    return rcloneExe.existsSync() ? rcloneExe.path : '';
   }
   // ─── DEVICE STATUS ───────────────────────────────────────────────────────────
 
@@ -962,9 +1102,16 @@ class VaultRepositoryImpl implements VaultRepository {
     if (configuredPath != null && configuredPath.isNotEmpty) {
       return configuredPath;
     }
-    // Default to D:\Data on Windows; fall back to home dir on other platforms
+    // Default to D:\Data on Windows if D: exists; fall back to Documents or home dir
     if (Platform.isWindows) {
-      return r'D:\Data';
+      if (Directory(r'D:\').existsSync()) {
+        return r'D:\Data';
+      }
+      final home = _getHomeDir();
+      if (home.isNotEmpty) {
+        return p.join(home, 'Documents', 'AMPCrypt_Vault');
+      }
+      return r'C:\AMPCrypt_Vault';
     }
     final home = _getHomeDir();
     return p.join(home, '.ampcrypt_vault');
@@ -992,6 +1139,7 @@ class VaultRepositoryImpl implements VaultRepository {
     await _prefs.setString('vault_storage_type', 'local');
     await _prefs.setString('vault_path', path);
     await _prefs.setString('drive_letter', driveLetter);
+    await _prefs.setBool('vault_created', true);
     
     // Save to remembered vaults
     await addRememberedVault(VaultProfile(
@@ -2012,6 +2160,12 @@ class VaultRepositoryImpl implements VaultRepository {
   Future<bool> createVaultFile(String virtualPath, Uint8List bytes) async {
     if (!_webDavServer.isRunning) return false;
     return await _webDavServer.createVirtualFile(virtualPath, bytes);
+  }
+
+  @override
+  Future<bool> copyVaultPath(String srcPath, String destPath) async {
+    if (!_webDavServer.isRunning) return false;
+    return await _webDavServer.copyVirtualPath(srcPath, destPath);
   }
 }
 

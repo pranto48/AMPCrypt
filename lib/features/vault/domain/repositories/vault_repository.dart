@@ -298,5 +298,8 @@ abstract class VaultRepository {
 
   /// Creates a new virtual file inside the vault with initial raw bytes.
   Future<bool> createVaultFile(String virtualPath, Uint8List bytes);
+
+  /// Copies a virtual file or directory inside the vault.
+  Future<bool> copyVaultPath(String srcPath, String destPath);
 }
 

@@ -74,7 +74,9 @@ class DirectoryWatcherService {
       (event) {
         final now = DateTime.now();
         final filePath = event.path;
-        final fileSize = _getFileSizeSync(filePath);
+        final fileSize = (event.type == FileSystemEvent.delete)
+            ? 0
+            : _getFileSizeSync(filePath);
 
         _eventLog.add(FileSystemEventLog(
           timestamp: now,

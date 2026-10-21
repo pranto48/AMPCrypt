@@ -121,4 +121,81 @@ void main() {
     expect(header!['path'], equals('/Photos/secret_family.jpg'));
     expect(header['timestamp'], isNotNull);
   });
+
+  test('CryptoServiceImpl - Multi-chunk (>64KB) streaming encryption and decryption', () async {
+    final realCrypto = CryptoServiceImpl();
+    final key = realCrypto.generateSecureRandom(32);
+
+    // 150 KB payload (spans 3 chunks: 64KB + 64KB + 22KB)
+    final originalBytes = Uint8List(150 * 1024);
+    for (int i = 0; i < originalBytes.length; i++) {
+      originalBytes[i] = (i * 31 + 7) & 0xFF;
+    }
+
+    final encryptedStream = realCrypto.encryptStream(
+      Stream.value(originalBytes),
+      key,
+      originalPath: '/Documents/large_database.sqlite',
+      expectedSize: originalBytes.length,
+    );
+
+    final encryptedChunks = await encryptedStream.toList();
+    final allEncryptedBytes = <int>[];
+    for (final chunk in encryptedChunks) {
+      allEncryptedBytes.addAll(chunk);
+    }
+
+    // Decrypt stream in 4KB stream slices to test fragmented packet delivery
+    Stream<List<int>> createFragmentedStream(List<int> bytes, int fragmentSize) async* {
+      for (int i = 0; i < bytes.length; i += fragmentSize) {
+        final end = (i + fragmentSize < bytes.length) ? i + fragmentSize : bytes.length;
+        yield bytes.sublist(i, end);
+      }
+    }
+
+    final decryptedStream = realCrypto.decryptStream(
+      createFragmentedStream(allEncryptedBytes, 4096),
+      key,
+    );
+
+    final decryptedChunks = await decryptedStream.toList();
+    final allDecryptedBytes = <int>[];
+    for (final chunk in decryptedChunks) {
+      allDecryptedBytes.addAll(chunk);
+    }
+
+    expect(allDecryptedBytes.length, equals(originalBytes.length));
+    expect(Uint8List.fromList(allDecryptedBytes), equals(originalBytes));
+  });
+
+  test('CryptoServiceImpl - Empty file (0 bytes) streaming encryption and decryption', () async {
+    final realCrypto = CryptoServiceImpl();
+    final key = realCrypto.generateSecureRandom(32);
+
+    final originalBytes = Uint8List(0);
+    final encryptedStream = realCrypto.encryptStream(
+      Stream.value(originalBytes),
+      key,
+      originalPath: '/Empty/empty.txt',
+    );
+
+    final encryptedChunks = await encryptedStream.toList();
+    final allEncryptedBytes = <int>[];
+    for (final chunk in encryptedChunks) {
+      allEncryptedBytes.addAll(chunk);
+    }
+
+    final decryptedStream = realCrypto.decryptStream(
+      Stream.value(allEncryptedBytes),
+      key,
+    );
+
+    final decryptedChunks = await decryptedStream.toList();
+    final allDecryptedBytes = <int>[];
+    for (final chunk in decryptedChunks) {
+      allDecryptedBytes.addAll(chunk);
+    }
+
+    expect(allDecryptedBytes.length, equals(0));
+  });
 }

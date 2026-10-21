@@ -53,6 +53,28 @@ class VaultMainContent extends StatefulWidget {
 
 class _VaultMainContentState extends State<VaultMainContent> {
   int _selectedTab = 0; // 0 = In-App File Explorer, 1 = Virtual Drive (Explorer)
+  late final TextEditingController _passwordController;
+  bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _passwordController = TextEditingController();
+  }
+
+  @override
+  void didUpdateWidget(VaultMainContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.isUnlocked && widget.isUnlocked) {
+      _passwordController.clear();
+    }
+  }
+
+  @override
+  void dispose() {
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +99,6 @@ class _VaultMainContentState extends State<VaultMainContent> {
     final subtitleColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
     final borderColor = isDark ? const Color(0x3300F0FF) : const Color(0xFFE2E8F0);
 
-    final passwordController = TextEditingController();
     final isDirectoryMissing = !Directory(vaultPath).existsSync();
 
     return Container(
@@ -454,13 +475,26 @@ class _VaultMainContentState extends State<VaultMainContent> {
                     ),
                     const SizedBox(height: 16),
                     TextField(
-                      controller: passwordController,
-                      obscureText: true,
+                      controller: _passwordController,
+                      obscureText: _obscurePassword,
                       style: GoogleFonts.outfit(color: textColor, fontSize: 14),
                       decoration: InputDecoration(
                         hintText: 'Master Password',
                         hintStyle: GoogleFonts.outfit(color: subtitleColor, fontSize: 13),
                         prefixIcon: const Icon(Icons.lock_outline, size: 18, color: Color(0xFF00F0FF)),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                            size: 18,
+                            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                          ),
+                          tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                        ),
                         filled: true,
                         fillColor: isDark ? const Color.fromRGBO(15, 23, 42, 0.40) : const Color(0xFFF8FAFC),
                         border: OutlineInputBorder(
@@ -476,11 +510,20 @@ class _VaultMainContentState extends State<VaultMainContent> {
                           borderSide: const BorderSide(color: Color(0xFF00F0FF), width: 1.8),
                         ),
                       ),
-                      onSubmitted: (val) => onUnlock(val),
+                      onSubmitted: (val) {
+                        if (val.trim().isNotEmpty) {
+                          onUnlock(val);
+                        }
+                      },
                     ),
                     const SizedBox(height: 16),
                     _LiquidGlassButton(
-                      onPressed: () => onUnlock(passwordController.text),
+                      onPressed: () {
+                        final val = _passwordController.text;
+                        if (val.trim().isNotEmpty) {
+                          onUnlock(val);
+                        }
+                      },
                       minWidth: double.infinity,
                       minHeight: 46,
                       gradientColors: const [Color(0xFF0072FF), Color(0xFF00F0FF)],

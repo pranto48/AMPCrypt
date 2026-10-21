@@ -5,6 +5,7 @@
  * (This project website link: https://ampcrypt.itsupport.com.bd)
  */
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -22,6 +23,8 @@ class WebDavServer {
   Uint8List? _masterKey;
   VaultStorage? _storage;
   Map<String, dynamic> _index = {'version': 1, 'files': {}, 'directories': []};
+  Timer? _saveIndexTimer;
+  bool _isIndexDirty = false;
   
   bool get isRunning => _server != null;
   int get port => _server?.port ?? 0;
@@ -61,6 +64,7 @@ class WebDavServer {
   
   /// Stops the WebDAV server and clears master key from memory.
   Future<void> stop() async {
+    await flushIndex();
     final serverToClose = _server;
     if (serverToClose != null) {
       _server = null;
@@ -76,7 +80,27 @@ class WebDavServer {
   
   // ─── INDEX PERSISTENCE & SELF-HEALING RECOVERY ──────────────────────────────
   
+  /// Schedules a debounced index save (250ms) to prevent freezing disk I/O on batch file operations
+  void _scheduleSaveIndex() {
+    _isIndexDirty = true;
+    _saveIndexTimer?.cancel();
+    _saveIndexTimer = Timer(const Duration(milliseconds: 250), () {
+      flushIndex();
+    });
+  }
+
+  /// Immediately writes any pending index changes to disk (used on lock, shutdown, or flush)
+  Future<void> flushIndex() async {
+    _saveIndexTimer?.cancel();
+    _saveIndexTimer = null;
+    if (!_isIndexDirty || _masterKey == null || _storage == null) return;
+    _isIndexDirty = false;
+    await _saveIndex();
+  }
   Future<void> _saveIndex() async {
+    _isIndexDirty = false;
+    _saveIndexTimer?.cancel();
+    _saveIndexTimer = null;
     if (_masterKey == null || _storage == null) return;
     
     try {
@@ -184,46 +208,53 @@ class WebDavServer {
   
   // ─── REQUEST HANDLER ─────────────────────────────────────────────────────────
   
-  Future<void> _handleRequest(HttpRequest request) async {
-    // DRAIN/READ the request stream completely into memory to prevent TCP socket resets
-    final bytesBuilder = BytesBuilder();
-    await for (final chunk in request) {
-      bytesBuilder.add(chunk);
-    }
-    final rawBytes = bytesBuilder.takeBytes();
-
-    final rawPath = request.uri.path;
-    var path = Uri.decodeComponent(rawPath);
-    
-    // Strip DavWWWRoot if present (Windows UNC mounting compatibility)
-    if (path.startsWith('/DavWWWRoot')) {
-      path = path.substring(11);
-      if (path.isEmpty) path = '/';
-    }
-    final method = request.method;
-
-    final isRead = (method == 'GET' || method == 'HEAD' || method == 'PROPFIND');
-    final isWrite = (method == 'PUT' || method == 'DELETE' || method == 'MKCOL' || method == 'MOVE' || method == 'PROPPATCH' || method == 'COPY');
-
-    if (isRead || isWrite) {
-      lastActivityTime = DateTime.now();
-      final typeStr = isWrite ? 'WRITE' : 'READ';
-      print('Filesystem I/O Event: $typeStr ($method) on $path. Inactivity timer refreshed.');
-    }
-    
-    // Normalize path to remove trailing slash except for root
-    String normPath = path.endsWith('/') && path.length > 1
-        ? path.substring(0, path.length - 1)
-        : path;
-    
-    // Set headers required for WebDAV and Windows WebClient
-    request.response.headers.set('DAV', '1, 2');
-    request.response.headers.set('MS-Author-Via', 'DAV');
-    request.response.headers.set('Server', 'Microsoft-HTTPAPI/2.0');
-    request.response.headers.set('Allow', 'OPTIONS, GET, HEAD, PROPFIND, PROPPATCH, PUT, DELETE, MKCOL, MOVE, COPY, LOCK, UNLOCK');
-    request.response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-    
+  Future<Uint8List> _readRequestPayload(HttpRequest request) async {
     try {
+      final bytesBuilder = BytesBuilder();
+      await for (final chunk in request) {
+        bytesBuilder.add(chunk);
+      }
+      return bytesBuilder.takeBytes();
+    } catch (_) {
+      return Uint8List(0);
+    }
+  }
+
+  Future<void> _handleRequest(HttpRequest request) async {
+    try {
+      // Set headers required for WebDAV and Windows WebClient
+      request.response.headers.set('DAV', '1, 2');
+      request.response.headers.set('MS-Author-Via', 'DAV');
+      request.response.headers.set('Server', 'Microsoft-HTTPAPI/2.0');
+      request.response.headers.set('Allow', 'OPTIONS, GET, HEAD, PROPFIND, PROPPATCH, PUT, DELETE, MKCOL, MOVE, COPY, LOCK, UNLOCK');
+      request.response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+
+      final method = request.method;
+      Uint8List rawBytes = Uint8List(0);
+      if (method == 'PROPPATCH') {
+        rawBytes = await _readRequestPayload(request);
+      }
+
+      final rawPath = request.uri.path;
+      var path = Uri.decodeComponent(rawPath);
+      
+      // Strip DavWWWRoot if present (Windows UNC mounting compatibility)
+      if (path.startsWith('/DavWWWRoot')) {
+        path = path.substring(11);
+        if (path.isEmpty) path = '/';
+      }
+
+      final isRead = (method == 'GET' || method == 'HEAD' || method == 'PROPFIND');
+      final isWrite = (method == 'PUT' || method == 'DELETE' || method == 'MKCOL' || method == 'MOVE' || method == 'PROPPATCH' || method == 'COPY');
+
+      if (isRead || isWrite) {
+        lastActivityTime = DateTime.now();
+      }
+      
+      // Normalize path to remove trailing slash except for root
+      String normPath = path.endsWith('/') && path.length > 1
+          ? path.substring(0, path.length - 1)
+          : path;
       if (method == 'OPTIONS') {
         request.response.statusCode = HttpStatus.ok;
         await request.response.close();
@@ -232,7 +263,7 @@ class WebDavServer {
       } else if (method == 'GET' || method == 'HEAD') {
         await _handleGet(request, normPath, method == 'HEAD');
       } else if (method == 'PUT') {
-        await _handlePut(request, normPath, rawBytes);
+        await _handlePut(request, normPath);
       } else if (method == 'DELETE') {
         await _handleDelete(request, normPath);
       } else if (method == 'MKCOL') {
@@ -447,7 +478,7 @@ class WebDavServer {
   
   // ─── PUT (FILE UPLOADING / OVERWRITING WITH CHUNKED STREAMING) ──────────────
   
-  Future<void> _handlePut(HttpRequest request, String normPath, Uint8List rawBytes) async {
+  Future<void> _handlePut(HttpRequest request, String normPath) async {
     if (_masterKey == null) {
       request.response.statusCode = HttpStatus.forbidden;
       await request.response.close();
@@ -463,12 +494,21 @@ class WebDavServer {
         uuid = const Uuid().v4();
       }
       
-      // Stream encrypted chunks with self-healing header
+      final contentLengthHeader = request.headers.value('content-length');
+      final expectedSize = contentLengthHeader != null ? int.tryParse(contentLengthHeader) ?? 0 : 0;
+
+      int actualBytesWritten = 0;
+      final countingStream = request.map((chunk) {
+        actualBytesWritten += chunk.length;
+        return chunk;
+      });
+
+      // Stream encrypted chunks with self-healing header directly from request body
       final encStream = _cryptoService.encryptStream(
-        Stream.value(rawBytes),
+        countingStream,
         _masterKey!,
         originalPath: normPath,
-        expectedSize: rawBytes.length,
+        expectedSize: expectedSize > 0 ? expectedSize : null,
       );
       
       await _storage!.writeStream('data/$uuid', encStream);
@@ -479,11 +519,11 @@ class WebDavServer {
       // Update file metadata
       files[normPath] = {
         'uuid': uuid,
-        'size': rawBytes.length,
+        'size': actualBytesWritten,
         'lastModified': DateTime.now().toUtc().toIso8601String()
       };
       
-      await _saveIndex();
+      _scheduleSaveIndex();
       
       request.response.statusCode = HttpStatus.created;
       await request.response.close();
@@ -543,7 +583,7 @@ class WebDavServer {
         dirs.removeWhere((d) => (d as String) == normPath || d.startsWith(prefix));
       }
       
-      await _saveIndex();
+      _scheduleSaveIndex();
       request.response.statusCode = HttpStatus.noContent;
       await request.response.close();
     } catch (e) {
@@ -563,7 +603,7 @@ class WebDavServer {
     }
     
     dirs.add(normPath);
-    await _saveIndex();
+    _scheduleSaveIndex();
     
     request.response.statusCode = HttpStatus.created;
     await request.response.close();
@@ -635,7 +675,7 @@ class WebDavServer {
         }
       }
       
-      await _saveIndex();
+      _scheduleSaveIndex();
       request.response.statusCode = HttpStatus.created;
       await request.response.close();
     } catch (e) {
@@ -725,7 +765,7 @@ class WebDavServer {
         }
       }
       
-      await _saveIndex();
+      _scheduleSaveIndex();
       request.response.statusCode = HttpStatus.created;
       await request.response.close();
     } catch (e) {
@@ -1120,6 +1160,54 @@ class WebDavServer {
     };
     await _saveIndex();
     return true;
+  }
+
+  Future<bool> copyVirtualPath(String srcPath, String destPath) async {
+    if (_masterKey == null || _storage == null) return false;
+    final files = _index['files'] as Map<String, dynamic>;
+    final dirs = _index['directories'] as List;
+
+    if (files.containsKey(srcPath)) {
+      final srcFileData = files[srcPath] as Map<String, dynamic>;
+      final srcUuid = srcFileData['uuid'] as String;
+      final destUuid = const Uuid().v4();
+
+      await _storage!.copyFile('data/$srcUuid', 'data/$destUuid');
+      _ensureParentDirectories(destPath);
+      files[destPath] = {
+        'uuid': destUuid,
+        'size': srcFileData['size'],
+        'lastModified': DateTime.now().toUtc().toIso8601String(),
+      };
+      await _saveIndex();
+      return true;
+    } else if (dirs.contains(srcPath)) {
+      if (!dirs.contains(destPath)) {
+        dirs.add(destPath);
+      }
+      _ensureParentDirectories(destPath);
+
+      final oldPrefix = '$srcPath/';
+      final newPrefix = '$destPath/';
+      final matchingFiles = files.keys.where((k) => k.startsWith(oldPrefix)).toList();
+      for (final mf in matchingFiles) {
+        final fData = files[mf] as Map<String, dynamic>;
+        final srcUuid = fData['uuid'] as String;
+        final destUuid = const Uuid().v4();
+
+        await _storage!.copyFile('data/$srcUuid', 'data/$destUuid');
+        final newFilePath = newPrefix + mf.substring(oldPrefix.length);
+        _ensureParentDirectories(newFilePath);
+        files[newFilePath] = {
+          'uuid': destUuid,
+          'size': fData['size'],
+          'lastModified': DateTime.now().toUtc().toIso8601String(),
+        };
+      }
+      await _saveIndex();
+      return true;
+    }
+    return false;
   }
 }
 

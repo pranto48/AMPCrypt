@@ -5,11 +5,19 @@
  * (This project website link: https://ampcrypt.itsupport.com.bd)
  */
 
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:ftpconnect/ftpconnect.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+
+class VaultFileNotFoundException implements Exception {
+  final String message;
+  VaultFileNotFoundException(this.message);
+  @override
+  String toString() => message;
+}
 
 abstract class VaultStorage {
   Future<void> initialize();
@@ -22,6 +30,31 @@ abstract class VaultStorage {
   Future<void> writeStream(String relativePath, Stream<List<int>> stream);
   Future<List<String>> listFiles(String relativeDirectory);
   String? get localPath;
+
+  /// Calculates a 2-character sharded directory path with .ampcrypt file extension.
+  static String getShardedPath(String relativePath) {
+    final norm = relativePath.replaceAll('\\\\', '/');
+    if (!norm.startsWith('data/')) return relativePath;
+
+    final filename = p.basename(norm);
+    String baseName = filename;
+    if (baseName.endsWith('.ampcrypt')) {
+      baseName = baseName.substring(0, baseName.length - 9);
+    } else if (baseName.endsWith('.c9r')) {
+      baseName = baseName.substring(0, baseName.length - 4);
+    }
+
+    if (baseName.isEmpty || baseName == '.' || baseName == '..') return relativePath;
+
+    String prefix;
+    if (baseName.length >= 2) {
+      prefix = baseName.substring(0, 2).toUpperCase();
+    } else {
+      prefix = '${baseName}0'.toUpperCase();
+    }
+
+    return 'data/$prefix/$baseName.ampcrypt';
+  }
 }
 
 class LocalVaultStorage implements VaultStorage {
@@ -31,6 +64,40 @@ class LocalVaultStorage implements VaultStorage {
 
   @override
   String? get localPath => vaultPath;
+
+  String _resolveFile(String relativePath) {
+    final norm = relativePath.replaceAll('\\\\', '/');
+    if (!norm.startsWith('data/')) {
+      return p.join(vaultPath, relativePath);
+    }
+
+    final targetSharded = VaultStorage.getShardedPath(relativePath);
+    final targetFile = File(p.join(vaultPath, targetSharded));
+    if (targetFile.existsSync()) {
+      return targetFile.path;
+    }
+
+    // Direct check if relativePath already exists legacy
+    if (norm != targetSharded) {
+      final directFile = File(p.join(vaultPath, relativePath));
+      if (directFile.existsSync()) {
+        // Migrate legacy file to 2-character sharded directory
+        try {
+          final parentDir = targetFile.parent;
+          if (!parentDir.existsSync()) {
+            parentDir.createSync(recursive: true);
+          }
+          directFile.copySync(targetFile.path);
+          directFile.deleteSync();
+          return targetFile.path;
+        } catch (_) {
+          return directFile.path;
+        }
+      }
+    }
+
+    return targetFile.path;
+  }
 
   @override
   Future<void> initialize() async {
@@ -42,22 +109,24 @@ class LocalVaultStorage implements VaultStorage {
 
   @override
   Future<bool> fileExists(String relativePath) async {
-    final file = File(p.join(vaultPath, relativePath));
-    return file.existsSync();
+    final filePath = _resolveFile(relativePath);
+    return File(filePath).existsSync();
   }
 
   @override
   Future<Uint8List> readFile(String relativePath) async {
-    final file = File(p.join(vaultPath, relativePath));
+    final filePath = _resolveFile(relativePath);
+    final file = File(filePath);
     if (!file.existsSync()) {
-      throw FileNotFoundException("File not found: $relativePath");
+      throw VaultFileNotFoundException("File not found: $relativePath");
     }
     return await file.readAsBytes();
   }
 
   @override
   Future<void> writeFile(String relativePath, Uint8List bytes) async {
-    final file = File(p.join(vaultPath, relativePath));
+    final filePath = _resolveFile(relativePath);
+    final file = File(filePath);
     final parentDir = file.parent;
     if (!parentDir.existsSync()) {
       parentDir.createSync(recursive: true);
@@ -67,16 +136,18 @@ class LocalVaultStorage implements VaultStorage {
 
   @override
   Stream<List<int>> openRead(String relativePath) {
-    final file = File(p.join(vaultPath, relativePath));
+    final filePath = _resolveFile(relativePath);
+    final file = File(filePath);
     if (!file.existsSync()) {
-      throw FileNotFoundException("File not found: $relativePath");
+      throw VaultFileNotFoundException("File not found: $relativePath");
     }
     return file.openRead();
   }
 
   @override
   Future<void> writeStream(String relativePath, Stream<List<int>> stream) async {
-    final file = File(p.join(vaultPath, relativePath));
+    final filePath = _resolveFile(relativePath);
+    final file = File(filePath);
     final parentDir = file.parent;
     if (!parentDir.existsSync()) {
       parentDir.createSync(recursive: true);
@@ -91,12 +162,27 @@ class LocalVaultStorage implements VaultStorage {
   Future<List<String>> listFiles(String relativeDirectory) async {
     final dir = Directory(p.join(vaultPath, relativeDirectory));
     if (!dir.existsSync()) return [];
-    return dir.listSync().whereType<File>().map((f) => p.basename(f.path)).toList();
+
+    final List<String> result = [];
+    final entities = dir.listSync(recursive: true);
+    for (final entity in entities) {
+      if (entity is File) {
+        final name = p.basename(entity.path);
+        if (name.endsWith('.ampcrypt')) {
+          final pureName = name.substring(0, name.length - 9);
+          result.add(pureName);
+        } else if (!name.endsWith('.tmp') && !name.endsWith('.bak')) {
+          result.add(name);
+        }
+      }
+    }
+    return result;
   }
 
   @override
   Future<void> deleteFile(String relativePath) async {
-    final file = File(p.join(vaultPath, relativePath));
+    final filePath = _resolveFile(relativePath);
+    final file = File(filePath);
     if (file.existsSync()) {
       file.deleteSync();
     }
@@ -104,10 +190,12 @@ class LocalVaultStorage implements VaultStorage {
 
   @override
   Future<void> copyFile(String srcRelativePath, String destRelativePath) async {
-    final srcFile = File(p.join(vaultPath, srcRelativePath));
-    final destFile = File(p.join(vaultPath, destRelativePath));
+    final srcPath = _resolveFile(srcRelativePath);
+    final destPath = _resolveFile(destRelativePath);
+    final srcFile = File(srcPath);
+    final destFile = File(destPath);
     if (!srcFile.existsSync()) {
-      throw FileNotFoundException("Source file not found: $srcRelativePath");
+      throw VaultFileNotFoundException("Source file not found: $srcRelativePath");
     }
     final parentDir = destFile.parent;
     if (!parentDir.existsSync()) {
@@ -149,10 +237,8 @@ class FtpVaultStorage implements VaultStorage {
     final client = _createClient();
     try {
       await client.connect();
-      // Ensure binary mode for file transfers
       await client.sendCustomCommand('TYPE I');
 
-      // Navigate to or create remote root path
       if (remotePath.isNotEmpty && remotePath != '/') {
         final dirs = remotePath.split('/').where((d) => d.isNotEmpty).toList();
         for (final dir in dirs) {
@@ -207,27 +293,29 @@ class FtpVaultStorage implements VaultStorage {
 
   @override
   Future<bool> fileExists(String relativePath) async {
+    final targetPath = VaultStorage.getShardedPath(relativePath);
     return await _withFtp((client) async {
-      await _navigateToRelativeDir(client, relativePath);
-      final filename = relativePath.split('/').last;
+      await _navigateToRelativeDir(client, targetPath);
+      final filename = p.basename(targetPath);
       return await client.existFile(filename);
     });
   }
 
   @override
   Future<Uint8List> readFile(String relativePath) async {
+    final targetPath = VaultStorage.getShardedPath(relativePath);
     final tempDir = await getTemporaryDirectory();
     final localFile = File(p.join(tempDir.path, 'ampcrypt_download_${DateTime.now().microsecondsSinceEpoch}.tmp'));
 
     try {
       final success = await _withFtp((client) async {
-        await _navigateToRelativeDir(client, relativePath);
-        final filename = relativePath.split('/').last;
+        await _navigateToRelativeDir(client, targetPath);
+        final filename = p.basename(targetPath);
         return await client.downloadFileWithRetry(filename, localFile, pRetryCount: 1);
       });
 
       if (!success) {
-        throw Exception("Failed to download file from FTP: $relativePath");
+        throw VaultFileNotFoundException("Failed to download file from FTP: $relativePath");
       }
       return await localFile.readAsBytes();
     } finally {
@@ -239,62 +327,21 @@ class FtpVaultStorage implements VaultStorage {
 
   @override
   Future<void> writeFile(String relativePath, Uint8List bytes) async {
+    final targetPath = VaultStorage.getShardedPath(relativePath);
     final tempDir = await getTemporaryDirectory();
-    final filename = relativePath.split('/').last;
+    final filename = p.basename(targetPath);
     final localFile = File(p.join(tempDir.path, 'ampcrypt_upload_${DateTime.now().microsecondsSinceEpoch}_$filename'));
 
     try {
       await localFile.writeAsBytes(bytes, flush: true);
 
       final success = await _withFtp((client) async {
-        await _navigateToRelativeDir(client, relativePath);
+        await _navigateToRelativeDir(client, targetPath);
         return await client.uploadFileWithRetry(localFile, pRetryCount: 1);
       });
 
       if (!success) {
         throw Exception("Failed to upload file to FTP: $relativePath");
-      }
-    } finally {
-      if (localFile.existsSync()) {
-        localFile.deleteSync();
-      }
-    }
-  }
-
-  @override
-  Future<void> deleteFile(String relativePath) async {
-    await _withFtp((client) async {
-      await _navigateToRelativeDir(client, relativePath);
-      final filename = relativePath.split('/').last;
-      try {
-        await client.deleteFile(filename);
-      } catch (_) {}
-    });
-  }
-
-  @override
-  Future<void> copyFile(String srcRelativePath, String destRelativePath) async {
-    final tempDir = await getTemporaryDirectory();
-    final localFile = File(p.join(tempDir.path, 'ampcrypt_copy_${DateTime.now().microsecondsSinceEpoch}.tmp'));
-
-    try {
-      final downloadSuccess = await _withFtp((client) async {
-        await _navigateToRelativeDir(client, srcRelativePath);
-        final srcFilename = srcRelativePath.split('/').last;
-        return await client.downloadFileWithRetry(srcFilename, localFile, pRetryCount: 1);
-      });
-
-      if (!downloadSuccess) {
-        throw Exception("Failed to download source file for copy: $srcRelativePath");
-      }
-
-      final uploadSuccess = await _withFtp((client) async {
-        await _navigateToRelativeDir(client, destRelativePath);
-        return await client.uploadFileWithRetry(localFile, pRetryCount: 1);
-      });
-
-      if (!uploadSuccess) {
-        throw Exception("Failed to upload copy to destination: $destRelativePath");
       }
     } finally {
       if (localFile.existsSync()) {
@@ -324,17 +371,37 @@ class FtpVaultStorage implements VaultStorage {
       await _navigateToRelativeDir(client, relativeDirectory);
       try {
         final list = await client.listDirectoryContent();
-        return list.map((item) => item.name).toList();
+        return list
+            .map((item) => item.name)
+            .where((name) => !name.endsWith('.tmp') && !name.endsWith('.bak'))
+            .map((name) {
+              if (name.endsWith('.ampcrypt')) {
+                return name.substring(0, name.length - 9);
+              }
+              return name;
+            })
+            .toList();
       } catch (_) {
         return [];
       }
     });
   }
-}
 
-class FileNotFoundException implements Exception {
-  final String message;
-  FileNotFoundException(this.message);
   @override
-  String toString() => message;
+  Future<void> deleteFile(String relativePath) async {
+    final targetPath = VaultStorage.getShardedPath(relativePath);
+    await _withFtp((client) async {
+      await _navigateToRelativeDir(client, targetPath);
+      final filename = p.basename(targetPath);
+      try {
+        await client.deleteFile(filename);
+      } catch (_) {}
+    });
+  }
+
+  @override
+  Future<void> copyFile(String srcRelativePath, String destRelativePath) async {
+    final bytes = await readFile(srcRelativePath);
+    await writeFile(destRelativePath, bytes);
+  }
 }

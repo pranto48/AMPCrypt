@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 class CreateVaultDialog extends StatefulWidget {
   final Function(
@@ -76,10 +77,24 @@ class _CreateVaultDialogState extends State<CreateVaultDialog> {
     _initDefaultPath();
   }
 
-  void _initDefaultPath() {
-    final docsDir = Directory.systemTemp.path;
-    final defaultPath = p.join(docsDir, 'AMPCrypt_Vault');
-    _pathController.text = defaultPath;
+  void _initDefaultPath() async {
+    try {
+      final docDir = await getApplicationDocumentsDirectory();
+      final defaultPath = p.join(docDir.path, 'AMPCrypt_Vault');
+      if (mounted) {
+        setState(() {
+          _pathController.text = defaultPath;
+        });
+      }
+    } catch (_) {
+      final userProfile = Platform.environment['USERPROFILE'] ?? Directory.systemTemp.path;
+      final defaultPath = p.join(userProfile, 'Documents', 'AMPCrypt_Vault');
+      if (mounted) {
+        setState(() {
+          _pathController.text = defaultPath;
+        });
+      }
+    }
   }
 
   @override
