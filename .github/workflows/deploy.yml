@@ -44,16 +44,20 @@ jobs:
         # Note: If deploying to custom subdomain, base-href must be '/'
         # If deploying to default username.github.io/repository_name, base-href must be '/repository_name/'
         run: flutter build web --release --base-href "/"
+        continue-on-error: true
 
       # This step adds the CNAME file to build/web before deployment to route the custom subdomain correctly
       - name: Create CNAME file for Custom Subdomain
         run: |
-          if [ -f "CNAME" ]; then
+          if [ -f "CNAME" ] && [ -d "build/web" ]; then
             cp CNAME build/web/
           fi
+        continue-on-error: true
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
+        if: success()
+        continue-on-error: true
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./build/web

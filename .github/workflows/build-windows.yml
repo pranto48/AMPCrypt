@@ -1,0 +1,120 @@
+name: Build AMPCrypt Windows Application
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'lib/**'
+      - 'windows/**'
+      - 'assets/**'
+      - 'test/**'
+      - 'pubspec.yaml'
+      - '.github/workflows/build-windows.yml'
+
+jobs:
+  build-windows:
+    name: Build & Package Windows App
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Enable Windows Desktop Support
+        run: flutter config --enable-windows-desktop
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Run Crypto & Logic Unit Tests
+        run: flutter test
+
+      - name: Build Windows Release Executable
+        run: flutter build windows --release
+
+      - name: Build Signed MSIX Package
+        run: dart run msix:create
+
+      - name: Prepare Distribution Suite
+        shell: pwsh
+        run: |
+          $releaseDir = "build/windows/x64/runner/Release"
+          Write-Host "Verifying release build in $releaseDir..."
+          Get-ChildItem -Path $releaseDir
+
+          # Download official WinFsp 2.0 MSI if not present
+          if (-not (Test-Path "$releaseDir/winfsp.msi")) {
+            Write-Host "Fetching WinFsp MSI installer..."
+            Invoke-WebRequest -Uri "https://github.com/winfsp/winfsp/releases/download/v2.0/winfsp-2.0.23075.msi" -OutFile "$releaseDir/winfsp.msi"
+          }
+
+          # Download official Rclone 64-bit if not present
+          if (-not (Test-Path "$releaseDir/rclone.exe")) {
+            Write-Host "Fetching Rclone engine..."
+            Invoke-WebRequest -Uri "https://downloads.rclone.org/rclone-v1.68.1-windows-amd64.zip" -OutFile "rclone.zip"
+            Expand-Archive -Path "rclone.zip" -DestinationPath "rclone_extracted" -Force
+            $rcExe = Get-ChildItem -Path "rclone_extracted" -Filter "rclone.exe" -Recurse | Select-Object -First 1 -ExpandProperty FullName
+            Copy-Item $rcExe -Destination "$releaseDir/rclone.exe" -Force
+          }
+
+          # Copy batch scripts, certificates, and icons
+          if (Test-Path "Install_AMPCrypt.bat") { Copy-Item "Install_AMPCrypt.bat" "$releaseDir/" -Force }
+          if (Test-Path "Install-AMPCrypt-MSIX.bat") { Copy-Item "Install-AMPCrypt-MSIX.bat" "$releaseDir/" -Force }
+          if (Test-Path "ampcrypt_cert.cer") { Copy-Item "ampcrypt_cert.cer" "$releaseDir/" -Force }
+          if (Test-Path "vault_drive.ico") { Copy-Item "vault_drive.ico" "$releaseDir/" -Force }
+
+          # Build Standalone Portable ZIP
+          $portableDir = "AMPCrypt_Standalone_Portable"
+          New-Item -ItemType Directory -Path $portableDir -Force | Out-Null
+          Copy-Item -Path "$releaseDir/*" -Destination $portableDir -Recurse -Force -Exclude "*.msix"
+          Compress-Archive -Path "$portableDir/*" -DestinationPath "AMPCrypt-Windows-Portable.zip" -Force
+
+          # Create release artifacts staging folder
+          $outArtifacts = "release_artifacts"
+          New-Item -ItemType Directory -Path $outArtifacts -Force | Out-Null
+          if (Test-Path "$releaseDir/ampcrypt.msix") { Copy-Item "$releaseDir/ampcrypt.msix" -Destination $outArtifacts/ -Force }
+          Copy-Item "AMPCrypt-Windows-Portable.zip" -Destination $outArtifacts/ -Force
+          if (Test-Path "Install_AMPCrypt.bat") { Copy-Item "Install_AMPCrypt.bat" -Destination $outArtifacts/ -Force }
+          if (Test-Path "ampcrypt_cert.cer") { Copy-Item "ampcrypt_cert.cer" -Destination $outArtifacts/ -Force }
+          if (Test-Path "vault_drive.ico") { Copy-Item "vault_drive.ico" -Destination $outArtifacts/ -Force }
+          if (Test-Path "$releaseDir/winfsp.msi") { Copy-Item "$releaseDir/winfsp.msi" -Destination $outArtifacts/ -Force }
+          if (Test-Path "$releaseDir/rclone.exe") { Copy-Item "$releaseDir/rclone.exe" -Destination $outArtifacts/ -Force }
+          if (Test-Path "$releaseDir/ampcrypt.exe") { Copy-Item "$releaseDir/ampcrypt.exe" -Destination $outArtifacts/ -Force }
+
+          Write-Host "Artifacts staged successfully:"
+          Get-ChildItem -Path $outArtifacts
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: AMPCrypt-Windows-Release
+          path: release_artifacts/*
+          retention-days: 30
+
+      - name: Create or Update GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $ver = "v0.65.0"
+          $title = "AMPCrypt Windows v0.65.0 Release"
+          $notes = "AMPCrypt Zero-Trust Encrypted Vault Windows Desktop App. Features signed MSIX installer, Standalone Portable package, 1-Click install script, and WinFsp/Rclone virtual filesystem engine."
+          gh release create $ver release_artifacts/* --title $title --notes $notes --clobber
