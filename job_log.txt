@@ -1,0 +1,583 @@
+﻿2026-10-24T03:55:16.4823692Z Current runner version: '2.338.0'
+2026-10-24T03:55:16.4849849Z ##[group]Runner Image Provisioner
+2026-10-24T03:55:16.4850653Z Hosted Compute Agent
+2026-10-24T03:55:16.4851246Z Version: 20261021.618
+2026-10-24T03:55:16.4851844Z Commit: 21505ad2541d5be6135ed84fc33697146cf75b8e
+2026-10-24T03:55:16.4852520Z Build Date: 2026-10-21T00:45:21Z
+2026-10-24T03:55:16.4853187Z Worker ID: {d2d8695c-aa81-4881-8b9b-c6025d9eea8c}
+2026-10-24T03:55:16.4853866Z Region: westus
+2026-10-24T03:55:16.4854394Z Cloud: Azure
+2026-10-24T03:55:16.4854880Z ##[endgroup]
+2026-10-24T03:55:16.4856134Z ##[group]Operating System
+2026-10-24T03:55:16.4856803Z Microsoft Windows Server 2025
+2026-10-24T03:55:16.4857382Z 10.0.26100
+2026-10-24T03:55:16.4857879Z Datacenter
+2026-10-24T03:55:16.4858378Z ##[endgroup]
+2026-10-24T03:55:16.4858898Z ##[group]Runner Image
+2026-10-24T03:55:16.4859458Z Image: windows-2025-vs2026
+2026-10-24T03:55:16.4860045Z Version: 20261021.278.1
+2026-10-24T03:55:16.4861516Z Included Software: https://github.com/actions/runner-images/blob/win25-vs2026/20261021.278/images/windows/Windows2025-VS2026-Readme.md
+2026-10-24T03:55:16.4863647Z Image Release: https://github.com/actions/runner-images/releases/tag/win25-vs2026%2F20261021.278
+2026-10-24T03:55:16.4864663Z ##[endgroup]
+2026-10-24T03:55:16.4865757Z ##[group]GITHUB_TOKEN Permissions
+2026-10-24T03:55:16.4867615Z Contents: write
+2026-10-24T03:55:16.4868189Z Metadata: read
+2026-10-24T03:55:16.4868726Z ##[endgroup]
+2026-10-24T03:55:16.4870780Z Secret source: Actions
+2026-10-24T03:55:16.4871736Z Cache mode: write
+2026-10-24T03:55:16.4872412Z Prepare workflow directory
+2026-10-24T03:55:16.5212875Z Prepare all required actions
+2026-10-24T03:55:16.5274494Z Getting action download info
+2026-10-24T03:55:16.8703141Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-24T03:55:16.9964650Z Download action repository 'actions/setup-java@v3' (SHA:e9fbacdec3bb3b6036605a3e6f7995d66773a8c6)
+2026-10-24T03:55:17.6896941Z Download action repository 'subosito/flutter-action@v2' (SHA:1a449444c387b1966244ae4d4f8c696479add0b2)
+2026-10-24T03:55:17.9295312Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-10-24T03:55:18.2943781Z Getting action download info
+2026-10-24T03:55:18.4191475Z Download action repository 'actions/cache@v5' (SHA:caa296126883cff596d87d8935842f9db880ef25)
+2026-10-24T03:55:18.6194382Z Complete job name: Build & Package Windows App
+2026-10-24T03:55:18.7927900Z ##[group]Run actions/checkout@v4
+2026-10-24T03:55:18.7929561Z with:
+2026-10-24T03:55:18.7930496Z   repository: pranto48/AMPCrypt
+2026-10-24T03:55:18.7938076Z   token: ***
+2026-10-24T03:55:18.7938809Z   ssh-strict: true
+2026-10-24T03:55:18.7939574Z   ssh-user: git
+2026-10-24T03:55:18.7940354Z   persist-credentials: true
+2026-10-24T03:55:18.7941596Z   clean: true
+2026-10-24T03:55:18.7942380Z   sparse-checkout-cone-mode: true
+2026-10-24T03:55:18.7943293Z   fetch-depth: 1
+2026-10-24T03:55:18.7944075Z   fetch-tags: false
+2026-10-24T03:55:18.7944842Z   show-progress: true
+2026-10-24T03:55:18.7945610Z   lfs: false
+2026-10-24T03:55:18.7946317Z   submodules: false
+2026-10-24T03:55:18.7947091Z   set-safe-directory: true
+2026-10-24T03:55:18.7947968Z   allow-unsafe-pr-checkout: false
+2026-10-24T03:55:18.7949126Z ##[endgroup]
+2026-10-24T03:55:18.9395293Z Syncing repository: pranto48/AMPCrypt
+2026-10-24T03:55:18.9397780Z ##[group]Getting Git version info
+2026-10-24T03:55:18.9398919Z Working directory is 'D:\a\AMPCrypt\AMPCrypt'
+2026-10-24T03:55:19.0342775Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-10-24T03:55:19.4070168Z git version 2.56.0.windows.2
+2026-10-24T03:55:19.4122636Z ##[endgroup]
+2026-10-24T03:55:19.4142136Z Temporarily overriding HOME='D:\a\_temp\47541948-0c6b-482b-93f6-153223b88227' before making global git config changes
+2026-10-24T03:55:19.4143029Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-24T03:55:19.4153311Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\AMPCrypt\AMPCrypt
+2026-10-24T03:55:19.5006179Z Deleting the contents of 'D:\a\AMPCrypt\AMPCrypt'
+2026-10-24T03:55:19.5013700Z ##[group]Initializing the repository
+2026-10-24T03:55:19.5028484Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\AMPCrypt\AMPCrypt
+2026-10-24T03:55:19.6009454Z Initialized empty Git repository in D:/a/AMPCrypt/AMPCrypt/.git/
+2026-10-24T03:55:19.6069965Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/pranto48/AMPCrypt
+2026-10-24T03:55:19.6772539Z ##[endgroup]
+2026-10-24T03:55:19.6773125Z ##[group]Disabling automatic garbage collection
+2026-10-24T03:55:19.6782126Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+2026-10-24T03:55:19.7161840Z ##[endgroup]
+2026-10-24T03:55:19.7162392Z ##[group]Setting up auth
+2026-10-24T03:55:19.7174249Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-10-24T03:55:19.7563271Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-10-24T03:55:21.1777275Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-24T03:55:21.2158942Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-10-24T03:55:21.7946582Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-24T03:55:21.8336214Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-10-24T03:55:22.3890410Z [command]"C:\Program Files\Git\bin\git.exe" config --local http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+2026-10-24T03:55:22.4277907Z ##[endgroup]
+2026-10-24T03:55:22.4278765Z ##[group]Fetching the repository
+2026-10-24T03:55:22.4298528Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +e4da1ec86c26b9fcbeabc28d2457d4cd34a7953f:refs/remotes/origin/main
+2026-10-24T03:55:28.2669221Z From https://github.com/pranto48/AMPCrypt
+2026-10-24T03:55:28.2670230Z  * [new ref]         e4da1ec86c26b9fcbeabc28d2457d4cd34a7953f -> origin/main
+2026-10-24T03:55:28.2724060Z ##[endgroup]
+2026-10-24T03:55:28.2724785Z ##[group]Determining the checkout info
+2026-10-24T03:55:28.2727438Z ##[endgroup]
+2026-10-24T03:55:28.2744960Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+2026-10-24T03:55:28.3274808Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+2026-10-24T03:55:28.3699917Z ##[group]Checking out the ref
+2026-10-24T03:55:28.3708301Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force -B main refs/remotes/origin/main
+2026-10-24T03:55:29.5528055Z Updating files:  90% (249/274)
+2026-10-24T03:55:29.5538154Z Updating files:  91% (250/274)
+2026-10-24T03:55:29.5543470Z Updating files:  92% (253/274)
+2026-10-24T03:55:29.5552249Z Updating files:  93% (255/274)
+2026-10-24T03:55:29.5561275Z Updating files:  94% (258/274)
+2026-10-24T03:55:29.5571216Z Updating files:  95% (261/274)
+2026-10-24T03:55:29.5579908Z Updating files:  96% (264/274)
+2026-10-24T03:55:29.5587594Z Updating files:  97% (266/274)
+2026-10-24T03:55:29.5602946Z Updating files:  98% (269/274)
+2026-10-24T03:55:29.5608984Z Updating files:  99% (272/274)
+2026-10-24T03:55:29.5609959Z Updating files: 100% (274/274)
+2026-10-24T03:55:29.5610659Z Updating files: 100% (274/274), done.
+2026-10-24T03:55:29.5744026Z Switched to a new branch 'main'
+2026-10-24T03:55:29.5765755Z branch 'main' set up to track 'origin/main'.
+2026-10-24T03:55:29.5995604Z ##[endgroup]
+2026-10-24T03:55:29.6471356Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+2026-10-24T03:55:29.6831801Z e4da1ec86c26b9fcbeabc28d2457d4cd34a7953f
+2026-10-24T03:55:29.7334466Z ##[group]Run actions/setup-java@v3
+2026-10-24T03:55:29.7334778Z with:
+2026-10-24T03:55:29.7334962Z   distribution: zulu
+2026-10-24T03:55:29.7335164Z   java-version: 17
+2026-10-24T03:55:29.7335352Z   java-package: jdk
+2026-10-24T03:55:29.7335540Z   check-latest: false
+2026-10-24T03:55:29.7335742Z   server-id: github
+2026-10-24T03:55:29.7335935Z   server-username: GITHUB_ACTOR
+2026-10-24T03:55:29.7336168Z   server-password: GITHUB_TOKEN
+2026-10-24T03:55:29.7336398Z   overwrite-settings: true
+2026-10-24T03:55:29.7336606Z   job-status: success
+2026-10-24T03:55:29.7338935Z   token: ***
+2026-10-24T03:55:29.7339123Z ##[endgroup]
+2026-10-24T03:55:29.9271325Z ##[warning]setup-java v3 is deprecated and will no longer receive updates. Please migrate to actions/setup-java@v5.
+2026-10-24T03:55:29.9281136Z ##[group]Installed distributions
+2026-10-24T03:55:29.9292181Z Trying to resolve the latest version from remote
+2026-10-24T03:55:29.9529559Z (node:864) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-24T03:55:29.9530872Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-24T03:55:30.0627283Z Resolved latest version as 17.0.21+9
+2026-10-24T03:55:30.0627782Z Trying to download...
+2026-10-24T03:55:30.0630789Z Downloading Java 17.0.21+9 (Zulu) from https://cdn.azul.com/zulu/bin/zulu17.70.111-ca-jdk17.0.21-win_x64.zip ...
+2026-10-24T03:55:33.1438585Z Extracting Java archive...
+2026-10-24T03:55:33.2288818Z [command]C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "$ErrorActionPreference = 'Stop' ; try { Add-Type -AssemblyName System.IO.Compression.FileSystem } catch { } ; [System.IO.Compression.ZipFile]::ExtractToDirectory('D:\a\_temp\97cbd46e-1928-49a5-ab9c-4390689d48fa', 'D:\a\_temp\6ecca148-964d-43f7-a1d6-0bde3df1b68f')"
+2026-10-24T03:55:39.4629614Z Java 17.0.21+9 was downloaded
+2026-10-24T03:55:39.4630095Z Setting Java 17.0.21+9 as the default
+2026-10-24T03:55:39.4654100Z Creating toolchains.xml for JDK version 17 from zulu
+2026-10-24T03:55:39.4737440Z Writing to C:\Users\runneradmin\.m2\toolchains.xml
+2026-10-24T03:55:39.4741252Z 
+2026-10-24T03:55:39.4741601Z Java configuration:
+2026-10-24T03:55:39.4741976Z   Distribution: zulu
+2026-10-24T03:55:39.4742326Z   Version: 17.0.21+9
+2026-10-24T03:55:39.4742806Z   Path: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T03:55:39.4743274Z 
+2026-10-24T03:55:39.4744300Z ##[endgroup]
+2026-10-24T03:55:39.4762208Z Creating settings.xml with server-id: github
+2026-10-24T03:55:39.4766621Z Writing to C:\Users\runneradmin\.m2\settings.xml
+2026-10-24T03:55:39.5238811Z ##[group]Run subosito/flutter-action@v2
+2026-10-24T03:55:39.5239140Z with:
+2026-10-24T03:55:39.5239313Z   channel: stable
+2026-10-24T03:55:39.5239490Z   cache: true
+2026-10-24T03:55:39.5239663Z   architecture: X64
+2026-10-24T03:55:39.5239861Z   pub-cache-path: default
+2026-10-24T03:55:39.5240074Z   dry-run: false
+2026-10-24T03:55:39.5240317Z   git-source: https://github.com/flutter/flutter.git
+2026-10-24T03:55:39.5240595Z env:
+2026-10-24T03:55:39.5240840Z   JAVA_HOME: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T03:55:39.5241256Z   JAVA_HOME_17_X64: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T03:55:39.5241603Z ##[endgroup]
+2026-10-24T03:55:39.5305081Z ##[start-action display=Make yq tool available on Windows runners;id=__subosito_flutter-action.__run]
+2026-10-24T03:55:39.5318339Z ##[end-action id=__subosito_flutter-action.__run;outcome=skipped;conclusion=skipped;duration_ms=0]
+2026-10-24T03:55:39.5320414Z ##[start-action display=Make setup script executable;id=__subosito_flutter-action.__run_2]
+2026-10-24T03:55:39.5475618Z ##[group]Run chmod +x "$GITHUB_ACTION_PATH/setup.sh"
+2026-10-24T03:55:39.5476025Z [36;1mchmod +x "$GITHUB_ACTION_PATH/setup.sh"[0m
+2026-10-24T03:55:39.5499228Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-10-24T03:55:39.5499625Z env:
+2026-10-24T03:55:39.5499892Z   JAVA_HOME: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T03:55:39.5500322Z   JAVA_HOME_17_X64: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T03:55:39.5500656Z ##[endgroup]
+2026-10-24T03:55:39.7895484Z ##[end-action id=__subosito_flutter-action.__run_2;outcome=success;conclusion=success;duration_ms=257]
+2026-10-24T03:55:39.7898033Z ##[start-action display=Set action inputs;id=__subosito_flutter-action.flutter-action]
+2026-10-24T03:55:39.8049931Z ##[group]Run $GITHUB_ACTION_PATH/setup.sh -p \
+2026-10-24T03:55:39.8050286Z [36;1m$GITHUB_ACTION_PATH/setup.sh -p \[0m
+2026-10-24T03:55:39.8050543Z [36;1m  -n '' \[0m
+2026-10-24T03:55:39.8050740Z [36;1m  -f '' \[0m
+2026-10-24T03:55:39.8050913Z [36;1m  -a 'X64' \[0m
+2026-10-24T03:55:39.8051093Z [36;1m  -k '' \[0m
+2026-10-24T03:55:39.8051259Z [36;1m  -c '' \[0m
+2026-10-24T03:55:39.8051431Z [36;1m  -l '' \[0m
+2026-10-24T03:55:39.8051609Z [36;1m  -d 'default' \[0m
+2026-10-24T03:55:39.8051895Z [36;1m  -g 'https://github.com/flutter/flutter.git' \[0m
+2026-10-24T03:55:39.8052188Z [36;1m  stable[0m
+2026-10-24T03:55:39.8068835Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-10-24T03:55:39.8069216Z env:
+2026-10-24T03:55:39.8069469Z   JAVA_HOME: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T03:55:39.8069888Z   JAVA_HOME_17_X64: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T03:55:39.8070228Z ##[endgroup]
+2026-10-24T03:55:43.0018210Z ##[end-action id=__subosito_flutter-action.flutter-action;outcome=success;conclusion=success;duration_ms=3211]
+2026-10-24T03:55:43.0023339Z ##[start-action display=Cache Flutter;id=__subosito_flutter-action.cache-flutter]
+2026-10-24T03:55:43.0173635Z ##[group]Run actions/cache@v5
+2026-10-24T03:55:43.0173869Z with:
+2026-10-24T03:55:43.0174115Z   path: C:\hostedtoolcache\windows\flutter\stable-3.47.8-x64
+2026-10-24T03:55:43.0174578Z   key: flutter-windows-stable-3.47.8-x64-737ba8f885dc774b53b442759999a312c9461e4e
+2026-10-24T03:55:43.0175004Z   enableCrossOsArchive: false
+2026-10-24T03:55:43.0175653Z   fail-on-cache-miss: false
+2026-10-24T03:55:43.0175926Z   lookup-only: false
+2026-10-24T03:55:43.0176120Z   save-always: false
+2026-10-24T03:55:43.0176292Z env:
+2026-10-24T03:55:43.0176535Z   JAVA_HOME: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T03:55:43.0176954Z   JAVA_HOME_17_X64: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T03:55:43.0177282Z ##[endgroup]
+2026-10-24T03:55:43.5698551Z Cache not found for input keys: flutter-windows-stable-3.47.8-x64-737ba8f885dc774b53b442759999a312c9461e4e
+2026-10-24T03:55:43.5806577Z ##[end-action id=__subosito_flutter-action.cache-flutter;outcome=success;conclusion=success;duration_ms=578]
+2026-10-24T03:55:43.5809391Z ##[start-action display=Cache pub dependencies;id=__subosito_flutter-action.cache-pub]
+2026-10-24T03:55:43.7714746Z ##[group]Run actions/cache@v5
+2026-10-24T03:55:43.7714964Z with:
+2026-10-24T03:55:43.7715182Z   path: C:\Users\runneradmin\AppData\Local\Pub\Cache
+2026-10-24T03:55:43.7715943Z   key: flutter-pub-windows-stable-3.47.8-x64-737ba8f885dc774b53b442759999a312c9461e4e-b06ec8d5506e7dc9d5ad9c5e96b9690073f863c581621bf946494e3338503e62
+2026-10-24T03:55:43.7716677Z   enableCrossOsArchive: false
+2026-10-24T03:55:43.7716899Z   fail-on-cache-miss: false
+2026-10-24T03:55:43.7717101Z   lookup-only: false
+2026-10-24T03:55:43.7717285Z   save-always: false
+2026-10-24T03:55:43.7717453Z env:
+2026-10-24T03:55:43.7717689Z   JAVA_HOME: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T03:55:43.7718112Z   JAVA_HOME_17_X64: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T03:55:43.7718590Z ##[endgroup]
+2026-10-24T03:55:44.2601050Z Cache not found for input keys: flutter-pub-windows-stable-3.47.8-x64-737ba8f885dc774b53b442759999a312c9461e4e-b06ec8d5506e7dc9d5ad9c5e96b9690073f863c581621bf946494e3338503e62
+2026-10-24T03:55:44.2707605Z ##[end-action id=__subosito_flutter-action.cache-pub;outcome=success;conclusion=success;duration_ms=689]
+2026-10-24T03:55:44.2710259Z ##[start-action display=Run setup script;id=__subosito_flutter-action.__run_3]
+2026-10-24T03:55:44.2869595Z ##[group]Run $GITHUB_ACTION_PATH/setup.sh \
+2026-10-24T03:55:44.2869922Z [36;1m$GITHUB_ACTION_PATH/setup.sh \[0m
+2026-10-24T03:55:44.2870176Z [36;1m  -n '3.47.8' \[0m
+2026-10-24T03:55:44.2870379Z [36;1m  -a 'x64' \[0m
+2026-10-24T03:55:44.2870669Z [36;1m  -c 'C:\hostedtoolcache\windows\flutter\stable-3.47.8-x64' \[0m
+2026-10-24T03:55:44.2871074Z [36;1m  -d 'C:\Users\runneradmin\AppData\Local\Pub\Cache' \[0m
+2026-10-24T03:55:44.2871366Z [36;1m  stable[0m
+2026-10-24T03:55:44.2887590Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-10-24T03:55:44.2887977Z env:
+2026-10-24T03:55:44.2888234Z   JAVA_HOME: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T03:55:44.2888665Z   JAVA_HOME_17_X64: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T03:55:44.2889008Z ##[endgroup]
+2026-10-24T03:55:46.8367276Z   % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current
+2026-10-24T03:55:46.8368015Z                                  Dload  Upload  Total   Spent   Left   Speed
+2026-10-24T03:55:46.8368317Z 
+2026-10-24T03:55:47.8373456Z   0      0   0      0   0      0      0      0                              0
+2026-10-24T03:55:48.8413673Z   4  1.80G   4 78.80M   0      0 73.51M      0   00:25   00:01   00:24 78.75M
+2026-10-24T03:55:49.8416983Z   9  1.80G   9 172.5M   0      0 83.12M      0   00:22   00:02   00:20 86.08M
+2026-10-24T03:55:50.8423946Z  13  1.80G  13 240.5M   0      0 78.19M      0   00:23   00:03   00:20 80.04M
+2026-10-24T03:55:51.8455180Z  16  1.80G  16 299.5M   0      0 73.46M      0   00:25   00:04   00:21 74.77M
+2026-10-24T03:55:52.8467522Z  20  1.80G  20 380.9M   0      0 74.98M      0   00:24   00:05   00:19 76.05M
+2026-10-24T03:55:53.8474589Z  24  1.80G  24 449.8M   0      0 73.96M      0   00:24   00:06   00:18 74.05M
+2026-10-24T03:55:54.8498115Z  27  1.80G  27 510.9M   0      0 72.15M      0   00:25   00:07   00:18 67.60M
+2026-10-24T03:55:55.8501283Z  33  1.80G  33 622.7M   0      0 77.03M      0   00:23   00:08   00:15 76.32M
+2026-10-24T03:55:56.8503038Z  39  1.80G  39 736.3M   0      0 81.05M      0   00:22   00:09   00:13 87.22M
+2026-10-24T03:55:57.8514495Z  44  1.80G  44 816.8M   0      0 81.00M      0   00:22   00:10   00:12 87.10M
+2026-10-24T03:55:58.8580515Z  50  1.80G  50 931.0M   0      0 83.98M      0   00:21   00:11   00:10 96.16M
+2026-10-24T03:55:59.8606312Z  53  1.80G  53 983.8M   0      0 81.36M      0   00:22   00:12   00:10 94.37M
+2026-10-24T03:56:00.8626277Z  56  1.80G  56  1.02G   0      0 79.96M      0   00:23   00:13   00:10 84.69M
+2026-10-24T03:56:01.8633990Z  62  1.80G  62  1.13G   0      0 82.35M      0   00:22   00:14   00:08 84.71M
+2026-10-24T03:56:02.8645175Z  66  1.80G  66  1.20G   0      0 81.88M      0   00:22   00:15   00:07 83.66M
+2026-10-24T03:56:03.8652306Z  68  1.80G  68  1.24G   0      0 78.95M      0   00:23   00:16   00:07 67.81M
+2026-10-24T03:56:04.8657163Z  72  1.80G  72  1.29G   0      0 77.81M      0   00:23   00:17   00:06 69.25M
+2026-10-24T03:56:05.8669346Z  76  1.80G  76  1.38G   0      0 78.17M      0   00:23   00:18   00:05 73.48M
+2026-10-24T03:56:06.8675538Z  77  1.80G  77  1.39G   0      0 75.06M      0   00:24   00:19   00:05 54.51M
+2026-10-24T03:56:07.8692315Z  80  1.80G  80  1.45G   0      0 74.20M      0   00:24   00:20   00:04 51.02M
+2026-10-24T03:56:08.8741638Z  85  1.80G  85  1.53G   0      0 74.46M      0   00:24   00:21   00:03 60.02M
+2026-10-24T03:56:09.8746707Z  86  1.80G  86  1.56G   0      0 72.42M      0   00:25   00:22   00:03 54.00M
+2026-10-24T03:56:10.8751010Z  90  1.80G  90  1.63G   0      0 72.68M      0   00:25   00:23   00:02 52.83M
+2026-10-24T03:56:11.4261652Z  96  1.80G  96  1.73G   0      0 73.71M      0   00:25   00:24   00:01 68.60M
+2026-10-24T03:56:11.4262557Z 100  1.80G 100  1.80G   0      0 74.91M      0   00:24   00:24         68.60M
+2026-10-24T03:56:11.4264247Z 100  1.80G 100  1.80G   0      0 74.91M      0   00:24   00:24         68.60M
+2026-10-24T03:56:11.4264921Z 100  1.80G 100  1.80G   0      0 74.91M      0   00:24   00:24         68.60M
+2026-10-24T03:57:33.6665228Z ##[end-action id=__subosito_flutter-action.__run_3;outcome=success;conclusion=success;duration_ms=109396]
+2026-10-24T03:57:33.6876606Z ##[group]Run flutter config --enable-windows-desktop
+2026-10-24T03:57:33.6877247Z [36;1mflutter config --enable-windows-desktop[0m
+2026-10-24T03:57:33.8679139Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-10-24T03:57:33.8679612Z env:
+2026-10-24T03:57:33.8679947Z   JAVA_HOME: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T03:57:33.8680486Z   JAVA_HOME_17_X64: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T03:57:33.8681063Z   FLUTTER_ROOT: C:\hostedtoolcache\windows\flutter\stable-3.47.8-x64/flutter
+2026-10-24T03:57:33.8681589Z   PUB_CACHE: C:\Users\runneradmin\AppData\Local\Pub\Cache
+2026-10-24T03:57:33.8681954Z ##[endgroup]
+2026-10-24T03:57:36.5293624Z Building flutter tool... 
+2026-10-24T03:57:36.5332025Z Running pub upgrade... 
+2026-10-24T03:57:36.5689785Z Resolving dependencies...
+2026-10-24T03:57:40.2024122Z Downloading packages...
+2026-10-24T03:57:54.9676473Z Got dependencies.
+2026-10-24T03:58:13.3568448Z Setting "enable-windows-desktop" value to "true".
+2026-10-24T03:58:13.3570181Z 
+2026-10-24T03:58:13.3570803Z You may need to restart any open editors for them to read new settings.
+2026-10-24T03:58:13.4926112Z ##[group]Run flutter pub get
+2026-10-24T03:58:13.4926577Z [36;1mflutter pub get[0m
+2026-10-24T03:58:13.5004112Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-10-24T03:58:13.5004456Z env:
+2026-10-24T03:58:13.5004722Z   JAVA_HOME: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T03:58:13.5005154Z   JAVA_HOME_17_X64: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T03:58:13.5005610Z   FLUTTER_ROOT: C:\hostedtoolcache\windows\flutter\stable-3.47.8-x64/flutter
+2026-10-24T03:58:13.5006032Z   PUB_CACHE: C:\Users\runneradmin\AppData\Local\Pub\Cache
+2026-10-24T03:58:13.5006321Z ##[endgroup]
+2026-10-24T03:58:14.7242309Z Resolving dependencies...
+2026-10-24T03:58:16.0545190Z Downloading packages...
+2026-10-24T03:58:39.6036683Z   _flutterfire_internals 1.3.77 (1.3.79 available)
+2026-10-24T03:58:39.6037418Z   archive 4.3.0 (4.5.2 available)
+2026-10-24T03:58:39.6037961Z   auto_updater 0.2.1 (1.0.0 available)
+2026-10-24T03:58:39.6038660Z   auto_updater_macos 0.2.0 (1.0.0 available)
+2026-10-24T03:58:39.6039341Z   auto_updater_platform_interface 0.2.0 (1.0.0 available)
+2026-10-24T03:58:39.6039989Z   auto_updater_windows 0.2.1 (1.0.0 available)
+2026-10-24T03:58:39.6040655Z   camera_android_camerax 0.7.4+8 (0.7.6 available)
+2026-10-24T03:58:39.6041624Z   camera_avfoundation 0.10.3+1 (0.11.1 available)
+2026-10-24T03:58:39.6042422Z   camera_platform_interface 2.14.0 (2.15.0 available)
+2026-10-24T03:58:39.6043527Z   clock 1.1.2 (1.1.3 available)
+2026-10-24T03:58:39.6044230Z   cloud_firestore 6.10.0 (7.1.0 available)
+2026-10-24T03:58:39.6045013Z   cloud_firestore_platform_interface 8.0.7 (8.1.0 available)
+2026-10-24T03:58:39.6045937Z   cloud_firestore_web 5.7.3 (5.8.0 available)
+2026-10-24T03:58:39.6046716Z   code_assets 1.2.1 (2.1.0 available)
+2026-10-24T03:58:39.6047466Z   cross_file 0.3.5+5 (0.4.0 available)
+2026-10-24T03:58:39.6048253Z   cupertino_icons 1.0.9 (2.0.0 available)
+2026-10-24T03:58:39.6048965Z   dbus 0.7.15 (0.8.0 available)
+2026-10-24T03:58:39.6049648Z   equatable 2.1.0 (3.0.0 available)
+2026-10-24T03:58:39.6050560Z   file_picker 11.0.3 (13.1.0 available)
+2026-10-24T03:58:39.6051056Z   firebase_auth 6.7.0 (7.0.1 available)
+2026-10-24T03:58:39.6051634Z   firebase_auth_platform_interface 9.1.0 (9.1.2 available)
+2026-10-24T03:58:39.6052250Z   firebase_auth_web 6.3.0 (6.3.2 available)
+2026-10-24T03:58:39.6052768Z   firebase_core 4.15.0 (5.1.0 available)
+2026-10-24T03:58:39.6053331Z   firebase_core_web 3.12.0 (4.1.0 available)
+2026-10-24T03:58:39.6053904Z   ftpconnect 2.0.10 (3.0.0 available)
+2026-10-24T03:58:39.6054478Z   google_fonts 8.2.1 (9.0.0 available)
+2026-10-24T03:58:39.6054999Z   hooks 2.0.2 (2.2.0 available)
+2026-10-24T03:58:39.6055443Z   image 4.10.1 (4.12.0 available)
+2026-10-24T03:58:39.6055951Z   inno_bundle 0.11.2 (0.12.0 available)
+2026-10-24T03:58:39.6056429Z   jni 1.0.3 (1.1.0 available)
+2026-10-24T03:58:39.6056873Z   jni_flutter 1.0.3 (1.0.4+1 available)
+2026-10-24T03:58:39.6057398Z   launch_at_startup 0.2.2 (0.5.1 available)
+2026-10-24T03:58:39.6057928Z   local_auth 2.3.0 (3.0.2 available)
+2026-10-24T03:58:39.6058509Z   local_auth_android 1.0.56 (2.3.0 available)
+2026-10-24T03:58:39.6059098Z   local_auth_darwin 1.6.1 (2.0.5 available)
+2026-10-24T03:58:39.6059655Z   local_auth_windows 1.0.11 (2.0.2 available)
+2026-10-24T03:58:39.6060221Z > matcher 0.12.20 (was 0.12.19)
+2026-10-24T03:58:39.6060748Z   material_color_utilities 0.13.0 (0.13.1 available)
+2026-10-24T03:58:39.6061310Z > meta 1.19.0 (was 1.18.0)
+2026-10-24T03:58:39.6061755Z   objective_c 9.5.0 (9.6.2 available)
+2026-10-24T03:58:39.6062277Z   package_info_plus 8.3.1 (10.2.2 available)
+2026-10-24T03:58:39.6063269Z   package_info_plus_platform_interface 3.2.1 (4.1.0 available)
+2026-10-24T03:58:39.6063966Z   petitparser 7.0.2 (7.1.0 available)
+2026-10-24T03:58:39.6064508Z   pointycastle 3.9.1 (4.0.0 available)
+2026-10-24T03:58:39.6065032Z   record_use 0.6.0 (1.1.1 available)
+2026-10-24T03:58:39.6067595Z   screen_retriever 0.2.2 (0.3.0 available)
+2026-10-24T03:58:39.6068283Z   shared_preferences 2.5.5 (2.5.6 available)
+2026-10-24T03:58:39.6068908Z   shared_preferences_android 2.4.28 (2.5.3 available)
+2026-10-24T03:58:39.6069591Z   shared_preferences_foundation 2.5.7 (2.6.0 available)
+2026-10-24T03:58:39.6070187Z   stack_trace 1.12.1 (1.12.2 available)
+2026-10-24T03:58:39.6070727Z > test_api 0.7.12 (was 0.7.11) (0.7.15 available)
+2026-10-24T03:58:39.6071302Z   tray_manager 0.2.4 (0.8.0 available)
+2026-10-24T03:58:39.6071808Z   url_launcher 6.3.2 (6.3.3 available)
+2026-10-24T03:58:39.6072310Z > vector_math 2.4.3 (was 2.2.0)
+2026-10-24T03:58:39.6072847Z   vm_service 15.3.0 (15.4.0 available)
+2026-10-24T03:58:39.6073344Z   web 1.1.1 (1.1.2 available)
+2026-10-24T03:58:39.6073840Z   win32 5.15.0 (6.4.0 available)
+2026-10-24T03:58:39.6074332Z   win32_registry 1.1.5 (3.0.3 available)
+2026-10-24T03:58:39.6074863Z   window_manager 0.4.3 (0.5.2 available)
+2026-10-24T03:58:39.6075379Z   xml 7.0.1 (7.1.0 available)
+2026-10-24T03:58:39.6075918Z Changed 4 dependencies!
+2026-10-24T03:58:39.6076561Z 57 packages have newer versions incompatible with dependency constraints.
+2026-10-24T03:58:39.6077343Z Try `flutter pub outdated` for more information.
+2026-10-24T03:58:39.8168632Z Upgrading analysis_options.yaml to exclude build and platform directories.
+2026-10-24T03:58:40.2683504Z ##[group]Run flutter test
+2026-10-24T03:58:40.2683894Z [36;1mflutter test[0m
+2026-10-24T03:58:40.2759343Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-10-24T03:58:40.2759754Z env:
+2026-10-24T03:58:40.2760084Z   JAVA_HOME: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T03:58:40.2760586Z   JAVA_HOME_17_X64: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T03:58:40.2761113Z   FLUTTER_ROOT: C:\hostedtoolcache\windows\flutter\stable-3.47.8-x64/flutter
+2026-10-24T03:58:40.2761602Z   PUB_CACHE: C:\Users\runneradmin\AppData\Local\Pub\Cache
+2026-10-24T03:58:40.2761968Z ##[endgroup]
+2026-10-24T03:58:44.1996457Z 
+2026-10-24T03:58:52.8703605Z ##[group]✅ Passing tests
+2026-10-24T03:58:52.8705552Z ✅ D:/a/AMPCrypt/AMPCrypt/test/biometric_services_test.dart: FingerprintVerificationService Tests Should check biometric availability
+2026-10-24T03:58:52.9051698Z ##[endgroup]
+2026-10-24T03:58:52.9053815Z ##[group]✅ D:/a/AMPCrypt/AMPCrypt/test/biometric_services_test.dart: VoiceVerificationService Tests Should generate identical embeddings for identical files
+2026-10-24T03:58:52.9055204Z Voice cosine similarity: 1.0000 (threshold: 0.8)
+2026-10-24T03:58:52.9056106Z ##[endgroup]
+2026-10-24T03:58:52.9150710Z ##[group]✅ D:/a/AMPCrypt/AMPCrypt/test/biometric_services_test.dart: VoiceVerificationService Tests Should generate different embeddings for different files
+2026-10-24T03:58:52.9152196Z Voice cosine similarity: 0.20636562930250935
+2026-10-24T03:58:52.9152799Z Voice cosine similarity: 0.2064 (threshold: 0.8)
+2026-10-24T03:58:52.9153603Z ##[endgroup]
+2026-10-24T03:58:54.0031035Z ##[group]✅ Passing tests
+2026-10-24T03:58:54.0032813Z ✅ D:/a/AMPCrypt/AMPCrypt/test/crypto_test.dart: MockCryptoService - Master Key generation
+2026-10-24T03:58:54.3405803Z ✅ D:/a/AMPCrypt/AMPCrypt/test/crypto_test.dart: MockCryptoService - SLIP-39 split and recovery
+2026-10-24T03:58:54.3572629Z ✅ D:/a/AMPCrypt/AMPCrypt/test/crypto_test.dart: MockCryptoService - key derivation and AES-GCM encryption/decryption
+2026-10-24T03:58:54.3762245Z ✅ D:/a/AMPCrypt/AMPCrypt/test/crypto_test.dart: CryptoServiceImpl - Streaming encryption and decryption with self-healing header
+2026-10-24T03:58:54.3829766Z ✅ D:/a/AMPCrypt/AMPCrypt/test/crypto_test.dart: CryptoServiceImpl - Extract self-healing file header
+2026-10-24T03:58:54.5264967Z ✅ D:/a/AMPCrypt/AMPCrypt/test/crypto_test.dart: CryptoServiceImpl - Multi-chunk (>64KB) streaming encryption and decryption
+2026-10-24T03:58:54.5302369Z ✅ D:/a/AMPCrypt/AMPCrypt/test/crypto_test.dart: CryptoServiceImpl - Empty file (0 bytes) streaming encryption and decryption
+2026-10-24T03:58:55.5406265Z ##[endgroup]
+2026-10-24T03:58:55.5407712Z ##[group]✅ D:/a/AMPCrypt/AMPCrypt/test/face_verification_test.dart: FaceVerificationService Tests Should generate identical embeddings for identical files
+2026-10-24T03:58:55.5408517Z Face distance: 0.0000 (threshold: 0.6)
+2026-10-24T03:58:55.5409042Z ##[endgroup]
+2026-10-24T03:58:55.5480652Z ##[group]✅ D:/a/AMPCrypt/AMPCrypt/test/face_verification_test.dart: FaceVerificationService Tests Should generate different embeddings for different files
+2026-10-24T03:58:55.5481573Z Distance between different files: 1.4902134094180488
+2026-10-24T03:58:55.5481981Z Face distance: 1.4902 (threshold: 0.6)
+2026-10-24T03:58:55.5482483Z ##[endgroup]
+2026-10-24T03:58:56.0254331Z ##[group]✅ D:/a/AMPCrypt/AMPCrypt/test/directory_watcher_test.dart: DirectoryWatcherService Tests Should capture file events and compute positive write and delete rates
+2026-10-24T03:58:56.0256222Z Calculated features after simulation: SlidingWindowFeatures(writeRate: 8.00, deleteRate: 2.00, renameRate: 0.00, extensionEntropy: 0.00, sizeDifference: 0.02)
+2026-10-24T03:58:56.0257616Z ##[endgroup]
+2026-10-24T03:58:56.3347142Z ##[group]✅ D:/a/AMPCrypt/AMPCrypt/test/isolation_forest_test.dart: IsolationForest Tests Should train and identify outliers with higher anomaly scores
+2026-10-24T03:58:56.3352361Z Normal point score: 0.47534590164777957
+2026-10-24T03:58:56.3353059Z Anomalous point score: 0.642000421024911
+2026-10-24T03:58:56.3353923Z ##[endgroup]
+2026-10-24T03:58:56.3397608Z ##[group]✅ Passing tests
+2026-10-24T03:58:56.3398874Z ✅ D:/a/AMPCrypt/AMPCrypt/test/isolation_forest_test.dart: IsolationForest Tests Should throw StateError if evaluated before training
+2026-10-24T03:58:56.3425845Z ✅ D:/a/AMPCrypt/AMPCrypt/test/isolation_forest_test.dart: IsolationForest Tests Should throw ArgumentError on empty training set
+2026-10-24T03:58:57.2484499Z ✅ D:/a/AMPCrypt/AMPCrypt/test/security_hardening_test.dart: MemoryShield Tests Should securely wipe Uint8List buffers
+2026-10-24T03:58:57.2539590Z ✅ D:/a/AMPCrypt/AMPCrypt/test/security_hardening_test.dart: MemoryShield Tests Should handle Win32 VirtualLock allocation and deallocation gracefully
+2026-10-24T03:58:57.2775233Z ✅ D:/a/AMPCrypt/AMPCrypt/test/security_hardening_test.dart: PostQuantumEnvelope Tests Should generate valid ML-KEM-768 keypair dimensions
+2026-10-24T03:58:57.3156977Z ✅ D:/a/AMPCrypt/AMPCrypt/test/security_hardening_test.dart: PostQuantumEnvelope Tests Should wrap and unwrap master key using hybrid envelope
+2026-10-24T03:58:57.3301537Z ✅ D:/a/AMPCrypt/AMPCrypt/test/security_hardening_test.dart: PostQuantumEnvelope Tests Should reject tampered Post-Quantum envelope
+2026-10-24T03:58:58.1595204Z ✅ D:/a/AMPCrypt/AMPCrypt/test/vault_bloc_test.dart: VaultBloc - Initial state is VaultInitialState
+2026-10-24T03:58:58.1933374Z ✅ D:/a/AMPCrypt/AMPCrypt/test/vault_bloc_test.dart: VaultBloc - CheckVaultStatusEvent triggers VaultUninitializedState
+2026-10-24T03:58:58.5571358Z ✅ D:/a/AMPCrypt/AMPCrypt/test/vault_repository_test.dart: VaultRepository - Initial state
+2026-10-24T03:59:04.2875453Z ✅ D:/a/AMPCrypt/AMPCrypt/test/vault_repository_test.dart: VaultRepository - Create vault flow
+2026-10-24T03:59:04.3944093Z ✅ D:/a/AMPCrypt/AMPCrypt/test/vault_bloc_test.dart: VaultBloc - CreateVaultEvent triggers Loading then UnlockedState
+2026-10-24T03:59:08.7678625Z ✅ D:/a/AMPCrypt/AMPCrypt/test/vault_repository_test.dart: VaultRepository - Lock and Unlock flow
+2026-10-24T03:59:08.9399643Z ✅ D:/a/AMPCrypt/AMPCrypt/test/vault_bloc_test.dart: VaultBloc - Unlock flow triggers Loading then UnlockedState/FailureState
+2026-10-24T03:59:13.4104186Z ✅ D:/a/AMPCrypt/AMPCrypt/test/vault_repository_test.dart: VaultRepository - Recovery flow
+2026-10-24T03:59:16.3566333Z ✅ D:/a/AMPCrypt/AMPCrypt/test/widget_test.dart: AMPCrypt smoke test - shows setup screen when uninitialized
+2026-10-24T03:59:17.9364479Z ✅ D:/a/AMPCrypt/AMPCrypt/test/vault_repository_test.dart: VaultRepository - Security Questions Recovery flow
+2026-10-24T03:59:22.0468353Z ✅ D:/a/AMPCrypt/AMPCrypt/test/vault_repository_test.dart: VaultRepository - Emergency Duress Decoy Mode and Canary Guard
+2026-10-24T03:59:22.0776993Z ##[endgroup]
+2026-10-24T03:59:22.0777294Z 
+2026-10-24T03:59:22.0783738Z 🎉 32 tests passed.
+2026-10-24T03:59:22.2713311Z ##[group]Run flutter build windows --release
+2026-10-24T03:59:22.2714123Z [36;1mflutter build windows --release[0m
+2026-10-24T03:59:22.2826762Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-10-24T03:59:22.2827397Z env:
+2026-10-24T03:59:22.2827874Z   JAVA_HOME: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T03:59:22.2828639Z   JAVA_HOME_17_X64: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T03:59:22.2829469Z   FLUTTER_ROOT: C:\hostedtoolcache\windows\flutter\stable-3.47.8-x64/flutter
+2026-10-24T03:59:22.2830229Z   PUB_CACHE: C:\Users\runneradmin\AppData\Local\Pub\Cache
+2026-10-24T03:59:22.2830765Z ##[endgroup]
+2026-10-24T04:02:53.6032285Z Building Windows application...                                 
+2026-10-24T04:02:53.6045112Z MSVCRT.lib(new_scalar_nothrow.obj) : warning LNK4078: multiple '.voltbl' sections found with different attributes (00101A00) [D:\a\AMPCrypt\AMPCrypt\build\windows\x64\runner\ampcrypt.vcxproj]
+2026-10-24T04:02:59.6105473Z Building Windows application...                                   215.5s
+2026-10-24T04:02:59.6134498Z √ Built build\windows\x64\runner\Release\ampcrypt.exe
+2026-10-24T04:02:59.7770570Z ##[group]Run dart run msix:create --install-cert false
+2026-10-24T04:02:59.7771091Z [36;1mdart run msix:create --install-cert false[0m
+2026-10-24T04:02:59.7846139Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-10-24T04:02:59.7846549Z env:
+2026-10-24T04:02:59.7846865Z   JAVA_HOME: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T04:02:59.7847366Z   JAVA_HOME_17_X64: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T04:02:59.7847917Z   FLUTTER_ROOT: C:\hostedtoolcache\windows\flutter\stable-3.47.8-x64/flutter
+2026-10-24T04:02:59.7848394Z   PUB_CACHE: C:\Users\runneradmin\AppData\Local\Pub\Cache
+2026-10-24T04:02:59.7850069Z ##[endgroup]
+2026-10-24T04:03:03.2698275Z Unhandled exception:
+2026-10-24T04:03:03.2699586Z FormatException: Could not find an option named "--install-cert".
+2026-10-24T04:03:03.2700418Z #0      Parser._validate (package:args/src/parser.dart:324:7)
+2026-10-24T04:03:03.2701373Z #1      Parser._handleLongOption (package:args/src/parser.dart:310:7)
+2026-10-24T04:03:03.2704761Z #2      Parser._parseLongOption (package:args/src/parser.dart:271:12)
+2026-10-24T04:03:03.2705574Z #3      Parser.parse (package:args/src/parser.dart:91:11)
+2026-10-24T04:03:03.2707071Z #4      ArgParser.parse (package:args/src/arg_parser.dart:362:42)
+2026-10-24T04:03:03.2708084Z #5      Configuration._parseCliArguments (package:msix/src/configuration.dart:423:20)
+2026-10-24T04:03:03.2709172Z #6      Configuration.getConfigValues (package:msix/src/configuration.dart:80:5)
+2026-10-24T04:03:03.2710113Z #7      Msix._initConfig (package:msix/msix.dart:97:19)
+2026-10-24T04:03:03.2710806Z #8      Msix.create (package:msix/msix.dart:58:11)
+2026-10-24T04:03:03.2711881Z #9      main (file:///C:/Users/runneradmin/AppData/Local/Pub/Cache/hosted/pub.dev/msix-3.18.0/bin/create.dart:4:25)
+2026-10-24T04:03:03.2713394Z #10     _delayEntrypointInvocation.<anonymous closure> (dart:isolate-patch/isolate_patch.dart:311:33)
+2026-10-24T04:03:03.2714680Z #11     _RawReceivePort._handleMessage (dart:isolate-patch/isolate_patch.dart:192:12)
+2026-10-24T04:03:03.3991658Z ##[error]Process completed with exit code 1.
+2026-10-24T04:03:03.4198468Z ##[group]Run $releaseDir = "build/windows/x64/runner/Release"
+2026-10-24T04:03:03.4199439Z [36;1m$releaseDir = "build/windows/x64/runner/Release"[0m
+2026-10-24T04:03:03.4200201Z [36;1mWrite-Host "Verifying release build in $releaseDir..."[0m
+2026-10-24T04:03:03.4200895Z [36;1mGet-ChildItem -Path $releaseDir[0m
+2026-10-24T04:03:03.4201403Z [36;1m[0m
+2026-10-24T04:03:03.4201873Z [36;1m# Download official WinFsp 2.0 MSI if not present[0m
+2026-10-24T04:03:03.4202587Z [36;1mif (-not (Test-Path "$releaseDir/winfsp.msi")) {[0m
+2026-10-24T04:03:03.4203258Z [36;1m  Write-Host "Fetching WinFsp MSI installer..."[0m
+2026-10-24T04:03:03.4204519Z [36;1m  Invoke-WebRequest -Uri "https://github.com/winfsp/winfsp/releases/download/v2.0/winfsp-2.0.23075.msi" -OutFile "$releaseDir/winfsp.msi"[0m
+2026-10-24T04:03:03.4205674Z [36;1m}[0m
+2026-10-24T04:03:03.4206045Z [36;1m[0m
+2026-10-24T04:03:03.4206480Z [36;1m# Download official Rclone 64-bit if not present[0m
+2026-10-24T04:03:03.4207252Z [36;1mif (-not (Test-Path "$releaseDir/rclone.exe")) {[0m
+2026-10-24T04:03:03.4207889Z [36;1m  Write-Host "Fetching Rclone engine..."[0m
+2026-10-24T04:03:03.4208939Z [36;1m  Invoke-WebRequest -Uri "https://downloads.rclone.org/rclone-v1.68.1-windows-amd64.zip" -OutFile "rclone.zip"[0m
+2026-10-24T04:03:03.4210552Z [36;1m  Expand-Archive -Path "rclone.zip" -DestinationPath "rclone_extracted" -Force[0m
+2026-10-24T04:03:03.4211919Z [36;1m  $rcExe = Get-ChildItem -Path "rclone_extracted" -Filter "rclone.exe" -Recurse | Select-Object -First 1 -ExpandProperty FullName[0m
+2026-10-24T04:03:03.4213169Z [36;1m  Copy-Item $rcExe -Destination "$releaseDir/rclone.exe" -Force[0m
+2026-10-24T04:03:03.4213845Z [36;1m}[0m
+2026-10-24T04:03:03.4214236Z [36;1m[0m
+2026-10-24T04:03:03.4214675Z [36;1m# Copy batch scripts, certificates, and icons[0m
+2026-10-24T04:03:03.4215611Z [36;1mif (Test-Path "Install_AMPCrypt.bat") { Copy-Item "Install_AMPCrypt.bat" "$releaseDir/" -Force }[0m
+2026-10-24T04:03:03.4216941Z [36;1mif (Test-Path "Install-AMPCrypt-MSIX.bat") { Copy-Item "Install-AMPCrypt-MSIX.bat" "$releaseDir/" -Force }[0m
+2026-10-24T04:03:03.4218222Z [36;1mif (Test-Path "ampcrypt_cert.cer") { Copy-Item "ampcrypt_cert.cer" "$releaseDir/" -Force }[0m
+2026-10-24T04:03:03.4219327Z [36;1mif (Test-Path "vault_drive.ico") { Copy-Item "vault_drive.ico" "$releaseDir/" -Force }[0m
+2026-10-24T04:03:03.4220099Z [36;1m[0m
+2026-10-24T04:03:03.4220522Z [36;1m# Build Standalone Portable ZIP[0m
+2026-10-24T04:03:03.4221418Z [36;1m$portableDir = "AMPCrypt_Standalone_Portable"[0m
+2026-10-24T04:03:03.4222210Z [36;1mNew-Item -ItemType Directory -Path $portableDir -Force | Out-Null[0m
+2026-10-24T04:03:03.4223277Z [36;1mCopy-Item -Path "$releaseDir/*" -Destination $portableDir -Recurse -Force -Exclude "*.msix"[0m
+2026-10-24T04:03:03.4224548Z [36;1mCompress-Archive -Path "$portableDir/*" -DestinationPath "AMPCrypt-Windows-Portable.zip" -Force[0m
+2026-10-24T04:03:03.4225466Z [36;1m[0m
+2026-10-24T04:03:03.4225901Z [36;1m# Create release artifacts staging folder[0m
+2026-10-24T04:03:03.4226497Z [36;1m$outArtifacts = "release_artifacts"[0m
+2026-10-24T04:03:03.4227265Z [36;1mNew-Item -ItemType Directory -Path $outArtifacts -Force | Out-Null[0m
+2026-10-24T04:03:03.4228490Z [36;1mif (Test-Path "$releaseDir/ampcrypt.msix") { Copy-Item "$releaseDir/ampcrypt.msix" -Destination $outArtifacts/ -Force }[0m
+2026-10-24T04:03:03.4229801Z [36;1mCopy-Item "AMPCrypt-Windows-Portable.zip" -Destination $outArtifacts/ -Force[0m
+2026-10-24T04:03:03.4231537Z [36;1mif (Test-Path "Install_AMPCrypt.bat") { Copy-Item "Install_AMPCrypt.bat" -Destination $outArtifacts/ -Force }[0m
+2026-10-24T04:03:03.4232898Z [36;1mif (Test-Path "ampcrypt_cert.cer") { Copy-Item "ampcrypt_cert.cer" -Destination $outArtifacts/ -Force }[0m
+2026-10-24T04:03:03.4234178Z [36;1mif (Test-Path "vault_drive.ico") { Copy-Item "vault_drive.ico" -Destination $outArtifacts/ -Force }[0m
+2026-10-24T04:03:03.4237878Z [36;1mif (Test-Path "$releaseDir/winfsp.msi") { Copy-Item "$releaseDir/winfsp.msi" -Destination $outArtifacts/ -Force }[0m
+2026-10-24T04:03:03.4239401Z [36;1mif (Test-Path "$releaseDir/rclone.exe") { Copy-Item "$releaseDir/rclone.exe" -Destination $outArtifacts/ -Force }[0m
+2026-10-24T04:03:03.4240865Z [36;1mif (Test-Path "$releaseDir/ampcrypt.exe") { Copy-Item "$releaseDir/ampcrypt.exe" -Destination $outArtifacts/ -Force }[0m
+2026-10-24T04:03:03.4241852Z [36;1m[0m
+2026-10-24T04:03:03.4242280Z [36;1mWrite-Host "Artifacts staged successfully:"[0m
+2026-10-24T04:03:03.4242903Z [36;1mGet-ChildItem -Path $outArtifacts[0m
+2026-10-24T04:03:03.4329279Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-10-24T04:03:03.4329684Z env:
+2026-10-24T04:03:03.4329999Z   JAVA_HOME: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T04:03:03.4330483Z   JAVA_HOME_17_X64: C:\hostedtoolcache\windows\Java_Zulu_jdk\17.0.21-9\x64
+2026-10-24T04:03:03.4331068Z   FLUTTER_ROOT: C:\hostedtoolcache\windows\flutter\stable-3.47.8-x64/flutter
+2026-10-24T04:03:03.4331591Z   PUB_CACHE: C:\Users\runneradmin\AppData\Local\Pub\Cache
+2026-10-24T04:03:03.4331935Z ##[endgroup]
+2026-10-24T04:03:03.8037504Z Verifying release build in build/windows/x64/runner/Release...
+2026-10-24T04:03:03.8557760Z 
+2026-10-24T04:03:03.8570135Z     Directory: D:\a\AMPCrypt\AMPCrypt\build\windows\x64\runner\Release
+2026-10-24T04:03:03.8570732Z 
+2026-10-24T04:03:03.8573482Z [32;1mMode   [0m[32;1m              LastWriteTime[0m [32;1;3m        Length[0m[32;1m Name[0m
+2026-10-24T04:03:03.8574818Z [32;1m----   [0m [32;1m             -------------[0m [32;1m        ------[0m [32;1m----[0m
+2026-10-24T04:03:03.8932519Z d----          10/24/2026  4:02 AM                [44;1mdata[0m
+2026-10-24T04:03:03.8994514Z -a---          10/24/2026  4:02 AM       16035328 [32;1mampcrypt.exe[0m
+2026-10-24T04:03:03.8998188Z -a---          10/24/2026  4:02 AM           1860 ampcrypt.exp
+2026-10-24T04:03:03.9001618Z -a---          10/24/2026  4:02 AM           3570 ampcrypt.lib
+2026-10-24T04:03:03.9005024Z -a---          10/24/2026  4:01 AM          95744 auto_updater_windows_plugin.dll
+2026-10-24T04:03:03.9008646Z -a---          10/24/2026  4:01 AM       15743264 cloud_firestore_plugin.lib
+2026-10-24T04:03:03.9012116Z -a---          10/24/2026  4:02 AM          58368 dartjni.dll
+2026-10-24T04:03:03.9015859Z -a---          10/24/2026  4:01 AM       13542796 firebase_auth_plugin.lib
+2026-10-24T04:03:03.9019296Z -a---          10/24/2026  4:01 AM        7154724 firebase_core_plugin.lib
+2026-10-24T04:03:03.9022676Z -a---          10/23/2026 11:43 AM       21289472 flutter_windows.dll
+2026-10-24T04:03:03.9025974Z -a---          10/24/2026  4:02 AM         175616 local_auth_windows_plugin.dll
+2026-10-24T04:03:03.9029603Z -a---          10/24/2026  4:02 AM         120320 screen_retriever_windows_plugin.dll
+2026-10-24T04:03:03.9033243Z -a---          10/24/2026  4:02 AM         106496 tray_manager_plugin.dll
+2026-10-24T04:03:03.9036622Z -a---          10/24/2026  4:02 AM          98304 url_launcher_windows_plugin.dll
+2026-10-24T04:03:03.9039861Z -a---          10/24/2026  4:02 AM         131072 window_manager_plugin.dll
+2026-10-24T04:03:03.9043429Z -a---          10/24/2026  3:58 AM        2797056 WinSparkle.dll
+2026-10-24T04:03:03.9091259Z Fetching WinFsp MSI installer...
+2026-10-24T04:03:04.5716977Z Fetching Rclone engine...
+2026-10-24T04:03:05.3246694Z [31;1mInvoke-WebRequest: [0mD:\a\_temp\b4111e3c-18e8-4bb7-86a0-fe7e688bf14c.ps1:15[0m
+2026-10-24T04:03:05.3247874Z [31;1m[0m[36;1mLine |[0m
+2026-10-24T04:03:05.3249079Z [31;1m[0m[36;1m[36;1m  15 | [0m   [36;1mInvoke-WebRequest -Uri "https://downloads.rclone.org/rclone-v1.68.1[0m …[0m
+2026-10-24T04:03:05.3250578Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m     | [31;1m   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~[0m
+2026-10-24T04:03:05.3253591Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m     | [31;1m                        Not Found            body {         font-family: system-ui;         font-weight: 300;   [0m
+2026-10-24T04:03:05.3256125Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m[31;1m[36;1m     | [31;1mfont-size: 1.25rem;         color: #36393a;         display: flex;         align-items: center;        [0m
+2026-10-24T04:03:05.3259066Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m     | [31;1mjustify-content: center;       }       main {         max-width: 1200px;         margin-top: 120px;        [0m
+2026-10-24T04:03:05.3261718Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m     | [31;1mdisplay: flex;         flex-wrap: wrap;         align-items: center;         justify-content: center;       }   [0m
+2026-10-24T04:03:05.3264263Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m     | [31;1m#text {         max-width: 60%;         margin-left: 1rem;         margin-right: 1rem;       }       main >[0m
+2026-10-24T04:03:05.3266765Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m     | [31;1msection > div {         margin-bottom: 3.25rem;       }       svg {         margin-left: 2rem;       }      [0m
+2026-10-24T04:03:05.3269250Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m     | [31;1m@keyframes eye-1 {         0% {           transform: translateX(0);         }         10%,         50% {        [0m
+2026-10-24T04:03:05.3271856Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m     | [31;1mtransform: translateX(-5px);         }         60% {           transform: translateX(0);         }         100%[0m
+2026-10-24T04:03:05.3274608Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m     | [31;1m{           transform: translateX(0px);         }       }       @keyframes eye-2 {         0% {          [0m
+2026-10-24T04:03:05.3277273Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m     | [31;1mtransform: translateX(0);         }         10%,         50% {           transform: translateX(5px);         }  [0m
+2026-10-24T04:03:05.3280712Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m     | [31;1m60% {           transform: translateX(0);         }         100% {           transform: translateX(0px);        [0m
+2026-10-24T04:03:05.3283621Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m     | [31;1m}       }       svg > .eye-1 {         animation: eye-1 3s infinite;       }       svg > .eye-2 {        [0m
+2026-10-24T04:03:05.3286620Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m     | [31;1manimation: eye-2 3s 0.6s infinite;       }       h1 {         font-size: 3.75rem;         font-weight: 400;     [0m
+2026-10-24T04:03:05.3289970Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m     | [31;1mmargin-bottom: 0.5rem;       }       h3 {         font-size: 2rem;         font-weight: 400;         color:[0m
+2026-10-24T04:03:05.3293246Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m     | [31;1m#92979b;         margin: 0;       }       a {         color: #0055dc;       }       p {         margin: 0;      [0m
+2026-10-24T04:03:05.3296575Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m     | [31;1m}       #error-title {         font-size: 2rem;         margin-bottom: 1rem;       }       #footer-title {      [0m
+2026-10-24T04:03:05.3299867Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m     | [31;1mfont-weight: 700;         margin-bottom: 0.75rem;       }                                           Error 404   [0m
+2026-10-24T04:03:05.3301921Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m     | [31;1mObject not found                                           This object does not exist or is not publicly[0m
+2026-10-24T04:03:05.3303973Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m     | [31;1maccessible at this             URL. Check the URL of the object that you're looking for or contact            [0m
+2026-10-24T04:03:05.3306116Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m     | [31;1mthe owner to enable Public access.                                         Is this your bucket?                 [0m
+2026-10-24T04:03:05.3308292Z [31;1m[0m[36;1m[36;1m[0m[36;1m[0m[36;1m[31;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m[31;1m[36;1m     | [31;1mLearn how to enable             Public Access[0m
+2026-10-24T04:03:05.4063641Z ##[error]Process completed with exit code 1.
+2026-10-24T04:03:05.4497880Z Post job cleanup.
+2026-10-24T04:03:05.4503194Z ##[start-action display=Cache pub dependencies;id=__0337b703-8ee8-4bf7-b207-0701fc2f0c47.cache-pub]
+2026-10-24T04:03:05.4505800Z ##[end-action id=__0337b703-8ee8-4bf7-b207-0701fc2f0c47.cache-pub;outcome=skipped;conclusion=skipped;duration_ms=0]
+2026-10-24T04:03:05.4508395Z ##[start-action display=Cache Flutter;id=__0337b703-8ee8-4bf7-b207-0701fc2f0c47.cache-flutter]
+2026-10-24T04:03:05.4510867Z ##[end-action id=__0337b703-8ee8-4bf7-b207-0701fc2f0c47.cache-flutter;outcome=skipped;conclusion=skipped;duration_ms=0]
+2026-10-24T04:03:05.4716336Z Post job cleanup.
+2026-10-24T04:03:06.1535096Z (node:6164) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-24T04:03:06.1536211Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-24T04:03:06.2040528Z Post job cleanup.
+2026-10-24T04:03:06.4433522Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-10-24T04:03:06.4890988Z git version 2.56.0.windows.2
+2026-10-24T04:03:06.4995128Z Temporarily overriding HOME='D:\a\_temp\e518bea8-1130-49e2-a3c0-e4bafcd8f82d' before making global git config changes
+2026-10-24T04:03:06.4996367Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-24T04:03:06.5009244Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\AMPCrypt\AMPCrypt
+2026-10-24T04:03:06.5526499Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-10-24T04:03:06.5977214Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-10-24T04:03:07.3101564Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-24T04:03:07.3478483Z http.https://github.com/.extraheader
+2026-10-24T04:03:07.3529643Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all http.https://github.com/.extraheader
+2026-10-24T04:03:07.3951898Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-10-24T04:03:08.0053603Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-24T04:03:08.0454559Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-10-24T04:03:08.6511070Z Cleaning up orphan processes
+2026-10-24T04:03:08.6987661Z Terminate orphan process: pid (1516) (vctip)
+2026-10-24T04:03:08.9712702Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-java@v3. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
