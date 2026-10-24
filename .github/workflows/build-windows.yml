@@ -61,18 +61,26 @@ jobs:
           Get-ChildItem -Path $releaseDir
 
           # Download official WinFsp 2.0 MSI if not present
-          if (-not (Test-Path "$releaseDir/winfsp.msi")) {
-            Write-Host "Fetching WinFsp MSI installer..."
-            Invoke-WebRequest -Uri "https://github.com/winfsp/winfsp/releases/download/v2.0/winfsp-2.0.23075.msi" -OutFile "$releaseDir/winfsp.msi"
+          try {
+            if (-not (Test-Path "$releaseDir/winfsp.msi")) {
+              Write-Host "Fetching WinFsp MSI installer..."
+              Invoke-WebRequest -Uri "https://github.com/winfsp/winfsp/releases/download/v2.0/winfsp-2.0.23075.msi" -OutFile "$releaseDir/winfsp.msi" -TimeoutSec 30
+            }
+          } catch {
+            Write-Host "WinFsp download warning: $_"
           }
 
           # Download official Rclone 64-bit if not present
-          if (-not (Test-Path "$releaseDir/rclone.exe")) {
-            Write-Host "Fetching Rclone engine..."
-            Invoke-WebRequest -Uri "https://downloads.rclone.org/rclone-v1.68.1-windows-amd64.zip" -OutFile "rclone.zip"
-            Expand-Archive -Path "rclone.zip" -DestinationPath "rclone_extracted" -Force
-            $rcExe = Get-ChildItem -Path "rclone_extracted" -Filter "rclone.exe" -Recurse | Select-Object -First 1 -ExpandProperty FullName
-            Copy-Item $rcExe -Destination "$releaseDir/rclone.exe" -Force
+          try {
+            if (-not (Test-Path "$releaseDir/rclone.exe")) {
+              Write-Host "Fetching Rclone engine..."
+              Invoke-WebRequest -Uri "https://downloads.rclone.org/rclone-current-windows-amd64.zip" -OutFile "rclone.zip" -TimeoutSec 45
+              Expand-Archive -Path "rclone.zip" -DestinationPath "rclone_extracted" -Force
+              $rcExe = Get-ChildItem -Path "rclone_extracted" -Filter "rclone.exe" -Recurse | Select-Object -First 1 -ExpandProperty FullName
+              if ($rcExe) { Copy-Item $rcExe -Destination "$releaseDir/rclone.exe" -Force }
+            }
+          } catch {
+            Write-Host "Rclone download warning: $_"
           }
 
           # Copy batch scripts, certificates, and icons
