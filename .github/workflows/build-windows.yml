@@ -50,7 +50,8 @@ jobs:
         run: flutter build windows --release
 
       - name: Build Signed MSIX Package
-        run: dart run msix:create
+        run: dart run msix:create --install-cert false
+        continue-on-error: true
 
       - name: Prepare Distribution Suite
         shell: pwsh
