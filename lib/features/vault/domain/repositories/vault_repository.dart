@@ -301,5 +301,8 @@ abstract class VaultRepository {
 
   /// Copies a virtual file or directory inside the vault.
   Future<bool> copyVaultPath(String srcPath, String destPath);
+
+  /// Restores corrupted or missing vault configuration from a .bkup or .json file.
+  Future<bool> restoreVaultConfigFromBackup(String filePath, [String? targetVaultPath]);
 }
 

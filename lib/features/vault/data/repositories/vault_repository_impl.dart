@@ -292,7 +292,17 @@ class VaultRepositoryImpl implements VaultRepository {
     if (!dir.existsSync()) return false;
     final masterkey = File(p.join(path, 'masterkey.ampcrypt'));
     final vault = File(p.join(path, 'vault.ampcrypt'));
-    return masterkey.existsSync() || vault.existsSync();
+    final legacy = File(p.join(path, 'vault.json'));
+    final metadataEnc = File(p.join(path, 'metadata.json.enc'));
+    final cmMasterkey = File(p.join(path, 'masterkey.cryptomator'));
+    if (masterkey.existsSync() || vault.existsSync() || legacy.existsSync() || metadataEnc.existsSync() || cmMasterkey.existsSync()) {
+      return true;
+    }
+    try {
+      final bkup = dir.listSync().whereType<File>().any((f) => f.path.contains('.bkup'));
+      if (bkup) return true;
+    } catch (_) {}
+    return false;
   }
 
   @override
@@ -382,7 +392,16 @@ class VaultRepositoryImpl implements VaultRepository {
         derivedKey = await _cryptoService.deriveKey(password, salt);
         decryptedBytes = await _cryptoService.decryptData(encryptedPasswordShare, derivedKey);
       } catch (_) {
-        return false; // Authentication/MAC verification failed - incorrect password
+        if (password != password.trim()) {
+          try {
+            derivedKey = await _cryptoService.deriveKey(password.trim(), salt);
+            decryptedBytes = await _cryptoService.decryptData(encryptedPasswordShare, derivedKey);
+          } catch (_) {
+            return false; // Authentication/MAC verification failed - incorrect password
+          }
+        } else {
+          return false; // Authentication/MAC verification failed - incorrect password
+        }
       }
 
       final passwordShare = utf8.decode(decryptedBytes);
@@ -556,8 +575,23 @@ class VaultRepositoryImpl implements VaultRepository {
       final salt = base64Decode(saltBase64);
       final encryptedPasswordShare = base64Decode(encryptedShareBase64);
 
-      final derivedKey = await _cryptoService.deriveKey(password, salt);
-      final decryptedBytes = await _cryptoService.decryptData(encryptedPasswordShare, derivedKey);
+      Uint8List derivedKey;
+      Uint8List decryptedBytes;
+      try {
+        derivedKey = await _cryptoService.deriveKey(password, salt);
+        decryptedBytes = await _cryptoService.decryptData(encryptedPasswordShare, derivedKey);
+      } catch (_) {
+        if (password != password.trim()) {
+          try {
+            derivedKey = await _cryptoService.deriveKey(password.trim(), salt);
+            decryptedBytes = await _cryptoService.decryptData(encryptedPasswordShare, derivedKey);
+          } catch (_) {
+            return false;
+          }
+        } else {
+          return false;
+        }
+      }
       final passwordShare = utf8.decode(decryptedBytes);
       return passwordShare.isNotEmpty;
     } catch (_) {
@@ -1605,9 +1639,45 @@ class VaultRepositoryImpl implements VaultRepository {
     await PortableStateSync.syncToPortable();
   }
 
-  Map<String, dynamic>? _loadVaultConfig() {
+  Future<void> _saveVaultConfigForPath(String vaultPath, Map<String, dynamic> config) async {
     try {
-      final vaultPath = getVaultPath();
+      final metadataFile = File(p.join(vaultPath, 'vault.ampcrypt'));
+      final masterkeyFile = File(p.join(vaultPath, 'masterkey.ampcrypt'));
+
+      final Map<String, dynamic> metadata = {};
+      final Map<String, dynamic> masterkey = {};
+
+      final masterkeyKeys = [
+        'encrypted_password_share',
+        ..._kFactorKeys,
+      ];
+
+      config.forEach((key, value) {
+        if (masterkeyKeys.contains(key)) {
+          masterkey[key] = value;
+        } else {
+          metadata[key] = value;
+        }
+      });
+
+      await metadataFile.writeAsString(json.encode(metadata), flush: true);
+      await masterkeyFile.writeAsString(json.encode(masterkey), flush: true);
+
+      final hash = DateTime.now().millisecondsSinceEpoch.toRadixString(16).toUpperCase().padLeft(8, '0').substring(0, 8);
+      final masterkeyBkup = File(p.join(vaultPath, 'masterkey.ampcrypt.$hash.bkup'));
+      final vaultBkup = File(p.join(vaultPath, 'vault.ampcrypt.$hash.bkup'));
+      await masterkeyBkup.writeAsString(json.encode(masterkey), flush: true);
+      await vaultBkup.writeAsString(json.encode(metadata), flush: true);
+    } catch (_) {}
+  }
+
+  Map<String, dynamic>? _loadVaultConfig([String? customPath]) {
+    try {
+      final vaultPath = customPath ?? getVaultPath();
+      if (vaultPath.isEmpty) return null;
+      final dir = Directory(vaultPath);
+      if (!dir.existsSync()) return null;
+
       final metadataFile = File(p.join(vaultPath, 'vault.ampcrypt'));
       final masterkeyFile = File(p.join(vaultPath, 'masterkey.ampcrypt'));
 
@@ -1615,21 +1685,174 @@ class VaultRepositoryImpl implements VaultRepository {
       Map<String, dynamic>? masterkey;
 
       if (metadataFile.existsSync()) {
-        metadata = json.decode(metadataFile.readAsStringSync()) as Map<String, dynamic>;
+        try {
+          metadata = json.decode(metadataFile.readAsStringSync()) as Map<String, dynamic>;
+        } catch (_) {}
       }
       if (masterkeyFile.existsSync()) {
-        masterkey = json.decode(masterkeyFile.readAsStringSync()) as Map<String, dynamic>;
+        try {
+          masterkey = json.decode(masterkeyFile.readAsStringSync()) as Map<String, dynamic>;
+        } catch (_) {}
+      }
+
+      // 1. Check legacy vault.json
+      if (metadata == null && masterkey == null) {
+        final legacyFile = File(p.join(vaultPath, 'vault.json'));
+        if (legacyFile.existsSync()) {
+          try {
+            final legacy = json.decode(legacyFile.readAsStringSync()) as Map<String, dynamic>;
+            metadata = legacy;
+            masterkey = legacy;
+          } catch (_) {}
+        }
+      }
+
+      // 2. Check auto-backup .bkup files if either file is missing or incomplete
+      final bool needsMasterkey = masterkey == null || !masterkey.containsKey('encrypted_password_share');
+      final bool needsMetadata = metadata == null || !metadata.containsKey('password_salt');
+      if (needsMasterkey || needsMetadata) {
+        try {
+          final entries = dir.listSync().whereType<File>().toList();
+          entries.sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
+          for (final f in entries) {
+            final name = p.basename(f.path).toLowerCase();
+            if (name.contains('.bkup') || name.contains('backup') || name.endsWith('.bak')) {
+              try {
+                final content = json.decode(f.readAsStringSync()) as Map<String, dynamic>;
+                if (needsMasterkey && content.containsKey('encrypted_password_share')) {
+                  masterkey ??= content;
+                }
+                if (needsMetadata && content.containsKey('password_salt')) {
+                  metadata ??= content;
+                }
+              } catch (_) {}
+            }
+          }
+        } catch (_) {}
+      }
+
+      // 3. Check scoped preferences for this specific vault path
+      final pathKey = vaultPath.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+      final scopedSalt = _prefs.getString('vault_salt_$pathKey');
+      final scopedShare = _prefs.getString('vault_share_$pathKey');
+      final scopedLevel = _prefs.getInt('vault_level_$pathKey');
+      if ((masterkey == null || !masterkey.containsKey('encrypted_password_share')) && scopedShare != null) {
+        masterkey ??= {};
+        masterkey['encrypted_password_share'] = scopedShare;
+      }
+      if ((metadata == null || !metadata.containsKey('password_salt')) && scopedSalt != null) {
+        metadata ??= {};
+        metadata['password_salt'] = scopedSalt;
+        if (scopedLevel != null) metadata['auth_level'] = scopedLevel;
+      }
+
+      // 4. Check active global preferences
+      final activeSalt = _prefs.getString('password_salt');
+      final activeShare = _prefs.getString('encrypted_password_share');
+      final activeLevel = _prefs.getInt('auth_level');
+      if ((masterkey == null || !masterkey.containsKey('encrypted_password_share')) && activeShare != null) {
+        masterkey ??= {};
+        masterkey['encrypted_password_share'] = activeShare;
+      }
+      if ((metadata == null || !metadata.containsKey('password_salt')) && activeSalt != null) {
+        metadata ??= {};
+        metadata['password_salt'] = activeSalt;
+        if (activeLevel != null) metadata['auth_level'] = activeLevel;
+      }
+
+      // 5. Check fallback data/shared_preferences.json next to executable
+      if ((masterkey == null || !masterkey.containsKey('encrypted_password_share')) ||
+          (metadata == null || !metadata.containsKey('password_salt'))) {
+        try {
+          final exeDir = p.dirname(Platform.resolvedExecutable);
+          final candidates = [
+            File(p.join(exeDir, 'data', 'shared_preferences.json')),
+            File(p.join(exeDir, 'portable_data', 'shared_preferences.json')),
+          ];
+          for (final candidate in candidates) {
+            if (candidate.existsSync()) {
+              final jsonMap = json.decode(candidate.readAsStringSync()) as Map<String, dynamic>;
+              final candSalt = jsonMap['flutter.password_salt'] as String?;
+              final candShare = jsonMap['flutter.encrypted_password_share'] as String?;
+              final candLevel = jsonMap['flutter.auth_level'] as int? ?? 1;
+              if (candSalt != null && candShare != null) {
+                metadata ??= {};
+                metadata['password_salt'] ??= candSalt;
+                metadata['auth_level'] ??= candLevel;
+                masterkey ??= {};
+                masterkey['encrypted_password_share'] ??= candShare;
+                break;
+              }
+            }
+          }
+        } catch (_) {}
       }
 
       if (metadata != null || masterkey != null) {
         final Map<String, dynamic> merged = {};
         if (metadata != null) merged.addAll(metadata);
         if (masterkey != null) merged.addAll(masterkey);
+
+        // Auto-heal to disk if disk is missing masterkey.ampcrypt or vault.ampcrypt
+        if ((!metadataFile.existsSync() || !masterkeyFile.existsSync()) &&
+            merged.containsKey('password_salt') &&
+            merged.containsKey('encrypted_password_share')) {
+          try {
+            _saveVaultConfigForPath(vaultPath, merged);
+          } catch (_) {}
+        }
+
         return merged;
       }
     } catch (_) {}
     return null;
   }
+
+  @override
+  Future<bool> restoreVaultConfigFromBackup(String filePath, [String? targetVaultPath]) async {
+    try {
+      final file = File(filePath);
+      if (!file.existsSync()) return false;
+      final contentStr = await file.readAsString();
+      final Map<String, dynamic> jsonMap = json.decode(contentStr) as Map<String, dynamic>;
+
+      final vPath = targetVaultPath ?? getVaultPath();
+      if (!Directory(vPath).existsSync()) {
+        Directory(vPath).createSync(recursive: true);
+      }
+
+      final fileName = p.basename(filePath).toLowerCase();
+      if (jsonMap.containsKey('encrypted_password_share') && jsonMap.containsKey('password_salt')) {
+        await _saveVaultConfigForPath(vPath, jsonMap);
+      } else if (fileName.contains('masterkey') || jsonMap.containsKey('encrypted_password_share')) {
+        final masterkeyFile = File(p.join(vPath, 'masterkey.ampcrypt'));
+        await masterkeyFile.writeAsString(json.encode(jsonMap), flush: true);
+      } else if (fileName.contains('vault') || jsonMap.containsKey('password_salt')) {
+        final vaultFile = File(p.join(vPath, 'vault.ampcrypt'));
+        await vaultFile.writeAsString(json.encode(jsonMap), flush: true);
+      } else {
+        await _saveVaultConfigForPath(vPath, jsonMap);
+      }
+
+      final config = _loadVaultConfig(vPath);
+      if (config != null) {
+        if (config.containsKey('password_salt')) {
+          await _prefs.setString('password_salt', config['password_salt'] as String);
+        }
+        if (config.containsKey('encrypted_password_share')) {
+          await _prefs.setString('encrypted_password_share', config['encrypted_password_share'] as String);
+        }
+        if (config.containsKey('auth_level')) {
+          await _prefs.setInt('auth_level', config['auth_level'] as int);
+        }
+        await _prefs.setBool('vault_created', true);
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
 
   Future<void> _encryptFile(File inputFile, File outputFile, Uint8List key) async {
     final bytes = await inputFile.readAsBytes();
